@@ -1,6 +1,6 @@
 variables:
   GOBIN: '$(GOPATH)/bin'
-  GOROOT: '/usr/local/go1.12.1'
+  GOROOT: '/usr/local/go1.12'
   GO111MODULE: 'on'
   GOPATH: '$(system.defaultWorkingDirectory)/gopath'
   modulePath: '$(GOPATH)/src/github.com/$(build.repository.name)'
