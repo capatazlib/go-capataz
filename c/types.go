@@ -43,11 +43,10 @@ type Spec struct {
 	name     string
 	shutdown Shutdown
 	restart  Restart
-	start    func(context.Context) error
+	start    func(context.Context, func() /* notifyStart */) error
 }
 
 type Child struct {
-	name        string
 	runtimeName string
 	spec        Spec
 	cancel      func()

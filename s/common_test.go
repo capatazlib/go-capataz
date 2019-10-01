@@ -208,7 +208,7 @@ func assertPartialMatch(t *testing.T, evs []s.Event, preds []EventP) {
 	}
 }
 
-func assertPredMatchesN(t *testing.T, n int, pred EventP, evs []s.Event) {
+func assertPredMatchesN(t *testing.T, n int, evs []s.Event, pred EventP) {
 	t.Helper()
 
 	acc := 0
@@ -242,6 +242,7 @@ func waitDoneChild(name string) c.Spec {
 	return cspec
 }
 
+/*
 func blockingChild(name string, waitCb func()) (c.Spec, func()) {
 	terminateCh := make(chan struct{})
 	cspec, _ := c.New(name, func(_ context.Context) error {
@@ -268,17 +269,18 @@ func orderedChidren(n int) ([]c.Spec, func()) {
 	return acc, waitSignal
 }
 
-// func signalChild(
-//	name string,
-//	start0 func(context.Context, func()) error,
-//	opts ...c.Opt,
-// ) (c.Spec, func()) {
-//	terminatedCh := make(chan struct{})
-//	start := func(ctx context.Context) error {
-//		return start0(ctx, func() { close(terminatedCh) })
-//	}
-//	cs, _ := c.New(name, start, opts...)
-//	return cs, func() { <-terminatedCh }
-// }
+func signalChild(
+	name string,
+	start0 func(context.Context, func()) error,
+	opts ...c.Opt,
+) (c.Spec, func()) {
+	terminatedCh := make(chan struct{})
+	start := func(ctx context.Context) error {
+		return start0(ctx, func() { close(terminatedCh) })
+	}
+	cs, _ := c.New(name, start, opts...)
+	return cs, func() { <-terminatedCh }
+}
+*/
 
 ////////////////////////////////////////////////////////////////////////////////

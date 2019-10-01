@@ -24,6 +24,20 @@ func WithShutdown(s Shutdown) Opt {
 ////////////////////////////////////////////////////////////////////////////////
 
 func New(name string, start func(context.Context) error, opts ...Opt) (Spec, error) {
+	return New1(name, func(ctx context.Context, notifyChildStart func()) error {
+		notifyChildStart()
+		return start(ctx)
+	}, opts...)
+}
+
+// New1 is similar to New, but it passes a `notifyStart` callback to the child
+// routine, this callback indicate when the child has officially started. This
+// is useful when you want to guarantee some bootstrap on thread initialization
+func New1(
+	name string,
+	start func(context.Context, func()) error,
+	opts ...Opt,
+) (Spec, error) {
 	spec := Spec{}
 
 	if name == "" {
@@ -34,7 +48,6 @@ func New(name string, start func(context.Context) error, opts ...Opt) (Spec, err
 	if start == nil {
 		return spec, errors.New("Child cannot have empty start function")
 	}
-	spec.start = start
 
 	// apply options
 	for _, optFn := range opts {
@@ -73,13 +86,16 @@ func waitTimeout(
 	}
 }
 
-func (cs Spec) SyncStart(
+// Synchronous initialization of the child goroutine call, this function will
+// block until the spawned goroutine notifies it has been initialized.
+func (cs Spec) Start(
 	parentName string,
 	notifyResult func(string, error),
 ) Child {
 
 	runtimeName := strings.Join([]string{parentName, cs.name}, "/")
 	childCtx, cancelFn := context.WithCancel(context.Background())
+
 	startCh := make(chan struct{})
 	terminateCh := make(chan struct{})
 
@@ -93,14 +109,14 @@ func (cs Spec) SyncStart(
 		// we kill the cancelFn on regular termination
 		defer cancelFn()
 
-		// we tell the spawner this child thread has started running
-		close(startCh)
-
 		// client logic starts here, and waits until an error (or lack of) is
 		// reported
 		notifyResult(
 			runtimeName,
-			cs.start(childCtx),
+			cs.start(childCtx, func() {
+				// we tell the spawner this child thread has started running
+				close(startCh)
+			}),
 		)
 	}()
 

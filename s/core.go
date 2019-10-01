@@ -80,8 +80,8 @@ func (spec Spec) getEventNotifier() EventNotifier {
 	return spec.eventNotifier
 }
 
-func subtreeMain(spec Spec) func(context.Context) error {
-	return func(parentCtx context.Context) error {
+func subtreeMain(spec Spec) func(context.Context, func()) error {
+	return func(parentCtx context.Context, notifyChildStart func()) error {
 		// NOTE: in this function we use the private versions of start and wait
 		// given we don't want to signal the eventNotifier more than once
 		// on sub-trees
@@ -92,6 +92,7 @@ func subtreeMain(spec Spec) func(context.Context) error {
 		if err != nil {
 			return err
 		}
+		notifyChildStart()
 		return sup.wait()
 	}
 }
@@ -104,7 +105,7 @@ func (spec Spec) Subtree(subtreeSpec Spec, copts ...c.Opt) (c.Spec, error) {
 	// NOTE: we need the subtreeSpec.name to be the runtime name for it'spec
 	// childrens to contain the correct prefix
 	subtreeSpec.name = runtimeName
-	return c.New(name, subtreeMain(subtreeSpec), copts...)
+	return c.New1(name, subtreeMain(subtreeSpec), copts...)
 }
 
 func (spec Spec) start(parentCtx context.Context) (Supervisor, error) {
@@ -159,9 +160,8 @@ func (spec Spec) start(parentCtx context.Context) (Supervisor, error) {
 
 		// Start children
 		for _, cs := range spec.order.Start(spec.children) {
-			c := cs.SyncStart(spec.name, sup.handleChildResult())
-			runtimeName := strings.Join([]string{spec.name, c.Name()}, "/")
-			eventNotifier.ProcessStarted(runtimeName)
+			c := cs.Start(spec.name, sup.handleChildResult())
+			eventNotifier.ProcessStarted(c.RuntimeName())
 			sup.children[cs.Name()] = c
 		}
 
