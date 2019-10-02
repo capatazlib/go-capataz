@@ -2,39 +2,46 @@ package s
 
 import (
 	"context"
-	"errors"
 	"strings"
 
 	"github.com/capatazlib/go-capataz/c"
 )
 
+// WithOrder specifies the start/stop order of a supervisor's children
 func WithOrder(o Order) Opt {
 	return func(spec *Spec) {
 		spec.order = o
 	}
 }
 
+// WithStrategy specifies how children get restarted when one fails
 func WithStrategy(s Strategy) Opt {
 	return func(spec *Spec) {
 		spec.strategy = s
 	}
 }
 
+// WithNotifier specifies a callback that gets called whenever the supervision
+// system reports an Event
 func WithNotifier(en EventNotifier) Opt {
 	return func(spec *Spec) {
 		spec.eventNotifier = en
 	}
 }
 
+// WithChildren specifies a list of child Spec that will get started when the
+// supervisor starts
 func WithChildren(children ...c.Spec) Opt {
 	return func(spec *Spec) {
 		spec.children = append(spec.children, children...)
 	}
 }
 
+// WithSubtree specifies a supervisor sub-tree. Is intended to be used when
+// composing sub-systems in a supervision tree.
 func WithSubtree(subtree Spec, copts ...c.Opt) Opt {
 	return func(spec *Spec) {
-		cspec, _ := spec.Subtree(subtree, copts...)
+		cspec := spec.Subtree(subtree, copts...)
 		WithChildren(cspec)(spec)
 	}
 }
@@ -42,6 +49,8 @@ func WithSubtree(subtree Spec, copts ...c.Opt) Opt {
 ////////////////////////////////////////////////////////////////////////////////
 // Supervisor (dynamic tree) functionality
 
+// handleChildResult returns a callback function that gets called by a
+// supervised child whenever it finishes it main execution function.
 func (sup Supervisor) handleChildResult() func(string, error) {
 	// The function bellow gets called in the child goroutine
 	return func(childName string, err error) {
@@ -53,6 +62,8 @@ func (sup Supervisor) handleChildResult() func(string, error) {
 	}
 }
 
+// Stop is a synchronous procedure that halts the execution of the whole
+// supervision tree.
 func (sup Supervisor) Stop() error {
 	sup.cancel()
 	err := sup.wait()
@@ -60,10 +71,13 @@ func (sup Supervisor) Stop() error {
 	return err
 }
 
+// Wait blocks the execution of the current goroutine until the Supervisor
+// finishes it execution.
 func (sup Supervisor) Wait() error {
 	return sup.wait()
 }
 
+// Name returns the name of the Spec used to start this Supervisor
 func (sup Supervisor) Name() string {
 	return sup.spec.Name()
 }
@@ -71,8 +85,12 @@ func (sup Supervisor) Name() string {
 ////////////////////////////////////////////////////////////////////////////////
 // Spec (static tree) functionality
 
+// emptyEventNotifier is an utility function that works as a default value
+// whenever an EventNotifier is not specified on the Supervisor Spec
 func emptyEventNotifier(_ Event) {}
 
+// getEventNotifier returns the configured EventNotifier or emptyEventNotifier
+// (if none is given via WithEventNotifier)
 func (spec Spec) getEventNotifier() EventNotifier {
 	if spec.eventNotifier == nil {
 		return emptyEventNotifier
@@ -80,9 +98,14 @@ func (spec Spec) getEventNotifier() EventNotifier {
 	return spec.eventNotifier
 }
 
+// subtreeMain contains the main logic of the Child spec that runs a supervision
+// sub-tree. It returns an error if the child supervisor fails to start.
 func subtreeMain(spec Spec) func(context.Context, func()) error {
+	// we use the start version that receives the notifyChildStart callback, this
+	// is essential, as we need this callback to signal the sub-tree children have
+	// started before signaling we have started
 	return func(parentCtx context.Context, notifyChildStart func()) error {
-		// NOTE: in this function we use the private versions of start and wait
+		// in this function we use the private versions of start and wait
 		// given we don't want to signal the eventNotifier more than once
 		// on sub-trees
 
@@ -97,17 +120,32 @@ func subtreeMain(spec Spec) func(context.Context, func()) error {
 	}
 }
 
-func (spec Spec) Subtree(subtreeSpec Spec, copts ...c.Opt) (c.Spec, error) {
+// Subtree allows to register a Supervisor Spec as a sub-tree of a bigger
+// Supervisor Spec. It returns an error if the child creation fails.
+func (spec Spec) Subtree(subtreeSpec Spec, copts ...c.Opt) c.Spec {
 	name := subtreeSpec.name
 	subtreeSpec.eventNotifier = spec.eventNotifier
+
 	// Child does prefix at runtime
 	runtimeName := strings.Join([]string{spec.name, subtreeSpec.name}, "/")
-	// NOTE: we need the subtreeSpec.name to be the runtime name for it'spec
-	// childrens to contain the correct prefix
+
+	// we need the subtreeSpec.name to be the runtime name for it'spec childrens
+	// to contain the correct prefix
 	subtreeSpec.name = runtimeName
 	return c.New1(name, subtreeMain(subtreeSpec), copts...)
 }
 
+// start is routine that contains the main logic of a Supervisor. This function:
+//
+// 1) spawns a new goroutine for the supervisor loop
+//
+// 2) spawns each child goroutine in the correct order
+//
+// 3) stops all the spawned children in the correct order once it gets a stop
+// signal
+//
+// 4) it monitors and reacts to errors reported by the supervised children
+//
 func (spec Spec) start(parentCtx context.Context) (Supervisor, error) {
 	// cancelFn is used when Stop is requested
 	ctx, cancelFn := context.WithCancel(parentCtx)
@@ -146,7 +184,7 @@ func (spec Spec) start(parentCtx context.Context) (Supervisor, error) {
 	// stopChildrenFn is used on the shutdown of the supervisor tree, stops children in
 	// desired order
 	stopChildrenFn := func() {
-		children := spec.order.Stop(spec.children)
+		children := spec.order.SortStop(spec.children)
 		for _, cs := range children {
 			c := sup.children[cs.Name()]
 			err := c.Stop()
@@ -159,7 +197,7 @@ func (spec Spec) start(parentCtx context.Context) (Supervisor, error) {
 		defer close(terminateCh)
 
 		// Start children
-		for _, cs := range spec.order.Start(spec.children) {
+		for _, cs := range spec.order.SortStart(spec.children) {
 			c := cs.Start(spec.name, sup.handleChildResult())
 			eventNotifier.ProcessStarted(c.RuntimeName())
 			sup.children[cs.Name()] = c
@@ -178,7 +216,9 @@ func (spec Spec) start(parentCtx context.Context) (Supervisor, error) {
 				stopChildrenFn()
 				break supervisorLoop
 				// case ev := <-evCh:
+				// TODO: Deal with errors on children
 				// case msg := <-ctrlCh:
+				// TODO: Deal with public facing API calls
 			}
 		}
 	}()
@@ -190,10 +230,13 @@ func (spec Spec) start(parentCtx context.Context) (Supervisor, error) {
 	return sup, nil
 }
 
+// Name returns the specified name for a Supervisor Spec
 func (spec Spec) Name() string {
 	return spec.name
 }
 
+// Start transforms a Spec into a Supervisor record, once this function return,
+// a new supervision tree is guaranteed to be initialized and running.
 func (spec Spec) Start(parentCtx context.Context) (Supervisor, error) {
 	sup, err := spec.start(parentCtx)
 	if err != nil {
@@ -203,14 +246,16 @@ func (spec Spec) Start(parentCtx context.Context) (Supervisor, error) {
 	return sup, nil
 }
 
-func New(name string, opts ...Opt) (Spec, error) {
+// New creates an Spec for a Supervisor. It requires the name of the supervisor
+// (for tracing purposes), all the other settings can be specified via Opt calls
+func New(name string, opts ...Opt) Spec {
 	spec := Spec{
 		children: make([]c.Spec, 0, 10),
 	}
 
 	// Check name cannot be empty
 	if name == "" {
-		return spec, errors.New("Supervisor cannot have empty name")
+		panic("Supervisor cannot have empty name")
 	}
 	spec.name = name
 
@@ -220,5 +265,5 @@ func New(name string, opts ...Opt) (Spec, error) {
 	}
 
 	// return spec
-	return spec, nil
+	return spec
 }

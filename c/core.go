@@ -7,14 +7,15 @@ import (
 	"time"
 )
 
+// WithRestart specifies how the parent supervisor should restart this child
+// after an error is encountered.
 func WithRestart(r Restart) Opt {
 	return func(spec *Spec) {
 		spec.restart = r
 	}
 }
 
-var Infinity = Shutdown{tag: infinityT}
-
+// WithShutdown specifies how the shutdown if the child is going to be handled.
 func WithShutdown(s Shutdown) Opt {
 	return func(spec *Spec) {
 		spec.shutdown = s
@@ -23,30 +24,45 @@ func WithShutdown(s Shutdown) Opt {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-func New(name string, start func(context.Context) error, opts ...Opt) (Spec, error) {
+// New creates an Spec for a worker goroutine.
+//
+// It requires two arguments:
+//
+// - name: The name of the worker (for tracing purposes)
+//
+// - start: The main function that is going to be executing in this child
+// goroutine
+//
+// The start function will receive a context.Context record that must be used to
+// receive a stop signal from the parent supervisor. Depending on the Shutdown
+// settings, if the start function does not respect the given context, the
+// supervision system will either block forever or leak goroutines after a
+// timeout has been reached.
+func New(name string, start func(context.Context) error, opts ...Opt) Spec {
 	return New1(name, func(ctx context.Context, notifyChildStart func()) error {
 		notifyChildStart()
 		return start(ctx)
 	}, opts...)
 }
 
-// New1 is similar to New, but it passes a `notifyStart` callback to the child
-// routine, this callback indicate when the child has officially started. This
-// is useful when you want to guarantee some bootstrap on thread initialization
+// New1 is similar to New, with the difference that the start function receives
+// a `notifyStart` callback to the child routine, this callback allows the child
+// goroutine to signal when it has officially started. This is essential when
+// you want to guarantee some bootstrap on thread initialization.
 func New1(
 	name string,
 	start func(context.Context, func()) error,
 	opts ...Opt,
-) (Spec, error) {
+) Spec {
 	spec := Spec{}
 
 	if name == "" {
-		return spec, errors.New("Child cannot have empty name")
+		panic("Child cannot have empty name")
 	}
 	spec.name = name
 
 	if start == nil {
-		return spec, errors.New("Child cannot have empty start function")
+		panic("Child cannot have empty start function")
 	}
 
 	// apply options
@@ -56,9 +72,10 @@ func New1(
 	spec.start = start
 
 	// return spec
-	return spec, nil
+	return spec
 }
 
+// Name returns the specified name for a Child Spec
 func (cs Spec) Name() string {
 	return cs.name
 }
@@ -86,8 +103,9 @@ func waitTimeout(
 	}
 }
 
-// Synchronous initialization of the child goroutine call, this function will
-// block until the spawned goroutine notifies it has been initialized.
+// Start does a synchronous initialization of the child goroutine call, this
+// function will block until the spawned goroutine notifies it has been
+// initialized.
 func (cs Spec) Start(
 	parentName string,
 	notifyResult func(string, error),
@@ -131,18 +149,24 @@ func (cs Spec) Start(
 	}
 }
 
+// RuntimeName returns a name that contains a prefix with the name of this child
+// parents.
 func (c Child) RuntimeName() string {
 	return c.runtimeName
 }
 
+// Name returns the specified name for a Child Spec
 func (c Child) Name() string {
 	return c.spec.Name()
 }
 
+// Wait blocks the execution of the current goroutine until the child finishes
+// it execution.
 func (c Child) Wait() error {
 	return c.wait(c.spec.shutdown)
 }
 
+// Stop is a synchronous procedure that halts the execution of the child
 func (c Child) Stop() error {
 	c.cancel()
 	return c.wait(c.spec.shutdown)

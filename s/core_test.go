@@ -1,6 +1,8 @@
 package s_test
 
 import (
+	"context"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -9,6 +11,56 @@ import (
 	"github.com/capatazlib/go-capataz/s"
 )
 
+func ExampleNew() {
+	// Build a supervision tree with two branches
+	rootSpec := s.New(
+		"root",
+		// first sub-tree
+		s.WithSubtree(
+			s.New("sub-tree-1",
+				s.WithChildren(
+					c.New("child-1", func(ctx context.Context) error {
+						<-ctx.Done()
+						return nil
+					}),
+					c.New("child-2", func(ctx context.Context) error {
+						<-ctx.Done()
+						return nil
+					}),
+				),
+			),
+		),
+		// second sub-tree
+		s.WithSubtree(
+			s.New("sub-tree-2",
+				s.WithChildren(
+					c.New("child-3", func(ctx context.Context) error {
+						<-ctx.Done()
+						return nil
+					}),
+					c.New("child-4", func(ctx context.Context) error {
+						<-ctx.Done()
+						return nil
+					}),
+				),
+			),
+		),
+	)
+
+	// Spawn goroutines of supervision tree
+	sup, err := rootSpec.Start(context.Background())
+	if err != nil {
+		fmt.Printf("Error starting system: %v\n", err)
+	}
+	// Wait for supervision tree to exit, this happens only if the errors are not
+	// recoverable
+	err = sup.Wait()
+	if err != nil {
+		fmt.Printf("Supervisor failed with error: %v\n", err)
+	}
+}
+
+// Test a supervision tree with a single child starts and stops
 func TestStartSingleChild(t *testing.T) {
 	cs := waitDoneChild("one")
 
@@ -30,6 +82,8 @@ func TestStartSingleChild(t *testing.T) {
 		})
 }
 
+// Test a supervision tree with three children start and stop in the default
+// order (LeftToRight)
 func TestStartMutlipleChildren(t *testing.T) {
 	c0 := waitDoneChild("child0")
 	c1 := waitDoneChild("child1")
@@ -72,7 +126,8 @@ func TestStartMutlipleChildren(t *testing.T) {
 
 }
 
-// TODO: Change this to a property test
+// Test a supervision tree with two sub-trees start and stop childrens in the
+// default order _always_ (LeftToRight)
 func TestStartNestedSupervisors(t *testing.T) {
 	parentName := "root"
 	b0n := "branch0"
@@ -85,8 +140,8 @@ func TestStartNestedSupervisors(t *testing.T) {
 		waitDoneChild("child3"),
 	}
 
-	b0, _ := s.New(b0n, s.WithChildren(cs[0], cs[1]))
-	b1, _ := s.New(b1n, s.WithChildren(cs[2], cs[3]))
+	b0 := s.New(b0n, s.WithChildren(cs[0], cs[1]))
+	b1 := s.New(b1n, s.WithChildren(cs[2], cs[3]))
 
 	events, err := observeSupervisor(
 		parentName,

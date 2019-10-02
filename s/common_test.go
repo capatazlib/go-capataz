@@ -133,10 +133,7 @@ func observeSupervisor(
 	evCollector, collectEvents := newCollectorNotifier()
 
 	supOpts := append([]s.Opt{s.WithNotifier(evCollector)}, supOpts0...)
-	supSpec, err := s.New(supName, supOpts...)
-	if err != nil {
-		return nil, err
-	}
+	supSpec := s.New(supName, supOpts...)
 
 	sup, err := supSpec.Start(context.TODO())
 	if err != nil {
@@ -235,7 +232,7 @@ func assertPredMatchesN(t *testing.T, n int, evs []s.Event, pred EventP) {
 ////////////////////////////////////////////////////////////////////////////////
 
 func waitDoneChild(name string) c.Spec {
-	cspec, _ := c.New(name, func(ctx context.Context) error {
+	cspec := c.New(name, func(ctx context.Context) error {
 		<-ctx.Done()
 		return nil
 	})
