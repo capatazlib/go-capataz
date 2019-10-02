@@ -73,7 +73,7 @@ func TestStartSingleChild(t *testing.T) {
 	)
 	assert.Nil(t, err)
 
-	assertPartialMatch(t, events,
+	assertExactMatch(t, events,
 		[]EventP{
 			ProcessStarted("root/one"),
 			ProcessStarted("root"),
@@ -99,7 +99,7 @@ func TestStartMutlipleChildren(t *testing.T) {
 	assert.Nil(t, err)
 
 	t.Run("starts and stops routines in the correct order", func(t *testing.T) {
-		assertPartialMatch(t, events,
+		assertExactMatch(t, events,
 			[]EventP{
 				ProcessStarted("root/child0"),
 				ProcessStarted("root/child1"),
@@ -154,7 +154,7 @@ func TestStartNestedSupervisors(t *testing.T) {
 	assert.Nil(t, err)
 
 	t.Run("starts and stops routines in the correct order", func(t *testing.T) {
-		assertPartialMatch(t, events,
+		assertExactMatch(t, events,
 			[]EventP{
 				// start children from left to right
 				ProcessStarted("root/branch0/child0"),

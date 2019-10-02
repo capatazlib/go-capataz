@@ -150,6 +150,35 @@ func observeSupervisor(
 	return collectEvents(), nil
 }
 
+func verifyExactMatch(preds []EventP, given []s.Event) error {
+	if len(preds) != len(given) {
+		return fmt.Errorf(
+			"Expecting exact match, but length is not the same:\nwant %d\ngiven: %d",
+			len(preds),
+			len(given),
+		)
+	}
+	for i, pred := range preds {
+		if !pred.Call(given[i]) {
+			return fmt.Errorf(
+				"Expecting exact match, but entry %d did not match:\ncriteria:%s\nevent:%s",
+				i,
+				pred.String(),
+				given[i].String(),
+			)
+		}
+	}
+	return nil
+}
+
+func assertExactMatch(t *testing.T, evs []s.Event, preds []EventP) {
+	t.Helper()
+	err := verifyExactMatch(preds, evs)
+	if err != nil {
+		t.Error(err)
+	}
+}
+
 func verifyPartialMatch(preds []EventP, given []s.Event) []EventP {
 	for len(preds) > 0 {
 		// if we went through all the given events, we did not partially match
