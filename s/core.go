@@ -67,7 +67,7 @@ func (sup Supervisor) handleChildResult() func(string, error) {
 func (sup Supervisor) Stop() error {
 	sup.cancel()
 	err := sup.wait()
-	sup.spec.getEventNotifier().ProcessStopped(sup.Name(), err)
+	sup.spec.getEventNotifier().ProcessStopped(sup.runtimeName, err)
 	return err
 }
 
@@ -100,7 +100,7 @@ func (spec Spec) getEventNotifier() EventNotifier {
 
 // subtreeMain contains the main logic of the Child spec that runs a supervision
 // sub-tree. It returns an error if the child supervisor fails to start.
-func subtreeMain(spec Spec) func(context.Context, func()) error {
+func subtreeMain(parentName string, spec Spec) func(context.Context, func()) error {
 	// we use the start version that receives the notifyChildStart callback, this
 	// is essential, as we need this callback to signal the sub-tree children have
 	// started before signaling we have started
@@ -111,7 +111,7 @@ func subtreeMain(spec Spec) func(context.Context, func()) error {
 
 		ctx, cancelFn := context.WithCancel(parentCtx)
 		defer cancelFn()
-		sup, err := spec.start(ctx)
+		sup, err := spec.start(parentName, ctx)
 		if err != nil {
 			return err
 		}
@@ -123,16 +123,8 @@ func subtreeMain(spec Spec) func(context.Context, func()) error {
 // Subtree allows to register a Supervisor Spec as a sub-tree of a bigger
 // Supervisor Spec. It returns an error if the child creation fails.
 func (spec Spec) Subtree(subtreeSpec Spec, copts ...c.Opt) c.Spec {
-	name := subtreeSpec.name
 	subtreeSpec.eventNotifier = spec.eventNotifier
-
-	// Child does prefix at runtime
-	runtimeName := strings.Join([]string{spec.name, subtreeSpec.name}, "/")
-
-	// we need the subtreeSpec.name to be the runtime name for it'spec childrens
-	// to contain the correct prefix
-	subtreeSpec.name = runtimeName
-	return c.New1(name, subtreeMain(subtreeSpec), copts...)
+	return c.New1(subtreeSpec.Name(), subtreeMain(spec.name, subtreeSpec), copts...)
 }
 
 // start is routine that contains the main logic of a Supervisor. This function:
@@ -146,7 +138,7 @@ func (spec Spec) Subtree(subtreeSpec Spec, copts ...c.Opt) c.Spec {
 //
 // 4) it monitors and reacts to errors reported by the supervised children
 //
-func (spec Spec) start(parentCtx context.Context) (Supervisor, error) {
+func (spec Spec) start(parentName string, parentCtx context.Context) (Supervisor, error) {
 	// cancelFn is used when Stop is requested
 	ctx, cancelFn := context.WithCancel(parentCtx)
 
@@ -167,10 +159,19 @@ func (spec Spec) start(parentCtx context.Context) (Supervisor, error) {
 
 	eventNotifier := spec.getEventNotifier()
 
+	var runtimeName string
+	if parentName == "" {
+		// We are the root supervisor, no need to add prefix
+		runtimeName = spec.Name()
+	} else {
+		runtimeName = strings.Join([]string{parentName, spec.Name()}, "/")
+	}
+
 	sup := Supervisor{
-		spec:     spec,
-		children: make(map[string]c.Child, len(spec.children)),
-		cancel:   cancelFn,
+		runtimeName: runtimeName,
+		spec:        spec,
+		children:    make(map[string]c.Child, len(spec.children)),
+		cancel:      cancelFn,
 		wait: func() error {
 			select {
 			case err := <-errCh:
@@ -188,8 +189,7 @@ func (spec Spec) start(parentCtx context.Context) (Supervisor, error) {
 		for _, cs := range children {
 			c := sup.children[cs.Name()]
 			err := c.Stop()
-			name := strings.Join([]string{spec.name, c.Name()}, "/")
-			eventNotifier.ProcessStopped(name, err)
+			eventNotifier.ProcessStopped(c.RuntimeName(), err)
 		}
 	}
 
@@ -198,7 +198,7 @@ func (spec Spec) start(parentCtx context.Context) (Supervisor, error) {
 
 		// Start children
 		for _, cs := range spec.order.SortStart(spec.children) {
-			c := cs.Start(spec.name, sup.handleChildResult())
+			c := cs.Start(sup.runtimeName, sup.handleChildResult())
 			eventNotifier.ProcessStarted(c.RuntimeName())
 			sup.children[cs.Name()] = c
 		}
@@ -238,11 +238,11 @@ func (spec Spec) Name() string {
 // Start transforms a Spec into a Supervisor record, once this function return,
 // a new supervision tree is guaranteed to be initialized and running.
 func (spec Spec) Start(parentCtx context.Context) (Supervisor, error) {
-	sup, err := spec.start(parentCtx)
+	sup, err := spec.start("", parentCtx)
 	if err != nil {
 		return Supervisor{}, err
 	}
-	spec.getEventNotifier().ProcessStarted(spec.name)
+	spec.getEventNotifier().ProcessStarted(sup.runtimeName)
 	return sup, nil
 }
 
