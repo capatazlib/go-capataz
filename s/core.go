@@ -111,7 +111,7 @@ func subtreeMain(parentName string, spec Spec) func(context.Context, func()) err
 
 		ctx, cancelFn := context.WithCancel(parentCtx)
 		defer cancelFn()
-		sup, err := spec.start(parentName, ctx)
+		sup, err := spec.start(ctx, parentName)
 		if err != nil {
 			return err
 		}
@@ -138,7 +138,7 @@ func (spec Spec) Subtree(subtreeSpec Spec, copts ...c.Opt) c.Spec {
 //
 // 4) it monitors and reacts to errors reported by the supervised children
 //
-func (spec Spec) start(parentName string, parentCtx context.Context) (Supervisor, error) {
+func (spec Spec) start(parentCtx context.Context, parentName string) (Supervisor, error) {
 	// cancelFn is used when Stop is requested
 	ctx, cancelFn := context.WithCancel(parentCtx)
 
@@ -238,7 +238,7 @@ func (spec Spec) Name() string {
 // Start transforms a Spec into a Supervisor record, once this function return,
 // a new supervision tree is guaranteed to be initialized and running.
 func (spec Spec) Start(parentCtx context.Context) (Supervisor, error) {
-	sup, err := spec.start("", parentCtx)
+	sup, err := spec.start(parentCtx, "")
 	if err != nil {
 		return Supervisor{}, err
 	}
