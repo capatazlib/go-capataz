@@ -15,7 +15,7 @@ func WithRestart(r Restart) Opt {
 	}
 }
 
-// WithShutdown specifies how the shutdown if the child is going to be handled.
+// WithShutdown specifies how the shutdown of the child is going to be handled.
 func WithShutdown(s Shutdown) Opt {
 	return func(spec *Spec) {
 		spec.shutdown = s
@@ -46,7 +46,7 @@ func New(name string, start func(context.Context) error, opts ...Opt) Spec {
 }
 
 // New1 is similar to New, with the difference that the start function receives
-// a `notifyStart` callback to the child routine, this callback allows the child
+// a `notifyStart` callback on the child routine, this callback allows the child
 // goroutine to signal when it has officially started. This is essential when
 // you want to guarantee some bootstrap on thread initialization.
 func New1(
@@ -57,11 +57,14 @@ func New1(
 	spec := Spec{}
 
 	if name == "" {
+		// If the name is empty, the program should not start. If I return an error
+		// to deal with this at runtime the API gets awful quickly
 		panic("Child cannot have empty name")
 	}
 	spec.name = name
 
 	if start == nil {
+		// ditto to the previous comment
 		panic("Child cannot have empty start function")
 	}
 
@@ -80,6 +83,8 @@ func (cs Spec) Name() string {
 	return cs.name
 }
 
+// waitTimeout is the internal function used by Child to wait for the execution
+// of it's thread to stop.
 func waitTimeout(
 	terminateCh chan struct{},
 ) func(Shutdown) error {
@@ -98,6 +103,7 @@ func waitTimeout(
 				return errors.New("Child shutdown timeout")
 			}
 		default:
+			// This should never happen if we use the already defined Shutdown types
 			panic("Invalid shutdown value received")
 		}
 	}

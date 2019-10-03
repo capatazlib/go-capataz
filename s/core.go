@@ -14,7 +14,7 @@ func WithOrder(o Order) Opt {
 	}
 }
 
-// WithStrategy specifies how children get restarted when one fails
+// WithStrategy specifies how children get restarted when one of them fails
 func WithStrategy(s Strategy) Opt {
 	return func(spec *Spec) {
 		spec.strategy = s
@@ -121,7 +121,7 @@ func subtreeMain(parentName string, spec Spec) func(context.Context, func()) err
 }
 
 // Subtree allows to register a Supervisor Spec as a sub-tree of a bigger
-// Supervisor Spec. It returns an error if the child creation fails.
+// Supervisor Spec.
 func (spec Spec) Subtree(subtreeSpec Spec, copts ...c.Opt) c.Spec {
 	subtreeSpec.eventNotifier = spec.eventNotifier
 	return c.New1(subtreeSpec.Name(), subtreeMain(spec.name, subtreeSpec), copts...)
