@@ -235,8 +235,8 @@ func (spec Spec) Name() string {
 	return spec.name
 }
 
-// Start transforms a Spec into a Supervisor record, once this function return,
-// a new supervision tree is guaranteed to be initialized and running.
+// Start transforms a Spec into a Supervisor record, once this function returns,
+// a new supervision tree is guaranteed to be initialized and executing.
 func (spec Spec) Start(parentCtx context.Context) (Supervisor, error) {
 	sup, err := spec.start(parentCtx, "")
 	if err != nil {

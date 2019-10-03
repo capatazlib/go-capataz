@@ -109,9 +109,8 @@ func waitTimeout(
 	}
 }
 
-// Start does a synchronous initialization of the child goroutine call, this
-// function will block until the spawned goroutine notifies it has been
-// initialized.
+// Start does a synchronous initialization of the child goroutine, this function
+// will block until the spawned goroutine notifies it has been initialized.
 func (cs Spec) Start(
 	parentName string,
 	notifyResult func(string, error),
