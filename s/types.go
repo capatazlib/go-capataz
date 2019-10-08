@@ -96,10 +96,11 @@ func (tag EventTag) String() string {
 // multiple purposes, from testing to monitoring the healthiness of the
 // supervision system.
 type Event struct {
-	tag     EventTag
-	name    string
-	err     error
-	created time.Time
+	tag      EventTag
+	name     string
+	err      error
+	created  time.Time
+	duration time.Duration
 }
 
 // Tag returns the EventTag from an Event
@@ -132,27 +133,34 @@ func (e Event) String() string {
 type EventNotifier func(Event)
 
 // ProcessStopped reports an event with an EventTag of ProcessStopped
-func (en EventNotifier) ProcessStopped(name string, err error) {
+func (en EventNotifier) ProcessStopped(name string, stopTime time.Time, err error) {
 	tag := ProcessStopped
 	if err != nil {
 		tag = ProcessFailed
 	}
 
+	createdTime := time.Now()
+	stopDuration := createdTime.Sub(stopTime)
+
 	en(Event{
-		tag:     tag,
-		name:    name,
-		err:     err,
-		created: time.Now(),
+		tag:      tag,
+		name:     name,
+		err:      err,
+		created:  time.Now(),
+		duration: stopDuration,
 	})
 }
 
 // ProcessStarted reports an event with an EventTag of ProcessStarted
-func (en EventNotifier) ProcessStarted(name string) {
+func (en EventNotifier) ProcessStarted(name string, startTime time.Time) {
+	createdTime := time.Now()
+	startDuration := createdTime.Sub(startTime)
 	en(Event{
-		tag:     ProcessStarted,
-		name:    name,
-		err:     nil,
-		created: time.Now(),
+		tag:      ProcessStarted,
+		name:     name,
+		err:      nil,
+		created:  createdTime,
+		duration: startDuration,
 	})
 }
 

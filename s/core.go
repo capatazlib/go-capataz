@@ -3,6 +3,7 @@ package s
 import (
 	"context"
 	"strings"
+	"time"
 
 	"github.com/capatazlib/go-capataz/c"
 )
@@ -65,9 +66,10 @@ func (sup Supervisor) handleChildResult() func(string, error) {
 // Stop is a synchronous procedure that halts the execution of the whole
 // supervision tree.
 func (sup Supervisor) Stop() error {
+	stopTime := time.Now()
 	sup.cancel()
 	err := sup.wait()
-	sup.spec.getEventNotifier().ProcessStopped(sup.runtimeName, err)
+	sup.spec.getEventNotifier().ProcessStopped(sup.runtimeName, stopTime, err)
 	return err
 }
 
@@ -188,8 +190,9 @@ func (spec Spec) start(parentCtx context.Context, parentName string) (Supervisor
 		children := spec.order.SortStop(spec.children)
 		for _, cs := range children {
 			c := sup.children[cs.Name()]
+			stopTime := time.Now()
 			err := c.Stop()
-			eventNotifier.ProcessStopped(c.RuntimeName(), err)
+			eventNotifier.ProcessStopped(c.RuntimeName(), stopTime, err)
 		}
 	}
 
@@ -198,8 +201,9 @@ func (spec Spec) start(parentCtx context.Context, parentName string) (Supervisor
 
 		// Start children
 		for _, cs := range spec.order.SortStart(spec.children) {
+			startTime := time.Now()
 			c := cs.Start(sup.runtimeName, sup.handleChildResult())
-			eventNotifier.ProcessStarted(c.RuntimeName())
+			eventNotifier.ProcessStarted(c.RuntimeName(), startTime)
 			sup.children[cs.Name()] = c
 		}
 
@@ -238,11 +242,12 @@ func (spec Spec) Name() string {
 // Start transforms a Spec into a Supervisor record, once this function returns,
 // a new supervision tree is guaranteed to be initialized and executing.
 func (spec Spec) Start(parentCtx context.Context) (Supervisor, error) {
+	startTime := time.Now()
 	sup, err := spec.start(parentCtx, "")
 	if err != nil {
 		return Supervisor{}, err
 	}
-	spec.getEventNotifier().ProcessStarted(sup.runtimeName)
+	spec.getEventNotifier().ProcessStarted(sup.runtimeName, startTime)
 	return sup, nil
 }
 
