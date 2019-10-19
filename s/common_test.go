@@ -320,7 +320,7 @@ func assertPredMatchesN(t *testing.T, n int, evs []s.Event, pred EventP) {
 
 // waitDoneChild creates a `ChildSpec` that runs a goroutine that will block
 // until the `Done` channel of given `context.Context` returns
-func waitDoneChild(name string) c.Spec {
+func waitDoneChild(name string) c.ChildSpec {
 	cspec := c.New(name, func(ctx context.Context) error {
 		// In real-world code, here we would have some business logic. For this
 		// particular scenario, we want to block until we get a stop notification
@@ -334,7 +334,7 @@ func waitDoneChild(name string) c.Spec {
 /*
 // Leaving these utilities here for later, not sure if I'm going to need them
 
-func blockingChild(name string, waitCb func()) (c.Spec, func()) {
+func blockingChild(name string, waitCb func()) (c.ChildSpec, func()) {
 	terminateCh := make(chan struct{})
 	cspec, _ := c.New(name, func(_ context.Context) error {
 		defer close(terminateCh)
@@ -346,9 +346,9 @@ func blockingChild(name string, waitCb func()) (c.Spec, func()) {
 	return cspec, func() { <-terminateCh }
 }
 
-func orderedChidren(n int) ([]c.Spec, func()) {
-	acc := make([]c.Spec, 0, n)
-	var cspec c.Spec
+func orderedChidren(n int) ([]c.ChildSpec, func()) {
+	acc := make([]c.ChildSpec, 0, n)
+	var cspec c.ChildSpec
 	var waitSignal func()
 
 	for i := 0; i < n; i++ {
@@ -364,7 +364,7 @@ func signalChild(
 	name string,
 	start0 func(context.Context, func()) error,
 	opts ...c.Opt,
-) (c.Spec, func()) {
+) (c.ChildSpec, func()) {
 	terminatedCh := make(chan struct{})
 	start := func(ctx context.Context) error {
 		return start0(ctx, func() { close(terminatedCh) })

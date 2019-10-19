@@ -61,7 +61,6 @@ func ExampleNew() {
 								fmt.Println("Write contents to a file")
 							}
 						}
-						return nil
 					}),
 				),
 			),
@@ -158,7 +157,7 @@ func TestStartNestedSupervisors(t *testing.T) {
 	b0n := "branch0"
 	b1n := "branch1"
 
-	cs := []c.Spec{
+	cs := []c.ChildSpec{
 		waitDoneChild("child0"),
 		waitDoneChild("child1"),
 		waitDoneChild("child2"),

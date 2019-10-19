@@ -32,7 +32,7 @@ func WithNotifier(en EventNotifier) Opt {
 
 // WithChildren specifies a list of child Spec that will get started when the
 // supervisor starts
-func WithChildren(children ...c.Spec) Opt {
+func WithChildren(children ...c.ChildSpec) Opt {
 	return func(spec *SupervisorSpec) {
 		spec.children = append(spec.children, children...)
 	}
@@ -124,7 +124,7 @@ func subtreeMain(parentName string, spec SupervisorSpec) func(context.Context, f
 
 // Subtree allows to register a Supervisor Spec as a sub-tree of a bigger
 // Supervisor Spec.
-func (spec SupervisorSpec) Subtree(subtreeSpec SupervisorSpec, copts ...c.Opt) c.Spec {
+func (spec SupervisorSpec) Subtree(subtreeSpec SupervisorSpec, copts ...c.Opt) c.ChildSpec {
 	subtreeSpec.eventNotifier = spec.eventNotifier
 	return c.NewWithNotifyStart(subtreeSpec.Name(), subtreeMain(spec.name, subtreeSpec), copts...)
 }
@@ -270,11 +270,12 @@ func (spec SupervisorSpec) Start(parentCtx context.Context) (Supervisor, error) 
 	return sup, nil
 }
 
-// New creates an Spec for a Supervisor. It requires the name of the supervisor
-// (for tracing purposes), all the other settings can be specified via Opt calls
+// New creates a SupervisorSpec. It requires the name of the supervisor (for
+// tracing purposes), all the other settings can be specified via Opt calls
 func New(name string, opts ...Opt) SupervisorSpec {
 	spec := SupervisorSpec{
-		children: make([]c.Spec, 0, 10),
+		children:      make([]c.ChildSpec, 0, 10),
+		eventNotifier: emptyEventNotifier,
 	}
 
 	// Check name cannot be empty

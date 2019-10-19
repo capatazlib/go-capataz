@@ -20,7 +20,7 @@ const (
 )
 
 // SortStart returns children sorted for the supervisor start
-func (o Order) SortStart(input0 []c.Spec) []c.Spec {
+func (o Order) SortStart(input0 []c.ChildSpec) []c.ChildSpec {
 	input := append(input0[:0:0], input0...)
 	switch o {
 	case LeftToRight:
@@ -36,7 +36,7 @@ func (o Order) SortStart(input0 []c.Spec) []c.Spec {
 }
 
 // SortStop returns children sorted for the supervisor stop
-func (o Order) SortStop(input0 []c.Spec) []c.Spec {
+func (o Order) SortStop(input0 []c.ChildSpec) []c.ChildSpec {
 	input := append(input0[:0:0], input0...)
 	switch o {
 	case LeftToRight:
@@ -182,7 +182,7 @@ type SupervisorSpec struct {
 	name          string
 	order         Order
 	strategy      Strategy
-	children      []c.Spec
+	children      []c.ChildSpec
 	eventNotifier EventNotifier
 }
 
