@@ -239,8 +239,24 @@ func (spec Spec) Name() string {
 	return spec.name
 }
 
-// Start transforms a Spec into a Supervisor record, once this function returns,
-// a new supervision tree is guaranteed to be initialized and executing.
+// Start creates a Supervisor from the SupervisorSpec. A Supervisor is a tree of
+// Child records where each Child handles a goroutine. The Start algorithm
+// begins with the spawning of the leaf children goroutines first. Depending on
+// the SupervisorSpec's order, it will do an initialization in pre-order
+// (LeftToRight) or post-order (RightToLeft).
+//
+// ### Initialization of the tree
+//
+// Once all the children are initialized and running, the supervisor will
+// execute it's supervision logic (listening to failures on its children).
+// Invoking this method will block the thread until all the children and its
+// sub-tree's childrens have been started.
+//
+// ### Failure on child initialization
+//
+// In case one of the children fails to start, the Supervisor is going to report
+// retry a number of times before giving up and returning an error.
+//
 func (spec Spec) Start(parentCtx context.Context) (Supervisor, error) {
 	startTime := time.Now()
 	sup, err := spec.start(parentCtx, "")

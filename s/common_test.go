@@ -13,18 +13,20 @@ import (
 
 ////////////////////////////////////////////////////////////////////////////////
 
-// EventP is a predicate like function that allows us to assert properties of an
-// Event signaled by the supervision system
+// EventP represents a predicate function that allows us to assert properties of
+// an Event signaled by the supervision system
 type EventP interface {
-	// Call executes the EventP predicate logic
+
+	// Call will execute the logic of this event predicate
 	Call(s.Event) bool
 
-	// Returns an string representation of the Predicate (for debugging purposes)
+	// Returns an string representation of this event predicate (for debugging
+	// purposes)
 	String() string
 }
 
-// EventTagP is a predicate to assert the EventTag of a given event matches
-// the expected EventTag
+// EventTagP is a predicate that asserts the `s.EventTag` of a given `s.Event`
+// matches an expected `s.EventTag`
 type EventTagP struct {
 	tag s.EventTag
 }
@@ -37,8 +39,8 @@ func (p EventTagP) String() string {
 	return fmt.Sprintf("tag == %s", p.tag.String())
 }
 
-// ProcessNameP is a predicate to assert the process name of a given event
-// matches the expected name
+// ProcessNameP is a predicate that asserts the name of the `Child` that
+// triggered the event matches the expected name
 type ProcessNameP struct {
 	name string
 }
@@ -51,11 +53,14 @@ func (p ProcessNameP) String() string {
 	return fmt.Sprintf("name == %s", p.name)
 }
 
-// AndP is a predicate that does of a conjunction of many EventP predicates
+// AndP is a predicate that builds the conjunction of a group EventP predicates
+// (e.g. join EventP predicates with &&)
 type AndP struct {
 	preds []EventP
 }
 
+// Call will try and verify that all it's grouped predicates return true, if any
+// returns false, this predicate function will return false
 func (p AndP) Call(ev s.Event) bool {
 	acc := true
 	for _, pred := range p.preds {
@@ -97,7 +102,8 @@ func ProcessStopped(name string) EventP {
 	}
 }
 
-// Leaving this for later
+// NOTE: Leaving this for later
+//
 // func ProcessFailed(name string) EventP {
 //	return AndP{
 //		preds: []EventP{
@@ -109,17 +115,22 @@ func ProcessStopped(name string) EventP {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-// noWait is a notification callback function that never waits a condition
+// noWait is a notification callback function that does nothing
 func noWait() {}
 
-// startEventCollector collects all the events sent to the given channel and
-// returns a slice with all the events captured till the channel was closed
+// startEventCollector starts a routine that collects all the events sent to the
+// given channel. It then returns a function that when called, waits for the
+// routine to finish and returns a slice with all the events captured in the
+// supervision system
 func startEventCollector(evCh chan s.Event) func() []s.Event {
 	buffer := make([]s.Event, 0, 10)
 
 	var wg sync.WaitGroup
 	wg.Add(1)
 
+	// This goro will be listening to the supervision-system events, and it will
+	// collect them until the event channel is closed, this will happen once the
+	// returned function gets called
 	go func() {
 		defer wg.Done()
 		for ev := range evCh {
@@ -127,6 +138,8 @@ func startEventCollector(evCh chan s.Event) func() []s.Event {
 		}
 	}()
 
+	// This function will wait until the collector is done, and return the buffer
+	// that accumulated all the events reported by the supervision system
 	return func() []s.Event {
 		close(evCh)
 		wg.Wait()
@@ -135,9 +148,10 @@ func startEventCollector(evCh chan s.Event) func() []s.Event {
 }
 
 // newCollectorNotifier creates an EventNotifier that collects all the events
-// registered by a supervision system execution, useful to assert behavior of a
-// supervision system. It returns a blocking function that returns all the
-// events of the system once it has finished.
+// registered by a supervision system execution. This notifier is used to assert
+// the behavior of a supervision system. It finally returns a blocking function
+// that returns a collection with the events reported by the system once it has
+// finished.
 func newCollectorNotifier() (s.EventNotifier, func() []s.Event) {
 	evCh := make(chan s.Event)
 	notifier := func(ev s.Event) {
@@ -148,8 +162,9 @@ func newCollectorNotifier() (s.EventNotifier, func() []s.Event) {
 }
 
 // observeSupervisor is an utility function that receives all the arguments
-// required to build a Supervisor Spec, and a function that will block until
-// some point in the future (after we performed the side-effects we are testing).
+// required to build a SupervisorSpec, and a callback that when executed will
+// block until some point in the future (after we performed the side-effects we
+// are testing).
 func observeSupervisor(
 	supName string,
 	supOpts0 []s.Opt,
@@ -303,10 +318,13 @@ func assertPredMatchesN(t *testing.T, n int, evs []s.Event, pred EventP) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-// waitDoneChild returns a child Spec with a goroutine that blocks until it's
-// context.Context is completed.
+// waitDoneChild creates a `ChildSpec` that runs a goroutine that will block
+// until the `Done` channel of given `context.Context` returns
 func waitDoneChild(name string) c.Spec {
 	cspec := c.New(name, func(ctx context.Context) error {
+		// In real-world code, here we would have some business logic. For this
+		// particular scenario, we want to block until we get a stop notification
+		// from our parent supervisor and return `nil`
 		<-ctx.Done()
 		return nil
 	})

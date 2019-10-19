@@ -17,13 +17,16 @@ func ExampleNew() {
 		"root",
 		// first sub-tree
 		s.WithSubtree(
-			s.New("sub-tree-1",
+			s.New("file-system",
 				s.WithChildren(
-					c.New("child-1", func(ctx context.Context) error {
+					c.New("file-watcher", func(ctx context.Context) error {
+						fmt.Println("Start File Watch Functionality")
 						<-ctx.Done()
 						return nil
 					}),
-					c.New("child-2", func(ctx context.Context) error {
+					c.New("file-writer-manager", func(ctx context.Context) error {
+						// assume this function has access to a request chan from a closure
+						fmt.Println("Start to receive File Write requests via a chan")
 						<-ctx.Done()
 						return nil
 					}),
@@ -32,13 +35,12 @@ func ExampleNew() {
 		),
 		// second sub-tree
 		s.WithSubtree(
-			s.New("sub-tree-2",
+			s.New("service-a",
 				s.WithChildren(
-					c.New("child-3", func(ctx context.Context) error {
-						<-ctx.Done()
-						return nil
-					}),
-					c.New("child-4", func(ctx context.Context) error {
+					c.New("export-service-db-ticker", func(ctx context.Context) error {
+						// assume this function has access to a request and response
+						// channnels from a closure
+						fmt.Println("Start to perform requests to service Export endpoint in a ticker")
 						<-ctx.Done()
 						return nil
 					}),
@@ -52,8 +54,13 @@ func ExampleNew() {
 	if err != nil {
 		fmt.Printf("Error starting system: %v\n", err)
 	}
-	// Wait for supervision tree to exit, this happens only if the errors are not
-	// recoverable
+
+	// Wait for supervision tree to exit, this will only happen when errors cannot
+	// be recovered by the supervision system because they reached the given
+	// treshold of failure.
+	//
+	// TODO: Add reference to treshold settings documentation once it is
+	// implemented
 	err = sup.Wait()
 	if err != nil {
 		fmt.Printf("Supervisor failed with error: %v\n", err)
@@ -126,7 +133,7 @@ func TestStartMutlipleChildren(t *testing.T) {
 
 }
 
-// Test a supervision tree with two sub-trees start and stop childrens in the
+// Test a supervision tree with two sub-trees start and stop children in the
 // default order _always_ (LeftToRight)
 func TestStartNestedSupervisors(t *testing.T) {
 	parentName := "root"

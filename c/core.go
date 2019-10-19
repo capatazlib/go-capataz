@@ -120,11 +120,25 @@ func waitTimeout(
 	}
 }
 
-// Start does a synchronous initialization of the child goroutine, this function
-// will block until the spawned goroutine notifies it has been initialized.
+// Start spawns a new goroutine that will execute the start attribute of the
+// ChildSpec, this function will block until the spawned goroutine notifies it
+// has been initialized.
+//
+// ### The notifyResult callback
+//
+// This callback notifies this child's supervisor that the goroutine has
+// finished (either with or without an error). The runtime name of the child is
+// also given so that the supervisor can use the spec for that child when
+// restarting.
+//
+// #### Why a callback?
+//
+// By using a callback we avoid coupling the Supervisor types to the Child
+// logic.
+//
 func (cs Spec) Start(
 	parentName string,
-	notifyResult func(string, error),
+	notifyResult func(runtimeChildName, error),
 ) Child {
 
 	runtimeName := strings.Join([]string{parentName, cs.name}, "/")
@@ -140,7 +154,7 @@ func (cs Spec) Start(
 		// we tell the spawner this child thread has stopped
 		defer close(terminateCh)
 
-		// we kill the cancelFn on regular termination
+		// we cancel the childCtx on regular termination
 		defer cancelFn()
 
 		// client logic starts here, and waits until an error (or lack of) is
