@@ -126,7 +126,7 @@ func subtreeMain(parentName string, spec Spec) func(context.Context, func()) err
 // Supervisor Spec.
 func (spec Spec) Subtree(subtreeSpec Spec, copts ...c.Opt) c.Spec {
 	subtreeSpec.eventNotifier = spec.eventNotifier
-	return c.New1(subtreeSpec.Name(), subtreeMain(spec.name, subtreeSpec), copts...)
+	return c.NewWithNotifyStart(subtreeSpec.Name(), subtreeMain(spec.name, subtreeSpec), copts...)
 }
 
 // start is routine that contains the main logic of a Supervisor. This function:

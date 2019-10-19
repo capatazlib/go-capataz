@@ -39,17 +39,17 @@ func WithShutdown(s Shutdown) Opt {
 // supervision system will either block forever or leak goroutines after a
 // timeout has been reached.
 func New(name string, start func(context.Context) error, opts ...Opt) Spec {
-	return New1(name, func(ctx context.Context, notifyChildStart func()) error {
+	return NewWithNotifyStart(name, func(ctx context.Context, notifyChildStart func()) error {
 		notifyChildStart()
 		return start(ctx)
 	}, opts...)
 }
 
-// New1 is similar to New, with the difference that the start function receives
+// NewWithNotifyStart is similar to New, with the difference that the start function receives
 // a `notifyStart` callback on the child routine, this callback allows the child
 // goroutine to signal when it has officially started. This is essential when
 // you want to guarantee some bootstrap on thread initialization.
-func New1(
+func NewWithNotifyStart(
 	name string,
 	start func(context.Context, func()) error,
 	opts ...Opt,
