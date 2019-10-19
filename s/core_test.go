@@ -5,14 +5,15 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-
 	"github.com/capatazlib/go-capataz/c"
 	"github.com/capatazlib/go-capataz/s"
 )
 
 func ExampleNew() {
 	// Build a supervision tree with two branches
+	fileChangedCh := make(chan string)
+	writeFileCh := make(chan string)
+
 	rootSpec := s.New(
 		"root",
 		// first sub-tree
@@ -21,13 +22,25 @@ func ExampleNew() {
 				s.WithChildren(
 					c.New("file-watcher", func(ctx context.Context) error {
 						fmt.Println("Start File Watch Functionality")
+						// TODO: Use inotify and send messages to the fileChangedCh
 						<-ctx.Done()
 						return nil
 					}),
 					c.New("file-writer-manager", func(ctx context.Context) error {
 						// assume this function has access to a request chan from a closure
-						fmt.Println("Start to receive File Write requests via a chan")
-						<-ctx.Done()
+					loop:
+						for {
+							select {
+							case <-ctx.Done():
+								return ctx.Err()
+							case content, ok := <-writeFileCh:
+								if !ok {
+									err := fmt.Errorf("writeFileCh ownership compromised")
+									return err
+								}
+								fmt.Println("Write contents to a file")
+							}
+						}
 						return nil
 					}),
 				),
@@ -37,10 +50,10 @@ func ExampleNew() {
 		s.WithSubtree(
 			s.New("service-a",
 				s.WithChildren(
-					c.New("export-service-db-ticker", func(ctx context.Context) error {
+					c.New("fetch-service-data-ticker", func(ctx context.Context) error {
 						// assume this function has access to a request and response
 						// channnels from a closure
-						fmt.Println("Start to perform requests to service Export endpoint in a ticker")
+						fmt.Println("Perform requests to API to gather data and submit it to a channel")
 						<-ctx.Done()
 						return nil
 					}),
@@ -71,14 +84,13 @@ func ExampleNew() {
 func TestStartSingleChild(t *testing.T) {
 	cs := waitDoneChild("one")
 
-	events, err := observeSupervisor(
+	events := observeSupervisor(
 		"root",
 		[]s.Opt{
 			s.WithChildren(cs),
 		},
 		noWait,
 	)
-	assert.Nil(t, err)
 
 	assertExactMatch(t, events,
 		[]EventP{
@@ -96,14 +108,13 @@ func TestStartMutlipleChildren(t *testing.T) {
 	c1 := waitDoneChild("child1")
 	c2 := waitDoneChild("child2")
 
-	events, err := observeSupervisor(
+	events := observeSupervisor(
 		"root",
 		[]s.Opt{
 			s.WithChildren(c0, c1, c2),
 		},
 		noWait,
 	)
-	assert.Nil(t, err)
 
 	t.Run("starts and stops routines in the correct order", func(t *testing.T) {
 		assertExactMatch(t, events,
@@ -150,7 +161,7 @@ func TestStartNestedSupervisors(t *testing.T) {
 	b0 := s.New(b0n, s.WithChildren(cs[0], cs[1]))
 	b1 := s.New(b1n, s.WithChildren(cs[2], cs[3]))
 
-	events, err := observeSupervisor(
+	events := observeSupervisor(
 		parentName,
 		[]s.Opt{
 			s.WithSubtree(b0),
@@ -158,7 +169,6 @@ func TestStartNestedSupervisors(t *testing.T) {
 		},
 		noWait,
 	)
-	assert.Nil(t, err)
 
 	t.Run("starts and stops routines in the correct order", func(t *testing.T) {
 		assertExactMatch(t, events,

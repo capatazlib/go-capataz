@@ -169,7 +169,7 @@ func observeSupervisor(
 	supName string,
 	supOpts0 []s.Opt,
 	waitStopSignal func(),
-) ([]s.Event, error) {
+) []s.Event {
 	evCollector, collectEvents := newCollectorNotifier()
 
 	supOpts := append([]s.Opt{s.WithNotifier(evCollector)}, supOpts0...)
@@ -177,17 +177,17 @@ func observeSupervisor(
 
 	sup, err := supSpec.Start(context.TODO())
 	if err != nil {
-		return nil, err
+		panic(fmt.Sprintf("Failed to start supervisor: %v", err))
 	}
 
 	waitStopSignal()
 
 	err = sup.Stop()
 	if err != nil {
-		return nil, err
+		panic(fmt.Sprintf("Failed to stop supervisor: %v", err))
 	}
 
-	return collectEvents(), nil
+	return collectEvents()
 }
 
 // verifyExactMatch is an utility function that checks the input slide of EventP
