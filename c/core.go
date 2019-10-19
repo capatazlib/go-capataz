@@ -24,20 +24,29 @@ func WithShutdown(s Shutdown) Opt {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-// New creates an Spec for a worker goroutine.
+// New creates a `ChildSpec` that represents a worker goroutine. It requires two
+// arguments: a `name` that is used for runtime tracing and a `start` function.
 //
-// It requires two arguments:
+// ### The `name` argument
 //
-// - name: The name of the worker (for tracing purposes)
+// The `name` argument must not be empty nor contain forward slash characters
+// (e.g. `/`), otherwise, the system will panic. This method is preferred as
+// opposed to return an error given it is considered a bad implementation
+// (ideally a compilation error).
 //
-// - start: The main function that is going to be executing in this child
-// goroutine
+// ### The `start` argument
 //
-// The start function will receive a context.Context record that must be used to
-// receive a stop signal from the parent supervisor. Depending on the Shutdown
-// settings, if the start function does not respect the given context, the
-// supervision system will either block forever or leak goroutines after a
-// timeout has been reached.
+// The `start` function attribute of a `ChildSpec` is going to be used to spawn
+// a new supervised goroutine; in this function is where your business logic
+// should be located.
+//
+// The `start` function will receive a `context.Context` record that _must_ be
+// used inside your business logic to accept stop signals from it's parent
+// supervisor.
+//
+// Depending on the `Shutdown` values used in the `ChildSpec` , if the start
+// function does not respect the given context, the parent supervisor will
+// either block forever or leak goroutines after a timeout has been reached.
 func New(name string, start func(context.Context) error, opts ...Opt) Spec {
 	return NewWithNotifyStart(name, func(ctx context.Context, notifyChildStart func()) error {
 		notifyChildStart()
@@ -45,10 +54,15 @@ func New(name string, start func(context.Context) error, opts ...Opt) Spec {
 	}, opts...)
 }
 
-// NewWithNotifyStart is similar to New, with the difference that the start function receives
-// a `notifyStart` callback on the child routine, this callback allows the child
-// goroutine to signal when it has officially started. This is essential when
-// you want to guarantee some bootstrap on thread initialization.
+// NewWithNotifyStart accomplishes the same goal as `New` with the addition of
+// passing a `notifyStart` callback function to the `start` parameter.
+//
+// ### The `notifyStart` function argument
+//
+// The `notifyStart` callback allows the spawned worker goroutine to signal when
+// it has officially started. Is essential to call this callback function in
+// your business logic as soon as you consider the worker initialized, otherwise
+// the parent supervisor will block and eventually fail with a timeout.
 func NewWithNotifyStart(
 	name string,
 	start func(context.Context, func()) error,
@@ -57,14 +71,11 @@ func NewWithNotifyStart(
 	spec := Spec{}
 
 	if name == "" {
-		// If the name is empty, the program should not start. If I return an error
-		// to deal with this at runtime the API gets awful quickly
 		panic("Child cannot have empty name")
 	}
 	spec.name = name
 
 	if start == nil {
-		// ditto to the previous comment
 		panic("Child cannot have empty start function")
 	}
 
