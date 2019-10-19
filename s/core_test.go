@@ -129,19 +129,6 @@ func TestStartMutlipleChildren(t *testing.T) {
 				ProcessStopped("root"),
 			})
 	})
-
-	t.Run("asserts there is a single start/stop event per go-routine", func(t *testing.T) {
-		for _, name := range []string{
-			"root/child0",
-			"root/child1",
-			"root/child2",
-			"root",
-		} {
-			assertPredMatchesN(t, 1, events, ProcessStarted(name))
-			assertPredMatchesN(t, 1, events, ProcessStopped(name))
-		}
-	})
-
 }
 
 // Test a supervision tree with two sub-trees start and stop children in the
@@ -191,20 +178,5 @@ func TestStartNestedSupervisors(t *testing.T) {
 				ProcessStopped("root"),
 			},
 		)
-	})
-
-	t.Run("asserts there is a single start/stop event per go-routine", func(t *testing.T) {
-		for _, name := range []string{
-			"root/branch0/child0",
-			"root/branch0/child1",
-			"root/branch1/child2",
-			"root/branch1/child3",
-			"root/branch0",
-			"root/branch1",
-			"root",
-		} {
-			assertPredMatchesN(t, 1, events, ProcessStarted(name))
-			assertPredMatchesN(t, 1, events, ProcessStopped(name))
-		}
 	})
 }
