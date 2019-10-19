@@ -9,11 +9,32 @@ import (
 	"github.com/capatazlib/go-capataz/s"
 )
 
+// ExampleNew showcases an example on how to define a supervision tree system.
+//
+// In this trivial example we create a system with two sub-systems.
+//
+// 1) The "file-system" sub-tree supervises file system errors
+//
+// 2) The "service-a" sub-tree supervises interactions with the service-a API
+//
+// Note that if there are errors in the "file-system" sub-tree, its supervisor
+// will deal with transient errors without affecting the "service-a" sub-tree.
+//
+// If errors on the file-system go beyond an specified treshold, the errors are
+// raised to the root supervisor and the root supervisor will restart both
+// sub-trees.
+//
+// If the errors still continue on the "file-system" sub-tree, it will
+// eventually surpass the root tree error treshold and the system will return an
+// error on the root supervisor Wait call.
+//
 func ExampleNew() {
-	// Build a supervision tree with two branches
-	fileChangedCh := make(chan string)
+	// // Channels used for communication between the different children of the
+	// // supervision tree
+	// fileChangedCh := make(chan string)
 	writeFileCh := make(chan string)
 
+	// Build a supervision tree with two branches
 	rootSpec := s.New(
 		"root",
 		// first sub-tree
@@ -22,18 +43,17 @@ func ExampleNew() {
 				s.WithChildren(
 					c.New("file-watcher", func(ctx context.Context) error {
 						fmt.Println("Start File Watch Functionality")
-						// TODO: Use inotify and send messages to the fileChangedCh
+						// Use inotify and send messages to the fileChangedCh
 						<-ctx.Done()
 						return nil
 					}),
 					c.New("file-writer-manager", func(ctx context.Context) error {
 						// assume this function has access to a request chan from a closure
-					loop:
 						for {
 							select {
 							case <-ctx.Done():
 								return ctx.Err()
-							case content, ok := <-writeFileCh:
+							case _ /* content */, ok := <-writeFileCh:
 								if !ok {
 									err := fmt.Errorf("writeFileCh ownership compromised")
 									return err
