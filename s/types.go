@@ -165,12 +165,20 @@ func (en EventNotifier) ProcessStarted(name string, startTime time.Time) {
 }
 
 // Opt is used to configure a supervisor's specification
-type Opt func(*Spec)
+type Opt func(*SupervisorSpec)
 
-// Spec represents the specification of a Supervisor; it serves as a template
-// for the construction of supervision trees. Using an Spec you can create
-// Supervisor records
-type Spec struct {
+// SupervisorSpec represents the specification of a Supervisor; it serves as a
+// template for the construction of supervision trees. In the SupervisorSpec
+// you can specify settings like:
+//
+// - The children (workers or sub-trees) you want spawned in your system when it
+// gets started
+//
+// - The order in which the supervised children get started
+//
+// - When a failure occurs, if the supervisor restarts the failing child, or all it's children
+//
+type SupervisorSpec struct {
 	name          string
 	order         Order
 	strategy      Strategy
@@ -178,11 +186,13 @@ type Spec struct {
 	eventNotifier EventNotifier
 }
 
-// Supervisor represents a runtime supervision tree. You can either join the
-// Supervisor goroutine with the current goroutine, or stop it altogether.
+// Supervisor represents a tree of Child records. A Supervisor may have leaf or
+// sub-tree children, each of the Child values represent a goroutine that gets
+// automatic restart abilities as soon as the parent supervisor detects an error
+// has occured. A Supervisor will always be generated from a SupervisorSpec
 type Supervisor struct {
 	runtimeName string
-	spec        Spec
+	spec        SupervisorSpec
 	children    map[string]c.Child
 	cancel      func()
 	wait        func() error

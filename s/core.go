@@ -10,14 +10,14 @@ import (
 
 // WithOrder specifies the start/stop order of a supervisor's children
 func WithOrder(o Order) Opt {
-	return func(spec *Spec) {
+	return func(spec *SupervisorSpec) {
 		spec.order = o
 	}
 }
 
 // WithStrategy specifies how children get restarted when one of them fails
 func WithStrategy(s Strategy) Opt {
-	return func(spec *Spec) {
+	return func(spec *SupervisorSpec) {
 		spec.strategy = s
 	}
 }
@@ -25,7 +25,7 @@ func WithStrategy(s Strategy) Opt {
 // WithNotifier specifies a callback that gets called whenever the supervision
 // system reports an Event
 func WithNotifier(en EventNotifier) Opt {
-	return func(spec *Spec) {
+	return func(spec *SupervisorSpec) {
 		spec.eventNotifier = en
 	}
 }
@@ -33,15 +33,15 @@ func WithNotifier(en EventNotifier) Opt {
 // WithChildren specifies a list of child Spec that will get started when the
 // supervisor starts
 func WithChildren(children ...c.Spec) Opt {
-	return func(spec *Spec) {
+	return func(spec *SupervisorSpec) {
 		spec.children = append(spec.children, children...)
 	}
 }
 
 // WithSubtree specifies a supervisor sub-tree. Is intended to be used when
 // composing sub-systems in a supervision tree.
-func WithSubtree(subtree Spec, copts ...c.Opt) Opt {
-	return func(spec *Spec) {
+func WithSubtree(subtree SupervisorSpec, copts ...c.Opt) Opt {
+	return func(spec *SupervisorSpec) {
 		cspec := spec.Subtree(subtree, copts...)
 		WithChildren(cspec)(spec)
 	}
@@ -93,7 +93,7 @@ func emptyEventNotifier(_ Event) {}
 
 // getEventNotifier returns the configured EventNotifier or emptyEventNotifier
 // (if none is given via WithEventNotifier)
-func (spec Spec) getEventNotifier() EventNotifier {
+func (spec SupervisorSpec) getEventNotifier() EventNotifier {
 	if spec.eventNotifier == nil {
 		return emptyEventNotifier
 	}
@@ -102,7 +102,7 @@ func (spec Spec) getEventNotifier() EventNotifier {
 
 // subtreeMain contains the main logic of the Child spec that runs a supervision
 // sub-tree. It returns an error if the child supervisor fails to start.
-func subtreeMain(parentName string, spec Spec) func(context.Context, func()) error {
+func subtreeMain(parentName string, spec SupervisorSpec) func(context.Context, func()) error {
 	// we use the start version that receives the notifyChildStart callback, this
 	// is essential, as we need this callback to signal the sub-tree children have
 	// started before signaling we have started
@@ -124,7 +124,7 @@ func subtreeMain(parentName string, spec Spec) func(context.Context, func()) err
 
 // Subtree allows to register a Supervisor Spec as a sub-tree of a bigger
 // Supervisor Spec.
-func (spec Spec) Subtree(subtreeSpec Spec, copts ...c.Opt) c.Spec {
+func (spec SupervisorSpec) Subtree(subtreeSpec SupervisorSpec, copts ...c.Opt) c.Spec {
 	subtreeSpec.eventNotifier = spec.eventNotifier
 	return c.NewWithNotifyStart(subtreeSpec.Name(), subtreeMain(spec.name, subtreeSpec), copts...)
 }
@@ -140,7 +140,7 @@ func (spec Spec) Subtree(subtreeSpec Spec, copts ...c.Opt) c.Spec {
 //
 // 4) it monitors and reacts to errors reported by the supervised children
 //
-func (spec Spec) start(parentCtx context.Context, parentName string) (Supervisor, error) {
+func (spec SupervisorSpec) start(parentCtx context.Context, parentName string) (Supervisor, error) {
 	// cancelFn is used when Stop is requested
 	ctx, cancelFn := context.WithCancel(parentCtx)
 
@@ -235,7 +235,7 @@ func (spec Spec) start(parentCtx context.Context, parentName string) (Supervisor
 }
 
 // Name returns the specified name for a Supervisor Spec
-func (spec Spec) Name() string {
+func (spec SupervisorSpec) Name() string {
 	return spec.name
 }
 
@@ -254,10 +254,13 @@ func (spec Spec) Name() string {
 //
 // ### Failure on child initialization
 //
-// In case one of the children fails to start, the Supervisor is going to report
-// retry a number of times before giving up and returning an error.
+// In case one of the children fails to start, the Supervisor is going to retry
+// a number of times before giving up and returning an error. In case this
+// supervisor is a sub-tree, it's parent supervisor will retry the
+// initialization until the failure treshold is reached; eventually, the errors
+// will reach the root supervisor and the program will get a hard failure.
 //
-func (spec Spec) Start(parentCtx context.Context) (Supervisor, error) {
+func (spec SupervisorSpec) Start(parentCtx context.Context) (Supervisor, error) {
 	startTime := time.Now()
 	sup, err := spec.start(parentCtx, "")
 	if err != nil {
@@ -269,8 +272,8 @@ func (spec Spec) Start(parentCtx context.Context) (Supervisor, error) {
 
 // New creates an Spec for a Supervisor. It requires the name of the supervisor
 // (for tracing purposes), all the other settings can be specified via Opt calls
-func New(name string, opts ...Opt) Spec {
-	spec := Spec{
+func New(name string, opts ...Opt) SupervisorSpec {
+	spec := SupervisorSpec{
 		children: make([]c.Spec, 0, 10),
 	}
 

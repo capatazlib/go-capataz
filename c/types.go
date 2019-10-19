@@ -52,12 +52,12 @@ func Timeout(d time.Duration) Shutdown {
 }
 
 // Opt is used to configure a child's specification
-type Opt func(*Spec)
+type Opt func(*ChildSpec)
 
-// Spec represents a Child specification; it serves as a template for the
-// construction of a worker goroutine. The Spec record is used in conjunction
-// with the supervisor's Spec.
-type Spec struct {
+// ChildSpec represents a Child specification; it serves as a template for the
+// construction of a worker goroutine. The ChildSpec record is used in conjunction
+// with the supervisor's ChildSpec.
+type ChildSpec struct {
 	name     string
 	shutdown Shutdown
 	restart  Restart
@@ -67,7 +67,7 @@ type Spec struct {
 // Child is the runtime representation of an Spec
 type Child struct {
 	runtimeName string
-	spec        Spec
+	spec        ChildSpec
 	cancel      func()
 	wait        func(Shutdown) error
 }

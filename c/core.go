@@ -10,14 +10,14 @@ import (
 // WithRestart specifies how the parent supervisor should restart this child
 // after an error is encountered.
 func WithRestart(r Restart) Opt {
-	return func(spec *Spec) {
+	return func(spec *ChildSpec) {
 		spec.restart = r
 	}
 }
 
 // WithShutdown specifies how the shutdown of the child is going to be handled.
 func WithShutdown(s Shutdown) Opt {
-	return func(spec *Spec) {
+	return func(spec *ChildSpec) {
 		spec.shutdown = s
 	}
 }
@@ -47,7 +47,7 @@ func WithShutdown(s Shutdown) Opt {
 // Depending on the `Shutdown` values used in the `ChildSpec` , if the start
 // function does not respect the given context, the parent supervisor will
 // either block forever or leak goroutines after a timeout has been reached.
-func New(name string, start func(context.Context) error, opts ...Opt) Spec {
+func New(name string, start func(context.Context) error, opts ...Opt) ChildSpec {
 	return NewWithNotifyStart(name, func(ctx context.Context, notifyChildStart func()) error {
 		notifyChildStart()
 		return start(ctx)
@@ -67,8 +67,8 @@ func NewWithNotifyStart(
 	name string,
 	start func(context.Context, func()) error,
 	opts ...Opt,
-) Spec {
-	spec := Spec{}
+) ChildSpec {
+	spec := ChildSpec{}
 
 	if name == "" {
 		panic("Child cannot have empty name")
@@ -90,7 +90,7 @@ func NewWithNotifyStart(
 }
 
 // Name returns the specified name for a Child Spec
-func (cs Spec) Name() string {
+func (cs ChildSpec) Name() string {
 	return cs.name
 }
 
@@ -136,7 +136,7 @@ func waitTimeout(
 // By using a callback we avoid coupling the Supervisor types to the Child
 // logic.
 //
-func (cs Spec) Start(
+func (cs ChildSpec) Start(
 	parentName string,
 	notifyResult func(runtimeChildName, error),
 ) Child {
