@@ -46,7 +46,7 @@ type ProcessNameP struct {
 }
 
 func (p ProcessNameP) Call(ev s.Event) bool {
-	return ev.Name() == p.name
+	return ev.ProcessRuntimeName() == p.name
 }
 
 func (p ProcessNameP) String() string {

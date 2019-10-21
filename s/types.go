@@ -96,11 +96,11 @@ func (tag EventTag) String() string {
 // multiple purposes, from testing to monitoring the healthiness of the
 // supervision system.
 type Event struct {
-	tag      EventTag
-	name     string
-	err      error
-	created  time.Time
-	duration time.Duration
+	tag                EventTag
+	processRuntimeName string
+	err                error
+	created            time.Time
+	duration           time.Duration
 }
 
 // Tag returns the EventTag from an Event
@@ -109,8 +109,8 @@ func (e Event) Tag() EventTag {
 }
 
 // Name returns the given name of a process that emitted this event
-func (e Event) Name() string {
-	return e.name
+func (e Event) ProcessRuntimeName() string {
+	return e.processRuntimeName
 }
 
 // Err returns an error reported by the process that emitted this event
@@ -125,7 +125,11 @@ func (e Event) Created() time.Time {
 
 // String returns an string representation for the Event
 func (e Event) String() string {
-	return fmt.Sprintf("Event{tag: %s, name: %s, created: %v}", e.tag, e.name, e.created)
+	return fmt.Sprintf("Event{tag: %s, processRuntimeName: %s, created: %v}",
+		e.tag,
+		e.processRuntimeName,
+		e.created,
+	)
 }
 
 // EventNotifier is a function that is used for reporting events from the from
@@ -143,11 +147,11 @@ func (en EventNotifier) ProcessStopped(name string, stopTime time.Time, err erro
 	stopDuration := createdTime.Sub(stopTime)
 
 	en(Event{
-		tag:      tag,
-		name:     name,
-		err:      err,
-		created:  time.Now(),
-		duration: stopDuration,
+		tag:                tag,
+		processRuntimeName: name,
+		err:                err,
+		created:            time.Now(),
+		duration:           stopDuration,
 	})
 }
 
@@ -156,11 +160,11 @@ func (en EventNotifier) ProcessStarted(name string, startTime time.Time) {
 	createdTime := time.Now()
 	startDuration := createdTime.Sub(startTime)
 	en(Event{
-		tag:      ProcessStarted,
-		name:     name,
-		err:      nil,
-		created:  createdTime,
-		duration: startDuration,
+		tag:                ProcessStarted,
+		processRuntimeName: name,
+		err:                nil,
+		created:            createdTime,
+		duration:           startDuration,
 	})
 }
 
