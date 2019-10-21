@@ -108,7 +108,7 @@ func (e Event) Tag() EventTag {
 	return e.tag
 }
 
-// Name returns the given name of a process that emitted this event
+// ProcessRuntimeName returns the given name of a process that emitted this event
 func (e Event) ProcessRuntimeName() string {
 	return e.processRuntimeName
 }
