@@ -266,7 +266,7 @@ func (spec SupervisorSpec) Name() string {
 //
 func (spec SupervisorSpec) Start(parentCtx context.Context) (Supervisor, error) {
 	startTime := time.Now()
-	sup, err := spec.start(parentCtx, "")
+	sup, err := spec.start(parentCtx, rootSupervisorName)
 	if err != nil {
 		return Supervisor{}, err
 	}
