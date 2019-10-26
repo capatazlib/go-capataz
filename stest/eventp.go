@@ -27,6 +27,7 @@ type EventTagP struct {
 	tag s.EventTag
 }
 
+// Call will execute predicate that checks tag name of event
 func (p EventTagP) Call(ev s.Event) bool {
 	return ev.Tag() == p.tag
 }
@@ -41,6 +42,8 @@ type ProcessNameP struct {
 	name string
 }
 
+// Call will execute predicate that checks the name of the process that
+// triggered the event
 func (p ProcessNameP) Call(ev s.Event) bool {
 	return ev.ProcessRuntimeName() == p.name
 }
@@ -98,9 +101,7 @@ func ProcessStopped(name string) EventP {
 	}
 }
 
-// NOTE: Leaving this for later
-
-// ProcessStopped is a predicate to assert an event represents a process that
+// ProcessFailed is a predicate to assert an event represents a process that
 // failed
 func ProcessFailed(name string) EventP {
 	return AndP{

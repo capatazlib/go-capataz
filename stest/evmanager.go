@@ -12,6 +12,8 @@ import (
 
 ////////////////////////////////////////////////////////////////////////////////
 
+// EventManager provides an API that allows to block a goroutine for particular
+// events in a test system
 type EventManager struct {
 	evCh         chan s.Event
 	evDone       bool
@@ -28,6 +30,8 @@ func (em *EventManager) storeEvent(ev s.Event) {
 	em.evBufferCond.Broadcast()
 }
 
+// Snapshot returns all the events that this EventManager has collected from the
+// supervision system
 func (em EventManager) Snapshot() []s.Event {
 	em.evBufferCond.L.Lock()
 	defer em.evBufferCond.L.Unlock()
@@ -99,7 +103,8 @@ func (em EventManager) foldl(
 	return acc
 }
 
-// WaitTill blocks until the given predicate returns true
+// WaitTill blocks until an event from the supervision system returns true for
+// the given predicate
 func (em EventManager) WaitTill(pred EventP) {
 	_ = em.foldl(nil, func(_ interface{}, ev s.Event) (bool, interface{}) {
 		if pred.Call(ev) {
@@ -109,6 +114,8 @@ func (em EventManager) WaitTill(pred EventP) {
 	})
 }
 
+// NewEventManager returns an EventManager instance that can be used to wait for
+// events to happen on the observed supervision system
 func NewEventManager() EventManager {
 	var evBufferMux sync.Mutex
 	evCh := make(chan s.Event)
