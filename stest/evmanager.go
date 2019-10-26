@@ -111,7 +111,7 @@ func (ei *EventIterator) foldl(
 
 // SkipTill blocks until an event from the supervision system returns true for
 // the given predicate
-func (ei EventIterator) SkipTill(pred EventP) {
+func (ei *EventIterator) SkipTill(pred EventP) {
 	_ = ei.foldl(nil, func(_ interface{}, ev s.Event) (bool, interface{}) {
 		if pred.Call(ev) {
 			return false, nil
@@ -122,7 +122,7 @@ func (ei EventIterator) SkipTill(pred EventP) {
 
 // TakeTill takes all the events that have been collected since the current
 // index until the given predicate returns true
-func (ei EventIterator) TakeTill(pred EventP) []s.Event {
+func (ei *EventIterator) TakeTill(pred EventP) []s.Event {
 	zero := make([]s.Event, 0, 100)
 	iresult := ei.foldl(zero, func(iacc interface{}, ev s.Event) (bool, interface{}) {
 		acc, _ := iacc.([]s.Event)
