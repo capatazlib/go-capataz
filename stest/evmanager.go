@@ -109,9 +109,9 @@ func (ei *EventIterator) foldl(
 	return acc
 }
 
-// WaitTill blocks until an event from the supervision system returns true for
+// SkipTill blocks until an event from the supervision system returns true for
 // the given predicate
-func (ei EventIterator) WaitTill(pred EventP) {
+func (ei EventIterator) SkipTill(pred EventP) {
 	_ = ei.foldl(nil, func(_ interface{}, ev s.Event) (bool, interface{}) {
 		if pred.Call(ev) {
 			return false, nil
