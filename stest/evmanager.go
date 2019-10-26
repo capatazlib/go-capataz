@@ -120,6 +120,22 @@ func (ei EventIterator) SkipTill(pred EventP) {
 	})
 }
 
+// TakeTill takes all the events that have been collected since the current
+// index until the given predicate returns true
+func (ei EventIterator) TakeTill(pred EventP) []s.Event {
+	zero := make([]s.Event, 0, 100)
+	iresult := ei.foldl(zero, func(iacc interface{}, ev s.Event) (bool, interface{}) {
+		acc, _ := iacc.([]s.Event)
+		if pred.Call(ev) {
+			return false, acc
+		}
+		acc = append(acc, ev)
+		return true, acc
+	})
+	result, _ := iresult.([]s.Event)
+	return result
+}
+
 // Iterator returns an iterator over the collected events. This iterator
 // will block waiting for new events
 func (em EventManager) Iterator() EventIterator {
