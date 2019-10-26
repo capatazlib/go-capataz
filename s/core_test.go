@@ -102,7 +102,7 @@ func ExampleNew() {
 	}
 }
 
-func TestStartSingleChild1(t *testing.T) {
+func TestStartSingleChild(t *testing.T) {
 	events, err := ObserveSupervisor(
 		context.TODO(),
 		"root",

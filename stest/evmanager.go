@@ -21,6 +21,13 @@ type EventManager struct {
 	evBuffer     *[]s.Event
 }
 
+// EventIterator represents a single iteration over the list of events that have
+// been collected by the EventManager that created it.
+type EventIterator struct {
+	evIx      int
+	evManager *EventManager
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 func (em *EventManager) storeEvent(ev s.Event) {
@@ -71,29 +78,28 @@ func (em EventManager) EventCollector(ctx context.Context) func(ev s.Event) {
 
 // foldl will iterate over a list of events emitted by a supervision system and
 // block when waiting for new events to happen
-func (em EventManager) foldl(
+func (ei *EventIterator) foldl(
 	zero interface{},
 	stepFn func(interface{}, s.Event) (bool, interface{}),
 ) interface{} {
-	evIx := 0
-
+	em := ei.evManager
 	shouldContinue := true
 	acc := zero
 
 	for {
 		for {
 			em.evBufferCond.L.Lock()
-			if evIx >= len(*em.evBuffer) && !em.evDone {
+			if ei.evIx >= len(*em.evBuffer) && !em.evDone {
 				em.evBufferCond.Wait()
 				em.evBufferCond.L.Unlock()
 			} else {
 				break
 			}
 		}
-		shouldContinue, acc = stepFn(acc, (*em.evBuffer)[evIx])
+		shouldContinue, acc = stepFn(acc, (*em.evBuffer)[ei.evIx])
 		em.evBufferCond.L.Unlock()
 
-		evIx++
+		ei.evIx++
 
 		if !shouldContinue {
 			break
@@ -105,13 +111,20 @@ func (em EventManager) foldl(
 
 // WaitTill blocks until an event from the supervision system returns true for
 // the given predicate
-func (em EventManager) WaitTill(pred EventP) {
-	_ = em.foldl(nil, func(_ interface{}, ev s.Event) (bool, interface{}) {
+func (ei EventIterator) WaitTill(pred EventP) {
+	_ = ei.foldl(nil, func(_ interface{}, ev s.Event) (bool, interface{}) {
 		if pred.Call(ev) {
 			return false, nil
 		}
 		return true, nil
 	})
+}
+
+// Iterator returns an iterator over the collected events. This iterator
+// will block waiting for new events
+func (em EventManager) Iterator() EventIterator {
+	it := EventIterator{evIx: 0, evManager: &em}
+	return it
 }
 
 // NewEventManager returns an EventManager instance that can be used to wait for

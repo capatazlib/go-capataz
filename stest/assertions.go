@@ -152,14 +152,18 @@ func ObserveSupervisor(
 		return []s.Event{}, err
 	}
 
+	evIt := evManager.Iterator()
+
 	// Make sure all the tree started before doing assertions
-	evManager.WaitTill(ProcessStarted(rootName))
+	evIt.WaitTill(ProcessStarted(rootName))
+
 	// callback to do assertions with the event manager
 	callback(evManager)
+
 	// once tests are done, we stop the supervisor
 	sup.Stop()
 	// we wait till all the events have been reported
-	evManager.WaitTill(ProcessStopped(rootName))
+	evIt.WaitTill(ProcessStopped(rootName))
 
 	// return all the events reported by the supervision system
 	return evManager.Snapshot(), nil
