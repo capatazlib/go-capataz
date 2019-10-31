@@ -205,3 +205,50 @@ func TestStartNestedSupervisors(t *testing.T) {
 		)
 	})
 }
+
+func TestStartFailedChild(t *testing.T) {
+	parentName := "root"
+	b0n := "branch0"
+	b1n := "branch1"
+
+	cs := []c.ChildSpec{
+		WaitDoneChild("child0"),
+		WaitDoneChild("child1"),
+		WaitDoneChild("child2"),
+		FailStartChild("child3"),
+	}
+
+	b0 := s.New(b0n, s.WithChildren(cs[0], cs[1]))
+	b1 := s.New(b1n, s.WithChildren(cs[2], cs[3]))
+
+	events, err := ObserveSupervisor(
+		context.TODO(),
+		parentName,
+		[]s.Opt{
+			s.WithSubtree(b0),
+			s.WithSubtree(b1),
+		},
+		func(EventManager) {},
+	)
+
+	assert.Error(t, err)
+
+	AssertExactMatch(t, events,
+		[]EventP{
+			// start children from left to right
+			ProcessStarted("root/branch0/child0"),
+			ProcessStarted("root/branch0/child1"),
+			ProcessStarted("root/branch0"),
+			ProcessStarted("root/branch1/child2"),
+			// we get the failing start
+			ProcessFailed("root/branch1/child3"),
+			// immediately stop started children in the reverse order
+			ProcessStopped("root/branch1/child2"),
+			ProcessFailed("root/branch1"),
+			ProcessStopped("root/branch0/child1"),
+			ProcessStopped("root/branch0/child0"),
+			ProcessStopped("root/branch0"),
+			ProcessFailed("root"),
+		},
+	)
+}

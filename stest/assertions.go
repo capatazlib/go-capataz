@@ -128,6 +128,19 @@ func WaitDoneChild(name string) c.ChildSpec {
 	return cspec
 }
 
+// FailStartChild creates a `ChildSpec` that runs a goroutine that fails on
+// start
+func FailStartChild(name string) c.ChildSpec {
+	cspec := c.NewWithNotifyStart(
+		name,
+		func(ctx context.Context, notifyStart c.NotifyStartFn) error {
+			err := fmt.Errorf("FailStartChild %s", name)
+			notifyStart(err)
+			return err
+		})
+	return cspec
+}
+
 // ObserveSupervisor is an utility function that receives all the arguments
 // required to build a SupervisorSpec, and a callback that when executed will
 // block until some point in the future (after we performed the side-effects we
@@ -154,7 +167,7 @@ func ObserveSupervisor(
 	// embedded in the ObserveSupervisor call
 	sup, err := spec.Start(ctx)
 	if err != nil {
-		return []s.Event{}, err
+		return evManager.Snapshot(), err
 	}
 
 	evIt := evManager.Iterator()

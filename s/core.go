@@ -2,6 +2,7 @@ package s
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -106,11 +107,14 @@ func (spec SupervisorSpec) getEventNotifier() EventNotifier {
 
 // subtreeMain contains the main logic of the Child spec that runs a supervision
 // sub-tree. It returns an error if the child supervisor fails to start.
-func subtreeMain(parentName string, spec SupervisorSpec) func(context.Context, func()) error {
+func subtreeMain(
+	parentName string,
+	spec SupervisorSpec,
+) func(context.Context, func(error)) error {
 	// we use the start version that receives the notifyChildStart callback, this
 	// is essential, as we need this callback to signal the sub-tree children have
 	// started before signaling we have started
-	return func(parentCtx context.Context, notifyChildStart func()) error {
+	return func(parentCtx context.Context, notifyChildStart c.NotifyStartFn) error {
 		// in this function we use the private versions of start and wait
 		// given we don't want to signal the eventNotifier more than once
 		// on sub-trees
@@ -118,16 +122,18 @@ func subtreeMain(parentName string, spec SupervisorSpec) func(context.Context, f
 		ctx, cancelFn := context.WithCancel(parentCtx)
 		defer cancelFn()
 		sup, err := spec.start(ctx, parentName)
+		notifyChildStart(err)
 		if err != nil {
+			// This err will likely not cause any restarts given the err is already
+			// reported on the notifyChildStart call above.
 			return err
 		}
-		notifyChildStart()
 		return sup.wait()
 	}
 }
 
 // Subtree allows to register a Supervisor Spec as a sub-tree of a bigger
-// Supervisor Spec.
+// Supervisor Spec
 func (spec SupervisorSpec) Subtree(subtreeSpec SupervisorSpec, copts ...c.Opt) c.ChildSpec {
 	subtreeSpec.eventNotifier = spec.eventNotifier
 	return c.NewWithNotifyStart(subtreeSpec.Name(), subtreeMain(spec.name, subtreeSpec), copts...)
@@ -155,7 +161,7 @@ func (spec SupervisorSpec) start(parentCtx context.Context, parentName string) (
 	// ctrlCh := make(chan ControlMsg)
 
 	// startCh is used to track when the supervisor loop thread has started
-	startCh := make(chan struct{})
+	startCh := make(chan error)
 
 	// terminateCh is used when waiting for cancelFn to complete
 	terminateCh := make(chan struct{})
@@ -190,10 +196,17 @@ func (spec SupervisorSpec) start(parentCtx context.Context, parentName string) (
 
 	// stopChildrenFn is used on the shutdown of the supervisor tree, stops children in
 	// desired order
-	stopChildrenFn := func() {
+	stopChildrenFn := func(starting bool) {
 		children := spec.order.SortStop(spec.children)
 		for _, cs := range children {
-			c := sup.children[cs.Name()]
+			c, ok := sup.children[cs.Name()]
+			if !ok && starting {
+				// skip it as we have not started this child before
+				// a previous one failed
+				continue
+			} else if !ok {
+				panic(fmt.Sprintf("Invariant violetated: Child %s is not on started list", cs.Name()))
+			}
 			stopTime := time.Now()
 			err := c.Stop()
 			eventNotifier.ProcessStopped(c.RuntimeName(), stopTime, err)
@@ -206,7 +219,13 @@ func (spec SupervisorSpec) start(parentCtx context.Context, parentName string) (
 		// Start children
 		for _, cs := range spec.order.SortStart(spec.children) {
 			startTime := time.Now()
-			c := cs.Start(sup.runtimeName, sup.handleChildResult())
+			c, err := cs.Start(sup.runtimeName, sup.handleChildResult())
+			if err != nil {
+				eventNotifier.ProcessStopped(c.RuntimeName(), startTime, err)
+				startCh <- err
+				stopChildrenFn(true /* starting? */)
+				return
+			}
 			eventNotifier.ProcessStarted(c.RuntimeName(), startTime)
 			sup.children[cs.Name()] = c
 		}
@@ -221,7 +240,7 @@ func (spec SupervisorSpec) start(parentCtx context.Context, parentName string) (
 			select {
 			case <-ctx.Done():
 				// parent context is done
-				stopChildrenFn()
+				stopChildrenFn(false /* starting? */)
 				break supervisorLoop
 				// case ev := <-evCh:
 				// TODO: Deal with errors on children
@@ -233,7 +252,10 @@ func (spec SupervisorSpec) start(parentCtx context.Context, parentName string) (
 
 	// TODO: Figure out stop before start finish
 	// TODO: Figure out start with timeout
-	<-startCh
+	err := <-startCh
+	if err != nil {
+		return sup, err
+	}
 
 	return sup, nil
 }
@@ -268,6 +290,7 @@ func (spec SupervisorSpec) Start(parentCtx context.Context) (Supervisor, error) 
 	startTime := time.Now()
 	sup, err := spec.start(parentCtx, rootSupervisorName)
 	if err != nil {
+		spec.getEventNotifier().ProcessStopped(sup.runtimeName, startTime, err)
 		return Supervisor{}, err
 	}
 	spec.getEventNotifier().ProcessStarted(sup.runtimeName, startTime)

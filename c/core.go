@@ -47,25 +47,36 @@ func WithShutdown(s Shutdown) Opt {
 // Depending on the `Shutdown` values used in the `ChildSpec` , if the start
 // function does not respect the given context, the parent supervisor will
 // either block forever or leak goroutines after a timeout has been reached.
-func New(name string, start func(context.Context) error, opts ...Opt) ChildSpec {
-	return NewWithNotifyStart(name, func(ctx context.Context, notifyChildStart func()) error {
-		notifyChildStart()
-		return start(ctx)
-	}, opts...)
+func New(name string, childMain func(context.Context) error, opts ...Opt) ChildSpec {
+	return NewWithNotifyStart(
+		name,
+		func(ctx context.Context, notifyChildStart NotifyStartFn) error {
+			notifyChildStart(nil)
+			return childMain(ctx)
+		},
+		opts...,
+	)
 }
 
 // NewWithNotifyStart accomplishes the same goal as `New` with the addition of
 // passing a `notifyStart` callback function to the `start` parameter.
 //
-// ### The `notifyStart` function argument
+// ### The `NotifyStartFn` argument
 //
-// The `notifyStart` callback allows the spawned worker goroutine to signal when
-// it has officially started. Is essential to call this callback function in
-// your business logic as soon as you consider the worker initialized, otherwise
-// the parent supervisor will block and eventually fail with a timeout.
+// The `NotifyStartFn` is a callback that allows the spawned worker goroutine to
+// signal when it has officially started. Is essential to call this callback
+// function in your business logic as soon as you consider the worker is
+// initialized, otherwise the parent supervisor will block and eventually fail
+// with a timeout.
+//
+// #### Report an start error on `NotifyStartFn`
+//
+// If for some reason, a child is not able to start correctly, the child should
+// call the `NotifyStartFn` function with the start `error`.
+//
 func NewWithNotifyStart(
 	name string,
-	start func(context.Context, func()) error,
+	childMain func(context.Context, NotifyStartFn) error,
 	opts ...Opt,
 ) ChildSpec {
 	spec := ChildSpec{}
@@ -75,7 +86,7 @@ func NewWithNotifyStart(
 	}
 	spec.name = name
 
-	if start == nil {
+	if childMain == nil {
 		panic("Child cannot have empty start function")
 	}
 
@@ -83,7 +94,7 @@ func NewWithNotifyStart(
 	for _, optFn := range opts {
 		optFn(&spec)
 	}
-	spec.start = start
+	spec.start = childMain
 
 	// return spec
 	return spec
@@ -139,12 +150,12 @@ func waitTimeout(
 func (cs ChildSpec) Start(
 	parentName string,
 	notifyResult func(runtimeChildName, error),
-) Child {
+) (Child, error) {
 
 	runtimeName := strings.Join([]string{parentName, cs.name}, "/")
 	childCtx, cancelFn := context.WithCancel(context.Background())
 
-	startCh := make(chan struct{})
+	startCh := make(chan error)
 	terminateCh := make(chan struct{})
 
 	// Child Goroutine is bootstraped
@@ -161,22 +172,28 @@ func (cs ChildSpec) Start(
 		// reported
 		notifyResult(
 			runtimeName,
-			cs.start(childCtx, func() {
+			cs.start(childCtx, func(err error) {
 				// we tell the spawner this child thread has started running
+				if err != nil {
+					startCh <- err
+				}
 				close(startCh)
 			}),
 		)
 	}()
 
 	// Wait until child thread notifies it has started
-	<-startCh
+	err := <-startCh
+	if err != nil {
+		return Child{runtimeName: runtimeName, spec: cs}, err
+	}
 
 	return Child{
 		runtimeName: runtimeName,
 		spec:        cs,
 		cancel:      cancelFn,
 		wait:        waitTimeout(terminateCh),
-	}
+	}, nil
 }
 
 // RuntimeName returns a name that contains a prefix with the name of this child
