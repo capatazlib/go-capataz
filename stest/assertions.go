@@ -166,14 +166,16 @@ func ObserveSupervisor(
 	// We always want to start the supervisor for test purposes, so this is
 	// embedded in the ObserveSupervisor call
 	sup, err := spec.Start(ctx)
-	if err != nil {
-		return evManager.Snapshot(), err
-	}
 
 	evIt := evManager.Iterator()
 
 	// Make sure all the tree started before doing assertions
-	evIt.SkipTill(ProcessStarted(rootName))
+	evIt.SkipTill(ProcessName(rootName))
+
+	if err != nil {
+		callback(evManager)
+		return evManager.Snapshot(), err
+	}
 
 	// callback to do assertions with the event manager
 	callback(evManager)
@@ -184,7 +186,7 @@ func ObserveSupervisor(
 		return []s.Event{}, err
 	}
 	// we wait till all the events have been reported
-	evIt.SkipTill(ProcessStopped(rootName))
+	evIt.SkipTill(ProcessName(rootName))
 
 	// return all the events reported by the supervision system
 	return evManager.Snapshot(), nil
