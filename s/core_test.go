@@ -228,7 +228,7 @@ func TestStartFailedChild(t *testing.T) {
 			s.WithSubtree(b0),
 			s.WithSubtree(b1),
 		},
-		func(EventManager) {},
+		func(em EventManager) {},
 	)
 
 	assert.Error(t, err)

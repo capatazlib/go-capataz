@@ -123,11 +123,6 @@ func subtreeMain(
 		defer cancelFn()
 		sup, err := spec.start(ctx, parentName)
 		notifyChildStart(err)
-		if err != nil {
-			// This err will likely not cause any restarts given the err is already
-			// reported on the notifyChildStart call above.
-			return err
-		}
 		return sup.wait()
 	}
 }
@@ -222,8 +217,9 @@ func (spec SupervisorSpec) start(parentCtx context.Context, parentName string) (
 			c, err := cs.Start(sup.runtimeName, sup.handleChildResult())
 			if err != nil {
 				eventNotifier.ProcessStopped(c.RuntimeName(), startTime, err)
-				startCh <- err
 				stopChildrenFn(true /* starting? */)
+				// Is important we stop the children before we finish the supervisor
+				startCh <- err
 				return
 			}
 			eventNotifier.ProcessStarted(c.RuntimeName(), startTime)
@@ -291,7 +287,7 @@ func (spec SupervisorSpec) Start(parentCtx context.Context) (Supervisor, error) 
 	sup, err := spec.start(parentCtx, rootSupervisorName)
 	if err != nil {
 		spec.getEventNotifier().ProcessStopped(sup.runtimeName, startTime, err)
-		return Supervisor{}, err
+		return sup, err
 	}
 	spec.getEventNotifier().ProcessStarted(sup.runtimeName, startTime)
 	return sup, nil
