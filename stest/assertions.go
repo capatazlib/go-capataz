@@ -10,7 +10,7 @@ import (
 	"github.com/capatazlib/go-capataz/s"
 )
 
-// verifyExactMatch is an utility function that checks the input slide of EventP
+// verifyExactMatch is an utility function that checks the input slice of EventP
 // predicate match 1 to 1 with an input list of supervision system events.
 func verifyExactMatch(preds []EventP, given []s.Event) error {
 	if len(preds) != len(given) {
@@ -33,8 +33,8 @@ func verifyExactMatch(preds []EventP, given []s.Event) error {
 	return nil
 }
 
-// AssertExactMatch is an assertion that checks the input slide of EventP
-// predicate match 1 to 1 with an input list of supervision system events.
+// AssertExactMatch is an assertion that checks the input slice of EventP
+// predicate match 1 to 1 with a given list of supervision system events.
 func AssertExactMatch(t *testing.T, evs []s.Event, preds []EventP) {
 	t.Helper()
 	err := verifyExactMatch(preds, evs)
@@ -43,12 +43,21 @@ func AssertExactMatch(t *testing.T, evs []s.Event, preds []EventP) {
 	}
 }
 
-// verifyPartialMatch is an utility function that matches in order a list of
-// EventP predicates to a list of supervision system events. The input events
-// need to match in order, but the events do not need to be a 1 to 1 match (e.g.
-// the input events slice length may be bigger than the predicates slice
-// length). This function is useful when we want to test that _some_ events are
-// present in the expected order in a noisy system.
+// verifyPartialMatch is a utility function that matches (in order) a list of
+// EventP predicates to a list of supervision system events.
+//
+// The supervision system events need to match in order all the list of given
+// predicates, however, there has not to be a one to one match between the input
+// events and the predicates; we may have more input events and it is ok to
+// skip some events in between matches.
+//
+// This function is useful when we want to test that some events are present in
+// the expected order. This is useful in test-cases where a supervision system
+// emits an overwhelming number of events.
+//
+// This function returns all predicates that didn't match (in order) the given
+// input events. If the returned slice is empty, it means there was a succesful
+// match.
 func verifyPartialMatch(preds []EventP, given []s.Event) []EventP {
 	for len(preds) > 0 {
 		// if we went through all the given events, we did not partially match
@@ -73,11 +82,15 @@ func verifyPartialMatch(preds []EventP, given []s.Event) []EventP {
 }
 
 // AssertPartialMatch is an assertion that matches in order a list of EventP
-// predicates to a list of supervision system events. The input events need to
-// match in order, but the events do not need to be a 1 to 1 match (e.g. the
-// input events slice length may be bigger than the predicates slice length).
-// This function is useful when we want to test that _some_ events are present
-// in the expected order in a noisy system.
+// predicates to a list of supervision system events.
+//
+// The input events need to match in the predicate corder, but the events do not
+// need to be a one to one match (e.g. the input events slice length may be bigger
+// than the predicates slice length).
+//
+// This function is useful when we want to test that some events are present in
+// the expected order. This is useful in test-cases where a supervision system
+// emits an overwhelming number of events.
 func AssertPartialMatch(t *testing.T, evs []s.Event, preds []EventP) {
 	t.Helper()
 	pendingPreds := verifyPartialMatch(preds, evs)
@@ -93,20 +106,12 @@ func AssertPartialMatch(t *testing.T, evs []s.Event, preds []EventP) {
 			evStrs = append(evStrs, ev.String())
 		}
 
-		if len(pendingPreds) == 1 {
-			t.Errorf(
-				"Last match didn't work:\n%s\nInput events:\n%s",
-				strings.Join(pendingPredStrs, "\n"),
-				strings.Join(evStrs, "\n"),
-			)
-		} else {
-			t.Errorf(
-				"Last %d matches didn't work:\n%s\nInput events:\n%s",
-				len(pendingPreds),
-				strings.Join(pendingPredStrs, "\n"),
-				strings.Join(evStrs, "\n"),
-			)
-		}
+		t.Errorf(
+			"Last match(es) didn't work - pending count: %d:\n%s\nInput events:\n%s",
+			len(pendingPreds),
+			strings.Join(pendingPredStrs, "\n"),
+			strings.Join(evStrs, "\n"),
+		)
 	}
 }
 

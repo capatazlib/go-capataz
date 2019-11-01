@@ -76,32 +76,28 @@ func (em EventManager) EventCollector(ctx context.Context) func(ev s.Event) {
 	}
 }
 
-// foldl will iterate over a list of events emitted by a supervision system and
-// block when waiting for new events to happen
+// foldl will do a functional fold left (reduce) over a list of events emitted
+// by a supervision system and block when waiting for new events to happen.
+//
 func (ei *EventIterator) foldl(
 	zero interface{},
 	stepFn func(interface{}, s.Event) (bool, interface{}),
 ) interface{} {
-	em := ei.evManager
 	shouldContinue := true
 	acc := zero
 
 	for {
-		for {
-			em.evBufferCond.L.Lock()
-			if ei.evIx >= len(*em.evBuffer) && !em.evDone {
-				em.evBufferCond.Wait()
-				em.evBufferCond.L.Unlock()
-			} else {
-				break
-			}
+		ev, ok := ei.evManager.GetEventIx(ei.evIx)
+		if !ok {
+			// we will never reach that index, stop here
+			break
 		}
-		shouldContinue, acc = stepFn(acc, (*em.evBuffer)[ei.evIx])
-		em.evBufferCond.L.Unlock()
+		shouldContinue, acc = stepFn(acc, ev)
 
 		ei.evIx++
 
 		if !shouldContinue {
+			// the reduce step function told us to stop, let's stop
 			break
 		}
 	}
@@ -141,6 +137,37 @@ func (ei *EventIterator) TakeTill(pred EventP) []s.Event {
 func (em EventManager) Iterator() EventIterator {
 	it := EventIterator{evIx: 0, evManager: &em}
 	return it
+}
+
+// GetEventIx returns the nth event that got emitted by a supervision system, if
+// the given index is greater than the event buffer length, this function will
+// wait until that index is reached. If the index is never reached, the second
+// return value will be false.
+func (em EventManager) GetEventIx(evIx int) (s.Event, bool) {
+	defer em.evBufferCond.L.Unlock()
+
+	for {
+		// All the events that the parent EventManager collects come from a
+		// channel, and, in order to iterate over them many times (on different
+		// iterator instances), the parent EventManager must collect the events on
+		// a buffer. We iterate over this buffer with this iterator index, and at
+		// the moment the iterator index is greater than the buffer size, this
+		// means we need to wait for this buffer to get new events in it. We break
+		// out of this inner loop when new entries are in the buffer
+		em.evBufferCond.L.Lock()
+		if evIx >= len(*em.evBuffer) && !em.evDone {
+			em.evBufferCond.Wait()
+			em.evBufferCond.L.Unlock()
+		} else {
+			break
+		}
+	}
+	// if the events are done, it means we did not reach the input evIx so we
+	// should return an ok false
+	if em.evDone {
+		return s.Event{}, false
+	}
+	return (*em.evBuffer)[evIx], true
 }
 
 // NewEventManager returns an EventManager instance that can be used to wait for

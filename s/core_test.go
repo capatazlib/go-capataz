@@ -112,7 +112,7 @@ func TestStartSingleChild(t *testing.T) {
 		func(EventManager) {},
 	)
 
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	AssertExactMatch(t, events,
 		[]EventP{
 			ProcessStarted("root/one"),
@@ -138,7 +138,7 @@ func TestStartMutlipleChildren(t *testing.T) {
 		func(EventManager) {},
 	)
 
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	t.Run("starts and stops routines in the correct order", func(t *testing.T) {
 		AssertExactMatch(t, events,
 			[]EventP{
@@ -181,7 +181,7 @@ func TestStartNestedSupervisors(t *testing.T) {
 		func(EventManager) {},
 	)
 
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	t.Run("starts and stops routines in the correct order", func(t *testing.T) {
 		AssertExactMatch(t, events,
 			[]EventP{
