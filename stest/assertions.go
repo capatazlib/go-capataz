@@ -11,7 +11,7 @@ import (
 )
 
 // verifyExactMatch is an utility function that checks the input slice of EventP
-// predicate match 1 to 1 with an input list of supervision system events.
+// predicate match 1 to 1 with a given list of supervision system events.
 func verifyExactMatch(preds []EventP, given []s.Event) error {
 	if len(preds) != len(given) {
 		return fmt.Errorf(
