@@ -147,13 +147,14 @@ func (em EventManager) GetEventIx(evIx int) (s.Event, bool) {
 	defer em.evBufferCond.L.Unlock()
 
 	for {
-		// All the events that the parent EventManager collects come from a
-		// channel, and, in order to iterate over them many times (on different
-		// iterator instances), the parent EventManager must collect the events on
-		// a buffer. We iterate over this buffer with this iterator index, and at
-		// the moment the iterator index is greater than the buffer size, this
-		// means we need to wait for this buffer to get new events in it. We break
-		// out of this inner loop when new entries are in the buffer
+		// All the events that the parent EventManager collects come from a channel
+		// that is read on a dedicated goroutine, and, in order to iterate over them
+		// many times (on different iterator instances), the parent EventManager
+		// must collect the events on a buffer. We iterate over this buffer with
+		// this iterator index, and at the moment the iterator index is greater than
+		// the buffer size, this means we need to wait for this buffer to get new
+		// events in it. We break out of this inner loop when new entries are in the
+		// buffer
 		em.evBufferCond.L.Lock()
 		if evIx >= len(*em.evBuffer) && !em.evDone {
 			em.evBufferCond.Wait()
