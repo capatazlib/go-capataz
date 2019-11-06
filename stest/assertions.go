@@ -47,13 +47,13 @@ func AssertExactMatch(t *testing.T, evs []s.Event, preds []EventP) {
 // EventP predicates to a list of supervision system events.
 //
 // The supervision system events need to match in order all the list of given
-// predicates, however, there has not to be a one to one match between the input
-// events and the predicates; we may have more input events and it is ok to
-// skip some events in between matches.
+// predicates, however, there does not need to be a one to one match between the
+// input events and the predicates; we may have more input events and it is ok
+// to skip some events in between matches.
 //
 // This function is useful when we want to test that some events are present in
-// the expected order. This is useful in test-cases where a supervision system
-// emits an overwhelming number of events.
+// the expected order. This helps in test-cases where a supervision system emits
+// an overwhelming number of events.
 //
 // This function returns all predicates that didn't match (in order) the given
 // input events. If the returned slice is empty, it means there was a succesful
@@ -84,9 +84,9 @@ func verifyPartialMatch(preds []EventP, given []s.Event) []EventP {
 // AssertPartialMatch is an assertion that matches in order a list of EventP
 // predicates to a list of supervision system events.
 //
-// The input events need to match in the predicate corder, but the events do not
-// need to be a one to one match (e.g. the input events slice length may be bigger
-// than the predicates slice length).
+// The input events need to match in the predicate order, but the events do not
+// need to be a one to one match (e.g. the input events slice length may be
+// bigger than the predicates slice length).
 //
 // This function is useful when we want to test that some events are present in
 // the expected order. This is useful in test-cases where a supervision system
@@ -166,7 +166,10 @@ func ObserveSupervisor(
 	callback(evManager)
 
 	// once tests are done, we stop the supervisor
-	sup.Stop()
+	err = sup.Stop()
+	if err != nil {
+		return []s.Event{}, err
+	}
 	// we wait till all the events have been reported
 	evIt.SkipTill(ProcessStopped(rootName))
 

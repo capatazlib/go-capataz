@@ -1,9 +1,6 @@
 package stest
 
 import (
-	// "context"
-	// "sync"
-
 	"context"
 	"sync"
 
@@ -83,7 +80,7 @@ func (ei *EventIterator) foldl(
 	zero interface{},
 	stepFn func(interface{}, s.Event) (bool, interface{}),
 ) interface{} {
-	shouldContinue := true
+	var shouldContinue bool
 	acc := zero
 
 	for {
