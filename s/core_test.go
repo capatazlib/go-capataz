@@ -5,8 +5,11 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/capatazlib/go-capataz/c"
 	"github.com/capatazlib/go-capataz/s"
+	. "github.com/capatazlib/go-capataz/stest"
 )
 
 // ExampleNew showcases an example on how to define a supervision tree system.
@@ -99,19 +102,18 @@ func ExampleNew() {
 	}
 }
 
-// Test a supervision tree with a single child starts and stops
 func TestStartSingleChild(t *testing.T) {
-	cs := waitDoneChild("one")
-
-	events := observeSupervisor(
+	events, err := ObserveSupervisor(
+		context.TODO(),
 		"root",
 		[]s.Opt{
-			s.WithChildren(cs),
+			s.WithChildren(WaitDoneChild("one")),
 		},
-		noWait,
+		func(EventManager) {},
 	)
 
-	assertExactMatch(t, events,
+	assert.NoError(t, err)
+	AssertExactMatch(t, events,
 		[]EventP{
 			ProcessStarted("root/one"),
 			ProcessStarted("root"),
@@ -123,20 +125,22 @@ func TestStartSingleChild(t *testing.T) {
 // Test a supervision tree with three children start and stop in the default
 // order (LeftToRight)
 func TestStartMutlipleChildren(t *testing.T) {
-	c0 := waitDoneChild("child0")
-	c1 := waitDoneChild("child1")
-	c2 := waitDoneChild("child2")
-
-	events := observeSupervisor(
+	events, err := ObserveSupervisor(
+		context.TODO(),
 		"root",
 		[]s.Opt{
-			s.WithChildren(c0, c1, c2),
+			s.WithChildren(
+				WaitDoneChild("child0"),
+				WaitDoneChild("child1"),
+				WaitDoneChild("child2"),
+			),
 		},
-		noWait,
+		func(EventManager) {},
 	)
 
+	assert.NoError(t, err)
 	t.Run("starts and stops routines in the correct order", func(t *testing.T) {
-		assertExactMatch(t, events,
+		AssertExactMatch(t, events,
 			[]EventP{
 				ProcessStarted("root/child0"),
 				ProcessStarted("root/child1"),
@@ -158,26 +162,28 @@ func TestStartNestedSupervisors(t *testing.T) {
 	b1n := "branch1"
 
 	cs := []c.ChildSpec{
-		waitDoneChild("child0"),
-		waitDoneChild("child1"),
-		waitDoneChild("child2"),
-		waitDoneChild("child3"),
+		WaitDoneChild("child0"),
+		WaitDoneChild("child1"),
+		WaitDoneChild("child2"),
+		WaitDoneChild("child3"),
 	}
 
 	b0 := s.New(b0n, s.WithChildren(cs[0], cs[1]))
 	b1 := s.New(b1n, s.WithChildren(cs[2], cs[3]))
 
-	events := observeSupervisor(
+	events, err := ObserveSupervisor(
+		context.TODO(),
 		parentName,
 		[]s.Opt{
 			s.WithSubtree(b0),
 			s.WithSubtree(b1),
 		},
-		noWait,
+		func(EventManager) {},
 	)
 
+	assert.NoError(t, err)
 	t.Run("starts and stops routines in the correct order", func(t *testing.T) {
-		assertExactMatch(t, events,
+		AssertExactMatch(t, events,
 			[]EventP{
 				// start children from left to right
 				ProcessStarted("root/branch0/child0"),
