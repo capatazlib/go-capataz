@@ -1,5 +1,19 @@
 let
-  pkgs = import <nixpkgs> {};
+  # Look here for information about how to generate `nixpkgs-version.json`.
+  #  → https://nixos.wiki/wiki/FAQ/Pinning_Nixpkgs
+  pinnedVersion = builtins.fromJSON (builtins.readFile ./.nixpkgs-version.json);
+  pinnedPkgs = import (builtins.fetchGit {
+    inherit (pinnedVersion) url rev;
+
+    ref = "nixos-unstable";
+  }) {};
+
+in
+
+# This allows overriding pkgs by passing `--arg pkgs ...`
+{ pkgs ? pinnedPkgs }:
+
+let
 
   humanlog = with pkgs; buildGoPackage rec {
     name = "humanlog";
@@ -21,7 +35,6 @@ let
   };
 
 in
-
   pkgs.mkShell {
     buildInputs = with pkgs; [
       # bash scripts utilities
@@ -39,14 +52,4 @@ in
       gotools godef gocode golint golangci-lint gogetdoc gopkgs gotests impl
       errcheck reftools humanlog delve
     ];
-
-    # CFLAGS="-I${pkgs.glibc.dev}/include -I${pkgs.libvirt}/include";
-    # LDFLAGS="-L${pkgs.glibc}/lib -L${pkgs.libvirt}/lib";
-
-    shellHook = ''
-      figlet "go-Capataz"
-      source .env.sh
-      echo "GOPATH: ''${GOPATH}"
-      go version
-    '';
   }
