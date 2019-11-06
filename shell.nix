@@ -4,7 +4,6 @@ let
   pinnedVersion = builtins.fromJSON (builtins.readFile ./.nixpkgs-version.json);
   pinnedPkgs = import (builtins.fetchGit {
     inherit (pinnedVersion) url rev;
-
     ref = "nixos-unstable";
   }) {};
 
@@ -42,7 +41,7 @@ in
       figlet
 
       # current go version
-      # go_1_12
+      go_1_13
 
       # miscellaneous gathering of data
       jq     # json
