@@ -128,7 +128,7 @@ func subtreeMain(
 }
 
 // Subtree allows to register a Supervisor Spec as a sub-tree of a bigger
-// Supervisor Spec
+// Supervisor Spec.
 func (spec SupervisorSpec) Subtree(subtreeSpec SupervisorSpec, copts ...c.Opt) c.ChildSpec {
 	subtreeSpec.eventNotifier = spec.eventNotifier
 	return c.NewWithNotifyStart(subtreeSpec.Name(), subtreeMain(spec.name, subtreeSpec), copts...)
@@ -189,17 +189,24 @@ func (spec SupervisorSpec) start(parentCtx context.Context, parentName string) (
 		},
 	}
 
-	// stopChildrenFn is used on the shutdown of the supervisor tree, stops children in
-	// desired order
+	// stopChildrenFn is used on the shutdown of the supervisor tree, it stops
+	// children in the desired order. The starting argument indicates if the
+	// supervision tree is starting, if that is the case, it is more permisive
+	// around runtime children not matching one to one with it's corresponding
+	// spec, this may happen because we had a start error in the middle of
+	// supervision tree initialization, and we never got to initialize all
+	// children at this supervision level.
 	stopChildrenFn := func(starting bool) {
 		children := spec.order.SortStop(spec.children)
 		for _, cs := range children {
 			c, ok := sup.children[cs.Name()]
 			if !ok && starting {
-				// skip it as we have not started this child before
-				// a previous one failed
+				// skip it as we may have not started this child before a previous one
+				// failed
 				continue
 			} else if !ok {
+				// There is no excuse for a runtime child to not have a corresponding
+				// spec, this is a serious implementation error.
 				panic(fmt.Sprintf("Invariant violetated: Child %s is not on started list", cs.Name()))
 			}
 			stopTime := time.Now()

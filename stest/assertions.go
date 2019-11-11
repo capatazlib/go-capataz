@@ -136,6 +136,11 @@ func FailStartChild(name string) c.ChildSpec {
 		func(ctx context.Context, notifyStart c.NotifyStartFn) error {
 			err := fmt.Errorf("FailStartChild %s", name)
 			notifyStart(err)
+			// NOTE: Even though we return the err value here, this err will never be
+			// caught by our supervisor restart logic. If we invoke notifyStart with a
+			// non-nil err, the supervisor will never get to the supervision loop, but
+			// instead is going to terminate all started children and abort the
+			// bootstrap of the supervision tree.
 			return err
 		})
 	return cspec
@@ -169,7 +174,11 @@ func ObserveSupervisor(
 
 	evIt := evManager.Iterator()
 
-	// Make sure all the tree started before doing assertions
+	// NOTE: We execute SkipTill to make sure all the supervision tree got started
+	// (or failed) before doing assertions/returning an error. Also, note we use
+	// ProcessName instead of ProcessStarted/ProcessFailed given that ProcessName
+	// matches an event in both success and error cases. The event from root must
+	// be the last event reported
 	evIt.SkipTill(ProcessName(rootName))
 
 	if err != nil {
@@ -183,9 +192,13 @@ func ObserveSupervisor(
 	// once tests are done, we stop the supervisor
 	err = sup.Stop()
 	if err != nil {
+		// TODO: We should return the events that got accumulated so far instead
+		// here (Snapshot), this work is going to be done in PR for issue #16
 		return []s.Event{}, err
 	}
-	// we wait till all the events have been reported
+
+	// We wait till all the events have been reported (event from root must be the
+	// last event)
 	evIt.SkipTill(ProcessName(rootName))
 
 	// return all the events reported by the supervision system
