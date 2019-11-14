@@ -216,10 +216,11 @@ func TestStartFailedChild(t *testing.T) {
 		WaitDoneChild("child1"),
 		WaitDoneChild("child2"),
 		FailStartChild("child3"),
+		WaitDoneChild("child4"),
 	}
 
 	b0 := s.New(b0n, s.WithChildren(cs[0], cs[1]))
-	b1 := s.New(b1n, s.WithChildren(cs[2], cs[3]))
+	b1 := s.New(b1n, s.WithChildren(cs[2], cs[3], cs[4]))
 
 	events, err := ObserveSupervisor(
 		context.TODO(),
@@ -240,9 +241,18 @@ func TestStartFailedChild(t *testing.T) {
 			ProcessStarted("root/branch0/child1"),
 			ProcessStarted("root/branch0"),
 			ProcessStarted("root/branch1/child2"),
-			// we get the failing start
+			//
+			// child3 fails at this point
+			//
 			ProcessFailed("root/branch1/child3"),
-			// immediately stop started children in the reverse order
+			//
+			// A few things will happen:
+			//
+			// * child4 initialization is skipped because of an error on previous
+			// sibling
+			//
+			// * previous children get stopped in reversed order
+			//
 			ProcessStopped("root/branch1/child2"),
 			ProcessFailed("root/branch1"),
 			ProcessStopped("root/branch0/child1"),
