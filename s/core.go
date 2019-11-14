@@ -223,7 +223,8 @@ func (spec SupervisorSpec) start(parentCtx context.Context, parentName string) (
 			startTime := time.Now()
 			c, err := cs.Start(sup.runtimeName, sup.handleChildResult())
 			if err != nil {
-				eventNotifier.ProcessStopped(c.RuntimeName(), startTime, err)
+				cRuntimeName := strings.Join([]string{sup.runtimeName, cs.Name()}, "/")
+				eventNotifier.ProcessStopped(cRuntimeName, startTime, err)
 				stopChildrenFn(true /* starting? */)
 				// Is important we stop the children before we finish the supervisor
 				startCh <- err

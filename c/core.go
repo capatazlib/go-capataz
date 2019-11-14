@@ -185,7 +185,7 @@ func (cs ChildSpec) Start(
 	// Wait until child thread notifies it has started or failed with an error
 	err := <-startCh
 	if err != nil {
-		return Child{runtimeName: runtimeName, spec: cs}, err
+		return Child{}, err
 	}
 
 	return Child{
