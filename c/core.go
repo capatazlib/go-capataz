@@ -25,7 +25,7 @@ func WithShutdown(s Shutdown) Opt {
 ////////////////////////////////////////////////////////////////////////////////
 
 // New creates a `ChildSpec` that represents a worker goroutine. It requires two
-// arguments: a `name` that is used for runtime tracing and a `start` function.
+// arguments: a `name` that is used for runtime tracing and a `startFn` function.
 //
 // ### The `name` argument
 //
@@ -34,25 +34,25 @@ func WithShutdown(s Shutdown) Opt {
 // opposed to return an error given it is considered a bad implementation
 // (ideally a compilation error).
 //
-// ### The `start` argument
+// ### The `startFn` argument
 //
-// The `start` function attribute of a `ChildSpec` is going to be used to spawn
-// a new supervised goroutine; in this function is where your business logic
-// should be located.
+// The `startFn` function attribute of a `ChildSpec` is going to be used to
+// spawn a new supervised goroutine; in this function is where your business
+// logic should be located.
 //
-// The `start` function will receive a `context.Context` record that _must_ be
+// The `startFn` function will receive a `context.Context` record that _must_ be
 // used inside your business logic to accept stop signals from it's parent
 // supervisor.
 //
-// Depending on the `Shutdown` values used in the `ChildSpec` , if the start
+// Depending on the `Shutdown` values used in the `ChildSpec` , if the `startFn`
 // function does not respect the given context, the parent supervisor will
 // either block forever or leak goroutines after a timeout has been reached.
-func New(name string, childMain func(context.Context) error, opts ...Opt) ChildSpec {
+func New(name string, startFn func(context.Context) error, opts ...Opt) ChildSpec {
 	return NewWithNotifyStart(
 		name,
 		func(ctx context.Context, notifyChildStart NotifyStartFn) error {
 			notifyChildStart(nil)
-			return childMain(ctx)
+			return startFn(ctx)
 		},
 		opts...,
 	)
@@ -76,7 +76,7 @@ func New(name string, childMain func(context.Context) error, opts ...Opt) ChildS
 //
 func NewWithNotifyStart(
 	name string,
-	childMain func(context.Context, NotifyStartFn) error,
+	startFn func(context.Context, NotifyStartFn) error,
 	opts ...Opt,
 ) ChildSpec {
 	spec := ChildSpec{}
@@ -86,7 +86,7 @@ func NewWithNotifyStart(
 	}
 	spec.name = name
 
-	if childMain == nil {
+	if startFn == nil {
 		panic("Child cannot have empty start function")
 	}
 
@@ -94,7 +94,7 @@ func NewWithNotifyStart(
 	for _, optFn := range opts {
 		optFn(&spec)
 	}
-	spec.start = childMain
+	spec.start = startFn
 
 	// return spec
 	return spec
