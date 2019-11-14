@@ -110,7 +110,7 @@ func (spec SupervisorSpec) getEventNotifier() EventNotifier {
 func subtreeMain(
 	parentName string,
 	spec SupervisorSpec,
-) func(context.Context, func(error)) error {
+) func(context.Context, c.NotifyStartFn) error {
 	// we use the start version that receives the notifyChildStart callback, this
 	// is essential, as we need this callback to signal the sub-tree children have
 	// started before signaling we have started
@@ -195,10 +195,10 @@ func (spec SupervisorSpec) start(parentCtx context.Context, parentName string) (
 	// stopChildrenFn is used on the shutdown of the supervisor tree, it stops
 	// children in the desired order. The starting argument indicates if the
 	// supervision tree is starting, if that is the case, it is more permisive
-	// around runtime children not matching one to one with it's corresponding
-	// spec, this may happen because we had a start error in the middle of
-	// supervision tree initialization, and we never got to initialize all
-	// children at this supervision level.
+	// around spec children not matching one to one with it's corresponding
+	// runtime children, this may happen because we had a start error in the
+	// middle of supervision tree initialization, and we never got to initialize
+	// all children at this supervision level.
 	stopChildrenFn := func(starting bool) {
 		children := spec.order.SortStop(spec.children)
 		for _, cs := range children {

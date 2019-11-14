@@ -69,7 +69,7 @@ func New(name string, childMain func(context.Context) error, opts ...Opt) ChildS
 // initialized, otherwise the parent supervisor will block and eventually fail
 // with a timeout.
 //
-// #### Report an start error on `NotifyStartFn`
+// #### Report a start error on `NotifyStartFn`
 //
 // If for some reason, a child is not able to start correctly, the child should
 // call the `NotifyStartFn` function with the start `error`.
