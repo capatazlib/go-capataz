@@ -88,6 +88,7 @@ func ExampleNew() {
 	sup, err := rootSpec.Start(context.Background())
 	if err != nil {
 		fmt.Printf("Error starting system: %v\n", err)
+		return
 	}
 
 	// Wait for supervision tree to exit, this will only happen when errors cannot

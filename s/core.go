@@ -123,6 +123,9 @@ func subtreeMain(
 		defer cancelFn()
 		sup, err := spec.start(ctx, parentName)
 		notifyChildStart(err)
+		if err != nil {
+			return err
+		}
 		return sup.wait()
 	}
 }
@@ -258,7 +261,8 @@ func (spec SupervisorSpec) start(parentCtx context.Context, parentName string) (
 	// TODO: Figure out start with timeout
 	err := <-startCh
 	if err != nil {
-		return sup, err
+		_ /* err */ = sup.wait()
+		return Supervisor{}, err
 	}
 
 	return sup, nil
@@ -294,8 +298,9 @@ func (spec SupervisorSpec) Start(parentCtx context.Context) (Supervisor, error) 
 	startTime := time.Now()
 	sup, err := spec.start(parentCtx, rootSupervisorName)
 	if err != nil {
-		spec.getEventNotifier().ProcessStopped(sup.runtimeName, startTime, err)
-		return sup, err
+		// NOTE we are using the spec.Name() as we know this is the top-level supervisor
+		spec.getEventNotifier().ProcessStopped(spec.Name(), startTime, err)
+		return Supervisor{}, err
 	}
 	spec.getEventNotifier().ProcessStarted(sup.runtimeName, startTime)
 	return sup, nil
