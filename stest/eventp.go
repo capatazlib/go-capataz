@@ -79,12 +79,6 @@ func (p AndP) String() string {
 	return strings.Join(acc, " && ")
 }
 
-// ProcessName is a predicate to assert an event was triggered by the given
-// runtime process name
-func ProcessName(name string) EventP {
-	return ProcessNameP{name: name}
-}
-
 // ProcessStarted is a predicate to assert an event represents a process that
 // got started
 func ProcessStarted(name string) EventP {

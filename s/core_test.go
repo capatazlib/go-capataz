@@ -88,7 +88,6 @@ func ExampleNew() {
 	sup, err := rootSpec.Start(context.Background())
 	if err != nil {
 		fmt.Printf("Error starting system: %v\n", err)
-		return
 	}
 
 	// Wait for supervision tree to exit, this will only happen when errors cannot
@@ -205,64 +204,4 @@ func TestStartNestedSupervisors(t *testing.T) {
 			},
 		)
 	})
-}
-
-func TestStartFailedChild(t *testing.T) {
-	parentName := "root"
-	b0n := "branch0"
-	b1n := "branch1"
-
-	cs := []c.ChildSpec{
-		WaitDoneChild("child0"),
-		WaitDoneChild("child1"),
-		WaitDoneChild("child2"),
-		// NOTE: FailStartChild here
-		FailStartChild("child3"),
-		WaitDoneChild("child4"),
-	}
-
-	b0 := s.New(b0n, s.WithChildren(cs[0], cs[1]))
-	b1 := s.New(b1n, s.WithChildren(cs[2], cs[3], cs[4]))
-
-	events, err := ObserveSupervisor(
-		context.TODO(),
-		parentName,
-		[]s.Opt{
-			s.WithSubtree(b0),
-			s.WithSubtree(b1),
-		},
-		func(em EventManager) {},
-	)
-
-	assert.Error(t, err)
-
-	AssertExactMatch(t, events,
-		[]EventP{
-			// start children from left to right
-			ProcessStarted("root/branch0/child0"),
-			ProcessStarted("root/branch0/child1"),
-			ProcessStarted("root/branch0"),
-			ProcessStarted("root/branch1/child2"),
-			//
-			// Note child3 fails at this point
-			//
-			ProcessFailed("root/branch1/child3"),
-			//
-			// After a failure a few things will happen:
-			//
-			// * The `child4` worker initialization is skipped because of an error on
-			// previous sibling
-			//
-			// * Previous sibling children get stopped in reversed order
-			//
-			// * The start function returns an error
-			//
-			ProcessStopped("root/branch1/child2"),
-			ProcessFailed("root/branch1"),
-			ProcessStopped("root/branch0/child1"),
-			ProcessStopped("root/branch0/child0"),
-			ProcessStopped("root/branch0"),
-			ProcessFailed("root"),
-		},
-	)
 }
