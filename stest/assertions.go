@@ -128,6 +128,24 @@ func WaitDoneChild(name string) c.ChildSpec {
 	return cspec
 }
 
+// FailStartChild creates a `ChildSpec` that runs a goroutine that fails on
+// start
+func FailStartChild(name string) c.ChildSpec {
+	cspec := c.NewWithNotifyStart(
+		name,
+		func(ctx context.Context, notifyStart c.NotifyStartFn) error {
+			err := fmt.Errorf("FailStartChild %s", name)
+			notifyStart(err)
+			// NOTE: Even though we return the err value here, this err will never be
+			// caught by our supervisor restart logic. If we invoke notifyStart with a
+			// non-nil err, the supervisor will never get to the supervision loop, but
+			// instead is going to terminate all started children and abort the
+			// bootstrap of the supervision tree.
+			return err
+		})
+	return cspec
+}
+
 // ObserveSupervisor is an utility function that receives all the arguments
 // required to build a SupervisorSpec, and a callback that when executed will
 // block until some point in the future (after we performed the side-effects we
@@ -153,14 +171,20 @@ func ObserveSupervisor(
 	// We always want to start the supervisor for test purposes, so this is
 	// embedded in the ObserveSupervisor call
 	sup, err := spec.Start(ctx)
-	if err != nil {
-		return []s.Event{}, err
-	}
 
 	evIt := evManager.Iterator()
 
-	// Make sure all the tree started before doing assertions
-	evIt.SkipTill(ProcessStarted(rootName))
+	// NOTE: We execute SkipTill to make sure all the supervision tree got started
+	// (or failed) before doing assertions/returning an error. Also, note we use
+	// ProcessName instead of ProcessStarted/ProcessFailed given that ProcessName
+	// matches an event in both success and error cases. The event from root must
+	// be the last event reported
+	evIt.SkipTill(ProcessName(rootName))
+
+	if err != nil {
+		callback(evManager)
+		return evManager.Snapshot(), err
+	}
 
 	// callback to do assertions with the event manager
 	callback(evManager)
@@ -168,10 +192,14 @@ func ObserveSupervisor(
 	// once tests are done, we stop the supervisor
 	err = sup.Stop()
 	if err != nil {
+		// TODO: We should return the events that got accumulated so far instead
+		// here (Snapshot), this work is going to be done in PR for issue #16
 		return []s.Event{}, err
 	}
-	// we wait till all the events have been reported
-	evIt.SkipTill(ProcessStopped(rootName))
+
+	// We wait till all the events have been reported (event from root must be the
+	// last event)
+	evIt.SkipTill(ProcessName(rootName))
 
 	// return all the events reported by the supervision system
 	return evManager.Snapshot(), nil

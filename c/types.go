@@ -54,6 +54,16 @@ func Timeout(d time.Duration) Shutdown {
 // Opt is used to configure a child's specification
 type Opt func(*ChildSpec)
 
+// NotifyStartFn is a function given to supervisor children to notify the
+// supervisor that the child has started.
+//
+// ### Notify child's start failure
+//
+// In case the child cannot get started it should call this function with an
+// error value different than nil.
+//
+type NotifyStartFn = func(error)
+
 // ChildSpec represents a Child specification; it serves as a template for the
 // construction of a worker goroutine. The ChildSpec record is used in conjunction
 // with the supervisor's ChildSpec.
@@ -61,7 +71,7 @@ type ChildSpec struct {
 	name     string
 	shutdown Shutdown
 	restart  Restart
-	start    func(context.Context, func() /* notifyStart */) error
+	start    func(context.Context, NotifyStartFn) error
 }
 
 // Child is the runtime representation of an Spec

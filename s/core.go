@@ -2,6 +2,7 @@ package s
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -106,11 +107,14 @@ func (spec SupervisorSpec) getEventNotifier() EventNotifier {
 
 // subtreeMain contains the main logic of the Child spec that runs a supervision
 // sub-tree. It returns an error if the child supervisor fails to start.
-func subtreeMain(parentName string, spec SupervisorSpec) func(context.Context, func()) error {
+func subtreeMain(
+	parentName string,
+	spec SupervisorSpec,
+) func(context.Context, c.NotifyStartFn) error {
 	// we use the start version that receives the notifyChildStart callback, this
 	// is essential, as we need this callback to signal the sub-tree children have
 	// started before signaling we have started
-	return func(parentCtx context.Context, notifyChildStart func()) error {
+	return func(parentCtx context.Context, notifyChildStart c.NotifyStartFn) error {
 		// in this function we use the private versions of start and wait
 		// given we don't want to signal the eventNotifier more than once
 		// on sub-trees
@@ -118,10 +122,10 @@ func subtreeMain(parentName string, spec SupervisorSpec) func(context.Context, f
 		ctx, cancelFn := context.WithCancel(parentCtx)
 		defer cancelFn()
 		sup, err := spec.start(ctx, parentName)
+		notifyChildStart(err)
 		if err != nil {
 			return err
 		}
-		notifyChildStart()
 		return sup.wait()
 	}
 }
@@ -155,7 +159,7 @@ func (spec SupervisorSpec) start(parentCtx context.Context, parentName string) (
 	// ctrlCh := make(chan ControlMsg)
 
 	// startCh is used to track when the supervisor loop thread has started
-	startCh := make(chan struct{})
+	startCh := make(chan error)
 
 	// terminateCh is used when waiting for cancelFn to complete
 	terminateCh := make(chan struct{})
@@ -188,12 +192,26 @@ func (spec SupervisorSpec) start(parentCtx context.Context, parentName string) (
 		},
 	}
 
-	// stopChildrenFn is used on the shutdown of the supervisor tree, stops children in
-	// desired order
-	stopChildrenFn := func() {
+	// stopChildrenFn is used on the shutdown of the supervisor tree, it stops
+	// children in the desired order. The starting argument indicates if the
+	// supervision tree is starting, if that is the case, it is more permisive
+	// around spec children not matching one to one with it's corresponding
+	// runtime children, this may happen because we had a start error in the
+	// middle of supervision tree initialization, and we never got to initialize
+	// all children at this supervision level.
+	stopChildrenFn := func(starting bool) {
 		children := spec.order.SortStop(spec.children)
 		for _, cs := range children {
-			c := sup.children[cs.Name()]
+			c, ok := sup.children[cs.Name()]
+			if !ok && starting {
+				// skip it as we may have not started this child before a previous one
+				// failed
+				continue
+			} else if !ok {
+				// There is no excuse for a runtime child to not have a corresponding
+				// spec, this is a serious implementation error.
+				panic(fmt.Sprintf("Invariant violetated: Child %s is not on started list", cs.Name()))
+			}
 			stopTime := time.Now()
 			err := c.Stop()
 			eventNotifier.ProcessStopped(c.RuntimeName(), stopTime, err)
@@ -206,7 +224,15 @@ func (spec SupervisorSpec) start(parentCtx context.Context, parentName string) (
 		// Start children
 		for _, cs := range spec.order.SortStart(spec.children) {
 			startTime := time.Now()
-			c := cs.Start(sup.runtimeName, sup.handleChildResult())
+			c, err := cs.Start(sup.runtimeName, sup.handleChildResult())
+			if err != nil {
+				cRuntimeName := strings.Join([]string{sup.runtimeName, cs.Name()}, "/")
+				eventNotifier.ProcessStopped(cRuntimeName, startTime, err)
+				stopChildrenFn(true /* starting? */)
+				// Is important we stop the children before we finish the supervisor
+				startCh <- err
+				return
+			}
 			eventNotifier.ProcessStarted(c.RuntimeName(), startTime)
 			sup.children[cs.Name()] = c
 		}
@@ -221,7 +247,7 @@ func (spec SupervisorSpec) start(parentCtx context.Context, parentName string) (
 			select {
 			case <-ctx.Done():
 				// parent context is done
-				stopChildrenFn()
+				stopChildrenFn(false /* starting? */)
 				break supervisorLoop
 				// case ev := <-evCh:
 				// TODO: Deal with errors on children
@@ -233,7 +259,11 @@ func (spec SupervisorSpec) start(parentCtx context.Context, parentName string) (
 
 	// TODO: Figure out stop before start finish
 	// TODO: Figure out start with timeout
-	<-startCh
+	err := <-startCh
+	if err != nil {
+		_ /* err */ = sup.wait()
+		return Supervisor{}, err
+	}
 
 	return sup, nil
 }
@@ -268,6 +298,8 @@ func (spec SupervisorSpec) Start(parentCtx context.Context) (Supervisor, error) 
 	startTime := time.Now()
 	sup, err := spec.start(parentCtx, rootSupervisorName)
 	if err != nil {
+		// NOTE we are using the spec.Name() as we know this is the top-level supervisor
+		spec.getEventNotifier().ProcessStopped(spec.Name(), startTime, err)
 		return Supervisor{}, err
 	}
 	spec.getEventNotifier().ProcessStarted(sup.runtimeName, startTime)
