@@ -215,15 +215,14 @@ func ObserveSupervisor(
 
 	// once tests are done, we stop the supervisor
 	err = sup.Stop()
-	if err != nil {
-		// TODO: We should return the events that got accumulated so far instead
-		// here (Snapshot), this work is going to be done in PR for issue #16
-		return []s.Event{}, err
-	}
 
 	// We wait till all the events have been reported (event from root must be the
 	// last event)
 	evIt.SkipTill(ProcessName(rootName))
+
+	if err != nil {
+		return evManager.Snapshot(), err
+	}
 
 	// return all the events reported by the supervision system
 	return evManager.Snapshot(), nil
