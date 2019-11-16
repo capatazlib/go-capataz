@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/capatazlib/go-capataz/c"
 	"github.com/capatazlib/go-capataz/s"
@@ -144,6 +145,29 @@ func FailStartChild(name string) c.ChildSpec {
 			return err
 		})
 	return cspec
+}
+
+// NeverStopChild creates a `ChildSpec` that runs a goroutine that never stops
+// when asked to, causing the goroutine to leak in the runtime
+func NeverStopChild(name string) c.ChildSpec {
+	// For the sake of making the test go fast, lets reduce the amount of time we
+	// wait for the child to terminate
+	waitTime := 10 * time.Millisecond
+	cspec := c.New(
+		name,
+		func(ctx context.Context) error {
+			ctx.Done()
+			// Wait a few milliseconds more than the specified time the supervisor
+			// waits to finish
+			time.Sleep(waitTime + (100 * time.Millisecond))
+			return nil
+		},
+		// Here we explicitly say how much we are going to wait for this child
+		// termination
+		c.WithShutdown(c.Timeout(waitTime)),
+	)
+	return cspec
+
 }
 
 // ObserveSupervisor is an utility function that receives all the arguments
