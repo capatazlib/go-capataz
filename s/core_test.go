@@ -266,3 +266,58 @@ func TestStartFailedChild(t *testing.T) {
 		},
 	)
 }
+
+func TestStopFailedChild(t *testing.T) {
+	parentName := "root"
+	b0n := "branch0"
+	b1n := "branch1"
+
+	cs := []c.ChildSpec{
+		WaitDoneChild("child0"),
+		WaitDoneChild("child1"),
+		NeverStopChild("child2"),
+		WaitDoneChild("child3"),
+	}
+
+	b0 := s.New(b0n, s.WithChildren(cs[0], cs[1]))
+	b1 := s.New(b1n, s.WithChildren(cs[2], cs[3]))
+
+	events, err := ObserveSupervisor(
+		context.TODO(),
+		parentName,
+		[]s.Opt{
+			s.WithSubtree(b0),
+			s.WithSubtree(b1),
+		},
+		func(em EventManager) {},
+	)
+
+	for _, ev := range events {
+		fmt.Printf("%s %s %v\n", ev.ProcessRuntimeName(), ev.Tag().String(), ev.Err())
+	}
+
+	assert.Error(t, err)
+
+	AssertExactMatch(t, events,
+		[]EventP{
+			// start children from left to right
+			ProcessStarted("root/branch0/child0"),
+			ProcessStarted("root/branch0/child1"),
+			ProcessStarted("root/branch0"),
+			ProcessStarted("root/branch1/child2"),
+			ProcessStarted("root/branch1/child3"),
+			ProcessStarted("root/branch1"),
+			ProcessStarted("root"),
+			// NOTE: From here, the stop of the supervisor begins
+			ProcessStopped("root/branch1/child3"),
+			// NOTE: the child2 never stops and fails with a timeout
+			ProcessFailed("root/branch1/child2"),
+			// NOTE: The supervisor branch1 fails because of child2 timeout
+			ProcessFailed("root/branch1"),
+			ProcessStopped("root/branch0/child1"),
+			ProcessStopped("root/branch0/child0"),
+			ProcessStopped("root/branch0"),
+			ProcessFailed("root"),
+		},
+	)
+}
