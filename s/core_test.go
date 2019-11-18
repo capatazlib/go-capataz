@@ -275,6 +275,7 @@ func TestStopFailedChild(t *testing.T) {
 	cs := []c.ChildSpec{
 		WaitDoneChild("child0"),
 		WaitDoneChild("child1"),
+		// NOTE: There is a NeverStopChild here
 		NeverStopChild("child2"),
 		WaitDoneChild("child3"),
 	}
