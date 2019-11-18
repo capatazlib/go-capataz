@@ -124,19 +124,19 @@ func waitTimeout(
 		case infinityT:
 			// We wait forever for the result
 			notification, ok := <-terminateCh
-			// A child may have terminated with an error
 			if !ok {
 				return nil
 			}
+			// A child may have terminated with an error
 			return notification.Unwrap()
 		case timeoutT:
 			// we wait until some duration
 			select {
 			case notification, ok := <-terminateCh:
-				// A child may have terminated with an error
 				if !ok {
 					return nil
 				}
+				// A child may have terminated with an error
 				return notification.Unwrap()
 			case <-time.After(shutdown.duration):
 				return errors.New("Child shutdown timeout")
