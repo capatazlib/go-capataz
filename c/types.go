@@ -81,3 +81,20 @@ type Child struct {
 	cancel      func()
 	wait        func(Shutdown) error
 }
+
+// ChildNotification reports when a child has finished
+type ChildNotification struct {
+	runtimeName string
+	err         error
+}
+
+// RuntimeName returns the runtime name of the child that emitted this exit
+// notification
+func (ce ChildNotification) RuntimeName() string {
+	return ce.runtimeName
+}
+
+// Unwrap returns the error reported by ChildNotification, if any.
+func (ce ChildNotification) Unwrap() error {
+	return ce.err
+}
