@@ -2,6 +2,7 @@ package s
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -162,7 +163,7 @@ func (spec SupervisorSpec) start(parentCtx context.Context, parentName string) (
 	startCh := make(chan error)
 
 	// terminateCh is used when waiting for cancelFn to complete
-	terminateCh := make(chan struct{})
+	terminateCh := make(chan error)
 
 	// errCh is used when supervisor gives up on error handling
 	errCh := make(chan error)
@@ -186,8 +187,9 @@ func (spec SupervisorSpec) start(parentCtx context.Context, parentName string) (
 			select {
 			case err := <-errCh:
 				return err
-			case <-terminateCh:
-				return nil
+			case err := <-terminateCh:
+				// There may be an on child termination
+				return err
 			}
 		},
 	}
@@ -199,8 +201,9 @@ func (spec SupervisorSpec) start(parentCtx context.Context, parentName string) (
 	// runtime children, this may happen because we had a start error in the
 	// middle of supervision tree initialization, and we never got to initialize
 	// all children at this supervision level.
-	stopChildrenFn := func(starting bool) {
+	stopChildrenFn := func(starting bool) map[string]error {
 		children := spec.order.SortStop(spec.children)
+		childErrMap := make(map[string]error)
 		for _, cs := range children {
 			c, ok := sup.children[cs.Name()]
 			if !ok && starting {
@@ -210,12 +213,23 @@ func (spec SupervisorSpec) start(parentCtx context.Context, parentName string) (
 			} else if !ok {
 				// There is no excuse for a runtime child to not have a corresponding
 				// spec, this is a serious implementation error.
-				panic(fmt.Sprintf("Invariant violetated: Child %s is not on started list", cs.Name()))
+				panic(
+					fmt.Sprintf(
+						"Invariant violetated: Child %s is not on started list",
+						cs.Name(),
+					),
+				)
 			}
 			stopTime := time.Now()
 			err := c.Stop()
+			// If a child fails to stop (either because of a legit failure or a
+			// timeout), we store the error so that we can report all of them later
+			if err != nil {
+				childErrMap[cs.Name()] = err
+			}
 			eventNotifier.ProcessStopped(c.RuntimeName(), stopTime, err)
 		}
+		return childErrMap
 	}
 
 	go func() {
@@ -224,13 +238,19 @@ func (spec SupervisorSpec) start(parentCtx context.Context, parentName string) (
 		// Start children
 		for _, cs := range spec.order.SortStart(spec.children) {
 			startTime := time.Now()
-			c, err := cs.Start(sup.runtimeName, sup.handleChildResult())
+			c, err := cs.Start(sup.runtimeName, notifyCh)
+			// NOTE: The error handling code bellow gets executed when the children
+			// fails at start time
 			if err != nil {
 				cRuntimeName := strings.Join([]string{sup.runtimeName, cs.Name()}, "/")
 				eventNotifier.ProcessStopped(cRuntimeName, startTime, err)
-				stopChildrenFn(true /* starting? */)
+				childErrMap := stopChildrenFn(true /* starting? */)
 				// Is important we stop the children before we finish the supervisor
-				startCh <- err
+				startCh <- SupervisorError{
+					err:         err,
+					runtimeName: runtimeName,
+					childErrMap: childErrMap,
+				}
 				return
 			}
 			eventNotifier.ProcessStarted(c.RuntimeName(), startTime)
@@ -245,9 +265,18 @@ func (spec SupervisorSpec) start(parentCtx context.Context, parentName string) (
 	supervisorLoop:
 		for {
 			select {
+			// parent context is done
 			case <-ctx.Done():
-				// parent context is done
-				stopChildrenFn(false /* starting? */)
+				childErrMap := stopChildrenFn(false /* starting? */)
+				// If any of the children fails to stop, we should report that as an
+				// error
+				if len(childErrMap) > 0 {
+					terminateCh <- SupervisorError{
+						err:         errors.New("Supervisor stop error"),
+						runtimeName: runtimeName,
+						childErrMap: childErrMap,
+					}
+				}
 				break supervisorLoop
 				// case ev := <-evCh:
 				// TODO: Deal with errors on children
