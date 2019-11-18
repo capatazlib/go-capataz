@@ -80,7 +80,15 @@ func NewWithNotifyStart(
 	startFn func(context.Context, NotifyStartFn) error,
 	opts ...Opt,
 ) ChildSpec {
-	spec := ChildSpec{}
+	spec := ChildSpec{
+		// Child workers by default will have 5 seconds to terminate before
+		// reporting a timeout error as specified on the Erlang OTP documentation.
+		// http://erlang.org/doc/design_principles/sup_princ.html#tuning-the-intensity-and-period
+		//
+		// Note there is no brutal kill from the supervisor as Go (for better or
+		// worse), does not offer guaranteed kill signals for goroutines.
+		shutdown: Timeout(5 * time.Second),
+	}
 
 	if name == "" {
 		panic("Child cannot have empty name")
