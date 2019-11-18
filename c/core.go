@@ -241,12 +241,6 @@ func (c Child) Name() string {
 	return c.spec.Name()
 }
 
-// // Wait blocks the execution of the current goroutine until the child finishes
-// // it execution.
-// func (c Child) Wait() error {
-//	return c.wait(c.spec.shutdown)
-// }
-
 // Stop is a synchronous procedure that halts the execution of the child
 func (c Child) Stop() error {
 	c.cancel()
