@@ -292,10 +292,6 @@ func TestStopFailedChild(t *testing.T) {
 		func(em EventManager) {},
 	)
 
-	for _, ev := range events {
-		fmt.Printf("%s %s %v\n", ev.ProcessRuntimeName(), ev.Tag().String(), ev.Err())
-	}
-
 	assert.Error(t, err)
 
 	AssertExactMatch(t, events,
