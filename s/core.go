@@ -56,19 +56,6 @@ func WithSubtree(subtree SupervisorSpec, copts ...c.Opt) Opt {
 ////////////////////////////////////////////////////////////////////////////////
 // Supervisor (dynamic tree) functionality
 
-// handleChildResult returns a callback function that gets called by a
-// supervised child whenever it finishes it main execution function.
-func (sup Supervisor) handleChildResult() func(string, error) {
-	// The function bellow gets called in the child goroutine
-	return func(childName string, err error) {
-		if err != nil {
-			// TODO report failed
-		} else {
-			// TODO report finished
-		}
-	}
-}
-
 // Stop is a synchronous procedure that halts the execution of the whole
 // supervision tree.
 func (sup Supervisor) Stop() error {
@@ -153,8 +140,8 @@ func (spec SupervisorSpec) start(parentCtx context.Context, parentName string) (
 	// cancelFn is used when Stop is requested
 	ctx, cancelFn := context.WithCancel(parentCtx)
 
-	// evCh is used to keep track of errors from children
-	// evCh := make(chan ChildEvent)
+	// notifyCh is used to keep track of errors from children
+	notifyCh := make(chan c.ChildNotification)
 
 	// ctrlCh is used to keep track of request from client APIs (e.g. spawn child)
 	// ctrlCh := make(chan ControlMsg)
@@ -278,7 +265,7 @@ func (spec SupervisorSpec) start(parentCtx context.Context, parentName string) (
 					}
 				}
 				break supervisorLoop
-				// case ev := <-evCh:
+			case /* notification = */ <-notifyCh:
 				// TODO: Deal with errors on children
 				// case msg := <-ctrlCh:
 				// TODO: Deal with public facing API calls
@@ -290,6 +277,8 @@ func (spec SupervisorSpec) start(parentCtx context.Context, parentName string) (
 	// TODO: Figure out start with timeout
 	err := <-startCh
 	if err != nil {
+		// Let's wait for the supervisor to stop all children before returning the
+		// final error
 		_ /* err */ = sup.wait()
 		return Supervisor{}, err
 	}

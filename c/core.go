@@ -157,7 +157,7 @@ func waitTimeout(
 //
 func (cs ChildSpec) Start(
 	parentName string,
-	notifyResult func(runtimeChildName, error),
+	notifyCh chan<- ChildNotification,
 ) (Child, error) {
 
 	runtimeName := strings.Join([]string{parentName, cs.name}, "/")
@@ -176,18 +176,35 @@ func (cs ChildSpec) Start(
 		// we cancel the childCtx on regular termination
 		defer cancelFn()
 
-		// client logic starts here, and waits until an error (or lack of) is
-		// reported
-		notifyResult(
-			runtimeName,
-			cs.start(childCtx, func(err error) {
-				// we tell the spawner this child thread has started running
-				if err != nil {
-					startCh <- err
-				}
-				close(startCh)
-			}),
-		)
+		// client logic starts here, despite the call here being a "start", we will
+		// block and wait here until an error (or lack of) is reported from the
+		// client code
+		err := cs.start(childCtx, func(err error) {
+			// we tell the spawner this child thread has started running
+			if err != nil {
+				startCh <- err
+			}
+			close(startCh)
+		})
+
+		notification := ChildNotification{
+			runtimeName: runtimeName,
+			err:         err,
+		}
+
+		// We need to notify someone about the notification that got created, it
+		// could either be our parent supervisor (who is reading notifyCh), or, it
+		// could be the client that called the Stop() function, which blocks until a
+		// child finishes. The Stop() _should_ only be called by the supervisor,
+		// this means the supervisor is not going to be on an state where is reading
+		// the notifyCh chan.
+		select {
+		// Notify to Stop() method (supervisor on shutdown)
+		case terminateCh <- notification:
+		// Notify supervisor on supervision loop
+		case notifyCh <- notification:
+		}
+
 	}()
 
 	// Wait until child thread notifies it has started or failed with an error
