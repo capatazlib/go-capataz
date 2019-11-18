@@ -201,3 +201,36 @@ type Supervisor struct {
 	cancel      func()
 	wait        func() error
 }
+
+// SupervisorError wraps an error from a children, enhancing it with supervisor
+// information and possible shutdown errors on other siblings
+type SupervisorError struct {
+	err         error
+	runtimeName string
+	childErrMap map[string]error
+}
+
+// Unwrap returns a child error (if any)
+func (se SupervisorError) Unwrap() error {
+	return se.err
+}
+
+// RuntimeName returns the name of the supervisor that failed
+func (se SupervisorError) RuntimeName() string {
+	return se.runtimeName
+}
+
+// ChildFailCount returns the number of children that failed to terminate
+// correctly. Note if a child fails to terminate because of a shutdown timeout,
+// the failed goroutines may leak at runtime. This happens because go doesn't
+// offer any true way to _kill_ a goroutine.
+func (se SupervisorError) ChildFailCount() int {
+	return len(se.childErrMap)
+}
+
+func (se SupervisorError) Error() string {
+	if se.err != nil {
+		return se.err.Error()
+	}
+	return "Supervisor failure"
+}
