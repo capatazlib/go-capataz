@@ -120,9 +120,22 @@ func subtreeMain(
 
 // Subtree allows to register a Supervisor Spec as a sub-tree of a bigger
 // Supervisor Spec.
-func (spec SupervisorSpec) Subtree(subtreeSpec SupervisorSpec, copts ...c.Opt) c.ChildSpec {
+func (spec SupervisorSpec) Subtree(
+	subtreeSpec SupervisorSpec,
+	copts0 ...c.Opt,
+) c.ChildSpec {
 	subtreeSpec.eventNotifier = spec.eventNotifier
-	return c.NewWithNotifyStart(subtreeSpec.Name(), subtreeMain(spec.name, subtreeSpec), copts...)
+
+	// NOTE: Child goroutines that are running a sub-tree supervisor must always
+	// have a timeout of Infinity, as specified in the documentation from OTP
+	// http://erlang.org/doc/design_principles/sup_princ.html#child-specification
+	copts := append(copts0, c.WithShutdown(c.Inf))
+
+	return c.NewWithNotifyStart(
+		subtreeSpec.Name(),
+		subtreeMain(spec.name, subtreeSpec),
+		copts...,
+	)
 }
 
 // start is routine that contains the main logic of a Supervisor. This function:
