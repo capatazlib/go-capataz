@@ -16,6 +16,7 @@ func WithRestart(r Restart) Opt {
 }
 
 // WithShutdown specifies how the shutdown of the child is going to be handled.
+// Read `Inf` and `Timeout` Shutdown values documentation for details.
 func WithShutdown(s Shutdown) Opt {
 	return func(spec *ChildSpec) {
 		spec.shutdown = s

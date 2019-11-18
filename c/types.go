@@ -44,6 +44,11 @@ var Inf = Shutdown{tag: infinityT}
 
 // Timeout specifies a duration of time the parent supervisor will wait for the
 // child goroutine to stop executing
+//
+// Note, in case of the Timeout being reached, our Supervisor won't do a brutal
+// kill -- Go (for better or worse), does not offer guaranteed kill signals for
+// goroutines. Whenever there is a timeout registered, there is a chance your
+// Child goroutine may be leaking.
 func Timeout(d time.Duration) Shutdown {
 	return Shutdown{
 		tag:      timeoutT,
