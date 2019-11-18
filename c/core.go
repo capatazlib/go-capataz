@@ -108,19 +108,27 @@ func (cs ChildSpec) Name() string {
 // waitTimeout is the internal function used by Child to wait for the execution
 // of it's thread to stop.
 func waitTimeout(
-	terminateCh chan struct{},
+	terminateCh <-chan ChildNotification,
 ) func(Shutdown) error {
 	return func(shutdown Shutdown) error {
 		switch shutdown.tag {
 		case infinityT:
 			// We wait forever for the result
-			<-terminateCh
-			return nil
+			notification, ok := <-terminateCh
+			// A child may have terminated with an error
+			if !ok {
+				return nil
+			}
+			return notification.Unwrap()
 		case timeoutT:
 			// we wait until some duration
 			select {
-			case <-terminateCh:
-				return nil
+			case notification, ok := <-terminateCh:
+				// A child may have terminated with an error
+				if !ok {
+					return nil
+				}
+				return notification.Unwrap()
 			case <-time.After(shutdown.duration):
 				return errors.New("Child shutdown timeout")
 			}
@@ -156,7 +164,7 @@ func (cs ChildSpec) Start(
 	childCtx, cancelFn := context.WithCancel(context.Background())
 
 	startCh := make(chan error)
-	terminateCh := make(chan struct{})
+	terminateCh := make(chan ChildNotification)
 
 	// Child Goroutine is bootstraped
 	go func() {
