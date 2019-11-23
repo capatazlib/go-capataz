@@ -44,6 +44,15 @@ var Inf = Shutdown{tag: infinityT}
 
 // Timeout specifies a duration of time the parent supervisor will wait for the
 // child goroutine to stop executing
+//
+// ### WARNING:
+//
+// A point worth bringing up is that golang *does not* provide a hard kill
+// mechanism for goroutines. There is no known way to kill a goroutine via a
+// signal other than using `context.Done` and the goroutine respecting this
+// mechanism. If the timeout is reached and the goroutine does not stop, the
+// supervisor will continue with the shutdown procedure, possibly leaving the
+// goroutine running in memory (e.g. memory leak).
 func Timeout(d time.Duration) Shutdown {
 	return Shutdown{
 		tag:      timeoutT,
@@ -54,6 +63,10 @@ func Timeout(d time.Duration) Shutdown {
 // Opt is used to configure a child's specification
 type Opt func(*ChildSpec)
 
+// startError is the error reported back to a Supervisor when the start of a
+// Child fails
+type startError = error
+
 // NotifyStartFn is a function given to supervisor children to notify the
 // supervisor that the child has started.
 //
@@ -62,7 +75,7 @@ type Opt func(*ChildSpec)
 // In case the child cannot get started it should call this function with an
 // error value different than nil.
 //
-type NotifyStartFn = func(error)
+type NotifyStartFn = func(startError)
 
 // ChildSpec represents a Child specification; it serves as a template for the
 // construction of a worker goroutine. The ChildSpec record is used in conjunction
@@ -80,4 +93,22 @@ type Child struct {
 	spec        ChildSpec
 	cancel      func()
 	wait        func(Shutdown) error
+}
+
+// ChildNotification reports when a child has terminated; if it terminated with
+// an error, it is set in the err field, otherwise, err will be nil.
+type ChildNotification struct {
+	runtimeName string
+	err         error
+}
+
+// RuntimeName returns the runtime name of the child that emitted this exit
+// notification
+func (ce ChildNotification) RuntimeName() string {
+	return ce.runtimeName
+}
+
+// Unwrap returns the error reported by ChildNotification, if any.
+func (ce ChildNotification) Unwrap() error {
+	return ce.err
 }

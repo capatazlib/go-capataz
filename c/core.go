@@ -16,6 +16,7 @@ func WithRestart(r Restart) Opt {
 }
 
 // WithShutdown specifies how the shutdown of the child is going to be handled.
+// Read `Inf` and `Timeout` Shutdown values documentation for details.
 func WithShutdown(s Shutdown) Opt {
 	return func(spec *ChildSpec) {
 		spec.shutdown = s
@@ -79,7 +80,19 @@ func NewWithNotifyStart(
 	startFn func(context.Context, NotifyStartFn) error,
 	opts ...Opt,
 ) ChildSpec {
-	spec := ChildSpec{}
+	spec := ChildSpec{
+		// Child workers by default will have 5 seconds to terminate before
+		// reporting a timeout error as specified on the Erlang OTP documentation.
+		// http://erlang.org/doc/design_principles/sup_princ.html#tuning-the-intensity-and-period
+		//
+		// A point worth bringing up is that golang *does not* provide a hard kill
+		// mechanism for goroutines. There is no known way to kill a goroutine via a
+		// signal other than using `context.Done` and the goroutine respecting this
+		// mechanism; If the timeout is reached and the goroutine does not stop, the
+		// supervisor will continue with the shutdown procedure, possibly leaving
+		// the goroutine running in memory (e.g. memory leak).
+		shutdown: Timeout(5 * time.Second),
+	}
 
 	if name == "" {
 		panic("Child cannot have empty name")
@@ -108,19 +121,27 @@ func (cs ChildSpec) Name() string {
 // waitTimeout is the internal function used by Child to wait for the execution
 // of it's thread to stop.
 func waitTimeout(
-	terminateCh chan struct{},
+	terminateCh <-chan ChildNotification,
 ) func(Shutdown) error {
 	return func(shutdown Shutdown) error {
 		switch shutdown.tag {
 		case infinityT:
 			// We wait forever for the result
-			<-terminateCh
-			return nil
+			childNotification, ok := <-terminateCh
+			if !ok {
+				return nil
+			}
+			// A child may have terminated with an error
+			return childNotification.Unwrap()
 		case timeoutT:
 			// we wait until some duration
 			select {
-			case <-terminateCh:
-				return nil
+			case childNotification, ok := <-terminateCh:
+				if !ok {
+					return nil
+				}
+				// A child may have terminated with an error
+				return childNotification.Unwrap()
 			case <-time.After(shutdown.duration):
 				return errors.New("Child shutdown timeout")
 			}
@@ -149,14 +170,14 @@ func waitTimeout(
 //
 func (cs ChildSpec) Start(
 	parentName string,
-	notifyResult func(runtimeChildName, error),
+	notifyCh chan<- ChildNotification,
 ) (Child, error) {
 
 	runtimeName := strings.Join([]string{parentName, cs.name}, "/")
 	childCtx, cancelFn := context.WithCancel(context.Background())
 
-	startCh := make(chan error)
-	terminateCh := make(chan struct{})
+	startCh := make(chan startError)
+	terminateCh := make(chan ChildNotification)
 
 	// Child Goroutine is bootstraped
 	go func() {
@@ -168,18 +189,42 @@ func (cs ChildSpec) Start(
 		// we cancel the childCtx on regular termination
 		defer cancelFn()
 
-		// client logic starts here, and waits until an error (or lack of) is
-		// reported
-		notifyResult(
-			runtimeName,
-			cs.start(childCtx, func(err error) {
-				// we tell the spawner this child thread has started running
-				if err != nil {
-					startCh <- err
-				}
-				close(startCh)
-			}),
-		)
+		// client logic starts here, despite the call here being a "start", we will
+		// block and wait here until an error (or lack of) is reported from the
+		// client code
+		err := cs.start(childCtx, func(err error) {
+			// we tell the spawner this child thread has started running
+			if err != nil {
+				startCh <- err
+			}
+			close(startCh)
+		})
+
+		childNotification := ChildNotification{
+			runtimeName: runtimeName,
+			err:         err,
+		}
+
+		// We send the childNotification that got created to our parent supervisor.
+		//
+		// There are two ways the supervisor could receive this notification:
+		//
+		// 1) If the supervisor is running it's supervision loop (e.g. normal
+		// execution), the notification will be received over the `notifyCh`
+		// channel; this will execute the restart mechanisms.
+		//
+		// 2) If the supervisor is shutting down, it won't be reading the
+		// `notifyCh`, but instead is going to be executing the `stopChildren`
+		// function, which calls the `child.Stop` method for each of the supervised
+		// internally, this function reads the `terminateCh`.
+		//
+		select {
+		// (1)
+		case notifyCh <- childNotification:
+		// (2)
+		case terminateCh <- childNotification:
+		}
+
 	}()
 
 	// Wait until child thread notifies it has started or failed with an error
@@ -205,12 +250,6 @@ func (c Child) RuntimeName() string {
 // Name returns the specified name for a Child Spec
 func (c Child) Name() string {
 	return c.spec.Name()
-}
-
-// Wait blocks the execution of the current goroutine until the child finishes
-// it execution.
-func (c Child) Wait() error {
-	return c.wait(c.spec.shutdown)
 }
 
 // Stop is a synchronous procedure that halts the execution of the child

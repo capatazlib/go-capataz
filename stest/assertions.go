@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/capatazlib/go-capataz/c"
 	"github.com/capatazlib/go-capataz/s"
@@ -146,6 +147,29 @@ func FailStartChild(name string) c.ChildSpec {
 	return cspec
 }
 
+// NeverStopChild creates a `ChildSpec` that runs a goroutine that never stops
+// when asked to, causing the goroutine to leak in the runtime
+func NeverStopChild(name string) c.ChildSpec {
+	// For the sake of making the test go fast, lets reduce the amount of time we
+	// wait for the child to terminate
+	waitTime := 10 * time.Millisecond
+	cspec := c.New(
+		name,
+		func(ctx context.Context) error {
+			ctx.Done()
+			// Wait a few milliseconds more than the specified time the supervisor
+			// waits to finish
+			time.Sleep(waitTime + (100 * time.Millisecond))
+			return nil
+		},
+		// Here we explicitly say how much we are going to wait for this child
+		// termination
+		c.WithShutdown(c.Timeout(waitTime)),
+	)
+	return cspec
+
+}
+
 // ObserveSupervisor is an utility function that receives all the arguments
 // required to build a SupervisorSpec, and a callback that when executed will
 // block until some point in the future (after we performed the side-effects we
@@ -191,15 +215,14 @@ func ObserveSupervisor(
 
 	// once tests are done, we stop the supervisor
 	err = sup.Stop()
-	if err != nil {
-		// TODO: We should return the events that got accumulated so far instead
-		// here (Snapshot), this work is going to be done in PR for issue #16
-		return []s.Event{}, err
-	}
 
 	// We wait till all the events have been reported (event from root must be the
 	// last event)
 	evIt.SkipTill(ProcessName(rootName))
+
+	if err != nil {
+		return evManager.Snapshot(), err
+	}
 
 	// return all the events reported by the supervision system
 	return evManager.Snapshot(), nil
