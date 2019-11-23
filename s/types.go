@@ -234,3 +234,11 @@ func (se SupervisorError) Error() string {
 	}
 	return "Supervisor failure"
 }
+
+// startError is the error reported back to a Supervisor when
+// the start of a Child fails
+type startError = error
+
+// terminateError is the error reported back to a Supervisor when
+// the termination of a Child fails
+type terminateError = error

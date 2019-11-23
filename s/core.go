@@ -160,13 +160,10 @@ func (spec SupervisorSpec) start(parentCtx context.Context, parentName string) (
 	// ctrlCh := make(chan ControlMsg)
 
 	// startCh is used to track when the supervisor loop thread has started
-	startCh := make(chan error)
+	startCh := make(chan startError)
 
 	// terminateCh is used when waiting for cancelFn to complete
-	terminateCh := make(chan error)
-
-	// errCh is used when supervisor gives up on error handling
-	errCh := make(chan error)
+	terminateCh := make(chan terminateError)
 
 	eventNotifier := spec.getEventNotifier()
 
@@ -184,13 +181,12 @@ func (spec SupervisorSpec) start(parentCtx context.Context, parentName string) (
 		children:    make(map[string]c.Child, len(spec.children)),
 		cancel:      cancelFn,
 		wait: func() error {
-			select {
-			case err := <-errCh:
-				return err
-			case err := <-terminateCh:
-				// There may be an on child termination
-				return err
-			}
+			// Let's us wait for the Supervisor goroutine to terminate, if there are
+			// errors in the termination (e.g. Timeout of child, error treshold
+			// reached, etc.), the terminateCh is going to return an error, otherwise
+			// it will nil
+			err := <-terminateCh
+			return err
 		},
 	}
 
@@ -278,7 +274,7 @@ func (spec SupervisorSpec) start(parentCtx context.Context, parentName string) (
 					}
 				}
 				break supervisorLoop
-			case /* notification = */ <-notifyCh:
+			case /* childNotification = */ <-notifyCh:
 				// TODO: Deal with errors on children
 				// case msg := <-ctrlCh:
 				// TODO: Deal with public facing API calls

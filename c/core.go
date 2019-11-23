@@ -85,8 +85,12 @@ func NewWithNotifyStart(
 		// reporting a timeout error as specified on the Erlang OTP documentation.
 		// http://erlang.org/doc/design_principles/sup_princ.html#tuning-the-intensity-and-period
 		//
-		// Note there is no brutal kill from the supervisor as Go (for better or
-		// worse), does not offer guaranteed kill signals for goroutines.
+		// A point worth bringing up is that golang *does not* provide a hard kill
+		// mechanism for goroutines. There is no known way to kill a goroutine via a
+		// signal other than using `context.Done` and the goroutine respecting this
+		// mechanism; If the timeout is reached and the goroutine does not stop, the
+		// supervisor will continue with the shutdown procedure, possibly leaving
+		// the goroutine running in memory (e.g. memory leak).
 		shutdown: Timeout(5 * time.Second),
 	}
 
@@ -123,21 +127,21 @@ func waitTimeout(
 		switch shutdown.tag {
 		case infinityT:
 			// We wait forever for the result
-			notification, ok := <-terminateCh
+			childNotification, ok := <-terminateCh
 			if !ok {
 				return nil
 			}
 			// A child may have terminated with an error
-			return notification.Unwrap()
+			return childNotification.Unwrap()
 		case timeoutT:
 			// we wait until some duration
 			select {
-			case notification, ok := <-terminateCh:
+			case childNotification, ok := <-terminateCh:
 				if !ok {
 					return nil
 				}
 				// A child may have terminated with an error
-				return notification.Unwrap()
+				return childNotification.Unwrap()
 			case <-time.After(shutdown.duration):
 				return errors.New("Child shutdown timeout")
 			}
@@ -172,7 +176,7 @@ func (cs ChildSpec) Start(
 	runtimeName := strings.Join([]string{parentName, cs.name}, "/")
 	childCtx, cancelFn := context.WithCancel(context.Background())
 
-	startCh := make(chan error)
+	startCh := make(chan startError)
 	terminateCh := make(chan ChildNotification)
 
 	// Child Goroutine is bootstraped
@@ -196,22 +200,29 @@ func (cs ChildSpec) Start(
 			close(startCh)
 		})
 
-		notification := ChildNotification{
+		childNotification := ChildNotification{
 			runtimeName: runtimeName,
 			err:         err,
 		}
 
-		// We need to notify someone about the notification that got created, it
-		// could either be our parent supervisor (who is reading notifyCh), or, it
-		// could be the client that called the Stop() function, which blocks until a
-		// child finishes. The Stop() _should_ only be called by the supervisor,
-		// this means the supervisor is not going to be on an state where is reading
-		// the notifyCh chan.
+		// We send the childNotification that got created to our parent supervisor.
+		//
+		// There are two ways the supervisor could receive this notification:
+		//
+		// 1) If the supervisor is running it's supervision loop (e.g. normal
+		// execution), the notification will be received over the `notifyCh`
+		// channel; this will execute the restart mechanisms.
+		//
+		// 2) If the supervisor is shutting down, it won't be reading the
+		// `notifyCh`, but instead is going to be executing the `stopChildren`
+		// function, which calls the `child.Stop` method for each of the supervised
+		// internally, this function reads the `terminateCh`.
+		//
 		select {
-		// Notify to Stop() method (supervisor on shutdown)
-		case terminateCh <- notification:
-		// Notify supervisor on supervision loop
-		case notifyCh <- notification:
+		// (1)
+		case notifyCh <- childNotification:
+		// (2)
+		case terminateCh <- childNotification:
 		}
 
 	}()
