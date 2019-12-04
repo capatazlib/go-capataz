@@ -23,6 +23,7 @@ var (
 
 ////////////////////////////////////////////////////////////////////////////////
 
+// This is an s.EventNotifier that registers capataz' Events to prometheus
 func registerEvent(ev s.Event) {
 	if ev.Tag() == s.ProcessStarted {
 		eventGauge.WithLabelValues(ev.Tag().String(), ev.ProcessRuntimeName()).Inc()
@@ -37,6 +38,10 @@ func registerEvent(ev s.Event) {
 // the shutdown method
 func listenAndServeHTTPWorker(server *http.Server) c.ChildSpec {
 	return c.New("listen-and-serve", func(ctx context.Context) error {
+		// NOTE: we ignore the given context because we cannot use it on go's HTTP
+		// API to stop the server. When we call the server.Shutdown method (which is
+		// done in waitUntilDoneHTTPWorker) the following line is going to return.
+		// Just to be save, we do a `<-ctx.Done()` check, but is not necessary.
 		err := server.ListenAndServe()
 		<-ctx.Done()
 		return err
@@ -59,6 +64,9 @@ func httpServerTree(name string, server *http.Server) s.SupervisorSpec {
 	return s.New(
 		name,
 		s.WithChildren(
+			// CAUTION: The order here matters, we need waitUntilDone to start last so
+			// that it can terminate first, if this is not the case the
+			// listenAndServeHTTPWorker child will never terminate.
 			listenAndServeHTTPWorker(server),
 			waitUntilDoneHTTPWorker(server),
 		),
