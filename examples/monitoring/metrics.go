@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -22,8 +21,9 @@ var (
 	)
 )
 
-func metricEventHandler(ev s.Event) {
-	fmt.Printf("Event received: %s\n", ev.String())
+////////////////////////////////////////////////////////////////////////////////
+
+func registerEvent(ev s.Event) {
 	if ev.Tag() == s.ProcessStarted {
 		eventGauge.WithLabelValues(ev.Tag().String(), ev.ProcessRuntimeName()).Inc()
 	} else {
@@ -31,54 +31,72 @@ func metricEventHandler(ev s.Event) {
 	}
 }
 
-func newMetricsSpec(addr string) (s.SupervisorSpec, s.EventNotifier) {
+////////////////////////////////////////////////////////////////////////////////
+
+// listenAndServeHttpWorker blocks on this server until another goroutine cals
+// the shutdown method
+func listenAndServeHttpWorker(server *http.Server) c.ChildSpec {
+	return c.New("listen-and-serve", func(ctx context.Context) error {
+		err := server.ListenAndServe()
+		<-ctx.Done()
+		return err
+	})
+}
+
+// waitUntilDoneHttpWorker waits for a supervisor tree signal to shutdown the
+// given server
+func waitUntilDoneHttpWorker(server *http.Server) c.ChildSpec {
+	return c.New("wait-server", func(ctx context.Context) error {
+		<-ctx.Done()
+		return server.Shutdown(ctx)
+	})
+}
+
+// httpServerTree returns a SupervisorSpec that runs an HTTP Server, this
+// functionality requires more than a goroutine given the only way to stop a
+// http server is to call the http.Shutdown function on a seperate goroutine
+func httpServerTree(name string, server *http.Server) s.SupervisorSpec {
+	return s.New(
+		name,
+		s.WithChildren(
+			listenAndServeHttpWorker(server),
+			waitUntilDoneHttpWorker(server),
+		),
+	)
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+// buildPrometheusHttpServer builds an HTTP Server that has a handler that spits
+// out prometheus stats
+func buildPrometheusHttpServer(addr string) *http.Server {
 	handle := http.NewServeMux()
 	handle.Handle("/metrics", promhttp.Handler())
+	return &http.Server{Addr: addr, Handler: handle}
+}
 
-	// NOTE: adding a buffer to this chan to account initial events of the
-	// supervisor system
-	evCh := make(chan s.Event, 10)
-	server := &http.Server{Addr: addr, Handler: handle}
-
-	evHandler := func(ev s.Event) {
-		evCh <- ev
-	}
-
-	// This sub-system will contain all things related to HTTP metrics
-	return s.New(
-		"http-metrics",
-		s.WithChildren(
-			// this is the goroutine that will run the HTTP server
-			c.New("listen-and-serve", func(_ context.Context) error {
-				fmt.Printf("http-metrics starting\n")
-				err := server.ListenAndServe()
-				fmt.Printf("http-metrics failed:\n%+v\n", err)
-				return err
-			}),
-			// stop-handler notifies the http server to stop, we need an extra thread
-			// for this
-			c.New("stop-handler", func(ctx context.Context) error {
-				<-ctx.Done()
-				fmt.Println("Shutting down metrics server")
-				err := server.Shutdown(ctx)
-				if err != nil {
-					fmt.Printf("Shutting down failed: %+v\n", err)
-				}
-				return err
-			}),
-			c.New("event-registerer", func(ctx context.Context) error {
-				defer close(evCh)
-			loop:
-				for {
-					select {
-					case <-ctx.Done():
-						break loop
-					case ev := <-evCh:
-						metricEventHandler(ev)
-					}
-				}
-				return nil
-			}),
-		),
-	), evHandler
+// newPrometheusSpec returns a SupervisorSpec that when started
+//
+// * Runs an HTTP Server that handles requests from the Prometheus server.
+//
+// The returned SupervisorSpec executes a tree of the following shape:
+//
+// + <given-name>
+// |
+// ` listen-and-serve
+// |
+// ` wait-server
+//
+// The function receives:
+//
+// * name: The sub-tree supervisor name
+//
+// * addr: The http address
+//
+// The function also returns a `s.EventNotifier` that may be used on the root
+// supervisor.
+//
+func newPrometheusSpec(name, addr string) (s.SupervisorSpec, s.EventNotifier) {
+	server := buildPrometheusHttpServer(addr)
+	return httpServerTree(name, server), registerEvent
 }

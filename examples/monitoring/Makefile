@@ -1,6 +1,6 @@
 GO_FILES := $(wildcard *.go)
 
-monitoring: $(GO_FILES)
+monitoring: $(GO_FILES) Dockerfile
 	go build -a -tags netgo -ldflags '-w -extldflags "-static"' .
 	docker build -t 'application:latest' .
 
