@@ -33,9 +33,9 @@ func registerEvent(ev s.Event) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-// listenAndServeHttpWorker blocks on this server until another goroutine cals
+// listenAndServeHTTPWorker blocks on this server until another goroutine cals
 // the shutdown method
-func listenAndServeHttpWorker(server *http.Server) c.ChildSpec {
+func listenAndServeHTTPWorker(server *http.Server) c.ChildSpec {
 	return c.New("listen-and-serve", func(ctx context.Context) error {
 		err := server.ListenAndServe()
 		<-ctx.Done()
@@ -43,9 +43,9 @@ func listenAndServeHttpWorker(server *http.Server) c.ChildSpec {
 	})
 }
 
-// waitUntilDoneHttpWorker waits for a supervisor tree signal to shutdown the
+// waitUntilDoneHTTPWorker waits for a supervisor tree signal to shutdown the
 // given server
-func waitUntilDoneHttpWorker(server *http.Server) c.ChildSpec {
+func waitUntilDoneHTTPWorker(server *http.Server) c.ChildSpec {
 	return c.New("wait-server", func(ctx context.Context) error {
 		<-ctx.Done()
 		return server.Shutdown(ctx)
@@ -59,17 +59,17 @@ func httpServerTree(name string, server *http.Server) s.SupervisorSpec {
 	return s.New(
 		name,
 		s.WithChildren(
-			listenAndServeHttpWorker(server),
-			waitUntilDoneHttpWorker(server),
+			listenAndServeHTTPWorker(server),
+			waitUntilDoneHTTPWorker(server),
 		),
 	)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
-// buildPrometheusHttpServer builds an HTTP Server that has a handler that spits
+// buildPrometheusHTTPServer builds an HTTP Server that has a handler that spits
 // out prometheus stats
-func buildPrometheusHttpServer(addr string) *http.Server {
+func buildPrometheusHTTPServer(addr string) *http.Server {
 	handle := http.NewServeMux()
 	handle.Handle("/metrics", promhttp.Handler())
 	return &http.Server{Addr: addr, Handler: handle}
@@ -97,6 +97,6 @@ func buildPrometheusHttpServer(addr string) *http.Server {
 // supervisor.
 //
 func newPrometheusSpec(name, addr string) (s.SupervisorSpec, s.EventNotifier) {
-	server := buildPrometheusHttpServer(addr)
+	server := buildPrometheusHTTPServer(addr)
 	return httpServerTree(name, server), registerEvent
 }
