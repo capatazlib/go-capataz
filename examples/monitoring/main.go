@@ -25,9 +25,9 @@ func stopOnSignal(sup s.Supervisor) {
 }
 
 // This program runs a prometheus metrics server and a few goroutines that print
-// greetings in the standard output. It showcases how to build by composing all
-// the components in a tree shape. All the wiring happens before we run any
-// business logic.
+// greetings in the standard output. It showcases how to build an app by
+// composing all the components in a tree shape. All the wiring happens before
+// we run any business logic.
 //
 // This API gives restart logic for any failures that happen in the goroutines
 // and also forces us to build our application as a group of sub-systems and
@@ -41,7 +41,9 @@ func main() {
 	prometheusSpec, promEventNotifier := newPrometheusSpec("prometheus", metricsHTTPAddr)
 
 	// Build a supervision tree that runs 3 greeters
-	greetersSpec := newGretterTree("greeters",
+	greetersSpec := newGreeterTree(
+		log,
+		"greeters",
 		greeterSpec{name: "greeter1", delay: 5 * time.Second},
 		greeterSpec{name: "greeter2", delay: 7 * time.Second},
 		greeterSpec{name: "greeter3", delay: 10 * time.Second},
@@ -87,10 +89,8 @@ func main() {
 		//
 		// In case the root supervisor error treshold is reached, then the
 		// application will fail hard.
-		s.WithSubtree(
-			prometheusSpec,
-			greetersSpec,
-		),
+		s.WithSubtree(prometheusSpec),
+		s.WithSubtree(greetersSpec),
 	)
 
 	// Start the application, this will spawn the goroutines of the following supervision tree

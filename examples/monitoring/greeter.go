@@ -19,6 +19,9 @@ type greeterSpec struct {
 // duration of time
 func newGreeter(log *logrus.Entry, name string, delay time.Duration) c.ChildSpec {
 	ticker := time.NewTicker(delay)
+	// NOTE: When the supervisor stops or restarts this Child, it's going to
+	// cancel the given `context.Context`. It is _essential_ you keep track of the
+	// `ctx.Done()` value so that the application runtime doesn't hang.
 	return c.New(name, func(ctx context.Context) error {
 		for {
 			log.Infof("Hello %s", name)
@@ -36,7 +39,7 @@ func newGreeter(log *logrus.Entry, name string, delay time.Duration) c.ChildSpec
 func newGreeterTree(log *logrus.Entry, name string, specs ...greeterSpec) s.SupervisorSpec {
 	greeters := make([]c.ChildSpec, 0, len(specs))
 	for _, spec := range specs {
-		greeters = append(greeters, c.New(log, spec.name, spec.delay))
+		greeters = append(greeters, newGreeter(log, spec.name, spec.delay))
 	}
 	return s.New(name, s.WithChildren(greeters...))
 }
