@@ -62,9 +62,9 @@ func main() {
 		// * stops a worker
 		// * detectes a worker failure
 		//
-		// This callback is the ideal to add traceability to our supervision system,
-		// in this particular s.EventNotifer, we log each event and send metrics to
-		// prometheus to check our application health
+		// This callback is the ideal place to add traceability to our supervision
+		// system, in this particular `s.EventNotifer`, we log each event and send
+		// metrics to prometheus to check our application health
 		//
 		s.WithNotifier(func(ev s.Event) {
 			logEventNotifier(ev)
