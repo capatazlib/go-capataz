@@ -1,9 +1,10 @@
 package s
 
+// This file contains the implementation of the public methods for the
+// Supervisor API
+
 import (
 	"context"
-	"errors"
-	"strings"
 	"time"
 
 	"github.com/capatazlib/go-capataz/c"
@@ -14,7 +15,23 @@ import (
 var rootSupervisorName = ""
 
 ////////////////////////////////////////////////////////////////////////////////
-// Supervisor (dynamic tree) functionality
+// Private API
+
+// emptyEventNotifier is an utility function that works as a default value
+// whenever an EventNotifier is not specified on the Supervisor Spec
+func emptyEventNotifier(_ Event) {}
+
+// getEventNotifier returns the configured EventNotifier or emptyEventNotifier
+// (if none is given via WithEventNotifier)
+func (spec SupervisorSpec) getEventNotifier() EventNotifier {
+	if spec.eventNotifier == nil {
+		return emptyEventNotifier
+	}
+	return spec.eventNotifier
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Public API
 
 // Stop is a synchronous procedure that halts the execution of the whole
 // supervision tree.
@@ -35,124 +52,6 @@ func (sup Supervisor) Wait() error {
 // Name returns the name of the Spec used to start this Supervisor
 func (sup Supervisor) Name() string {
 	return sup.spec.Name()
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// Spec (static tree) functionality
-
-// emptyEventNotifier is an utility function that works as a default value
-// whenever an EventNotifier is not specified on the Supervisor Spec
-func emptyEventNotifier(_ Event) {}
-
-// getEventNotifier returns the configured EventNotifier or emptyEventNotifier
-// (if none is given via WithEventNotifier)
-func (spec SupervisorSpec) getEventNotifier() EventNotifier {
-	if spec.eventNotifier == nil {
-		return emptyEventNotifier
-	}
-	return spec.eventNotifier
-}
-
-// start is routine that contains the main logic of a Supervisor. This function:
-//
-// 1) spawns a new goroutine for the supervisor loop
-//
-// 2) spawns each child goroutine in the correct order
-//
-// 3) stops all the spawned children in the correct order once it gets a stop
-// signal
-//
-// 4) it monitors and reacts to errors reported by the supervised children
-//
-func (spec SupervisorSpec) start(parentCtx context.Context, parentName string) (Supervisor, error) {
-	// cancelFn is used when Stop is requested
-	ctx, cancelFn := context.WithCancel(parentCtx)
-
-	// notifyCh is used to keep track of errors from children
-	notifyCh := make(chan c.ChildNotification)
-
-	// ctrlCh is used to keep track of request from client APIs (e.g. spawn child)
-	// ctrlCh := make(chan ControlMsg)
-
-	// startCh is used to track when the supervisor loop thread has started
-	startCh := make(chan startError)
-
-	// terminateCh is used when waiting for cancelFn to complete
-	terminateCh := make(chan terminateError)
-
-	var runtimeName string
-	if parentName == rootSupervisorName {
-		// We are the root supervisor, no need to add prefix
-		runtimeName = spec.Name()
-	} else {
-		runtimeName = strings.Join([]string{parentName, spec.Name()}, "/")
-	}
-
-	sup := Supervisor{
-		runtimeName: runtimeName,
-		spec:        spec,
-		children:    make(map[string]c.Child, len(spec.children)),
-		cancel:      cancelFn,
-		wait: func() error {
-			// Let's us wait for the Supervisor goroutine to terminate, if there are
-			// errors in the termination (e.g. Timeout of child, error treshold
-			// reached, etc.), the terminateCh is going to return an error, otherwise
-			// it will nil
-			err := <-terminateCh
-			return err
-		},
-	}
-
-	go func() {
-		defer close(terminateCh)
-
-		// Start children
-		err := sup.startChildren(notifyCh)
-		if err != nil {
-			startCh <- err
-			return
-		}
-
-		// Once children have been spawned we notify the supervisor thread has
-		// started
-		close(startCh)
-
-		// Supervisor Loop
-	supervisorLoop:
-		for {
-			select {
-			// parent context is done
-			case <-ctx.Done():
-				childErrMap := sup.stopChildren(false /* starting? */)
-				// If any of the children fails to stop, we should report that as an
-				// error
-				if len(childErrMap) > 0 {
-					terminateCh <- SupervisorError{
-						err:         errors.New("Supervisor stop error"),
-						runtimeName: runtimeName,
-						childErrMap: childErrMap,
-					}
-				}
-				break supervisorLoop
-			case /* childNotification = */ <-notifyCh:
-				// TODO: Deal with errors on children
-				// case msg := <-ctrlCh:
-				// TODO: Deal with public facing API calls
-			}
-		}
-	}()
-
-	// TODO: Figure out stop before start finish
-	// TODO: Figure out start with timeout
-	err := <-startCh
-	if err != nil {
-		// Let's wait for the supervisor to stop all children before returning the
-		// final error
-		_ /* err */ = sup.wait()
-		return Supervisor{}, err
-	}
-
-	return sup, nil
 }
 
 // Name returns the specified name for a Supervisor Spec
