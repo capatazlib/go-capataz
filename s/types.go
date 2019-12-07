@@ -168,6 +168,19 @@ func (en EventNotifier) ProcessStarted(name string, startTime time.Time) {
 	})
 }
 
+// emptyEventNotifier is an utility function that works as a default value
+// whenever an EventNotifier is not specified on the Supervisor Spec
+func emptyEventNotifier(_ Event) {}
+
+// getEventNotifier returns the configured EventNotifier or emptyEventNotifier
+// (if none is given via WithEventNotifier)
+func (spec SupervisorSpec) getEventNotifier() EventNotifier {
+	if spec.eventNotifier == nil {
+		return emptyEventNotifier
+	}
+	return spec.eventNotifier
+}
+
 // Opt is used to configure a supervisor's specification
 type Opt func(*SupervisorSpec)
 

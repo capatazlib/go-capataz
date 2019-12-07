@@ -15,22 +15,6 @@ import (
 var rootSupervisorName = ""
 
 ////////////////////////////////////////////////////////////////////////////////
-// Private API
-
-// emptyEventNotifier is an utility function that works as a default value
-// whenever an EventNotifier is not specified on the Supervisor Spec
-func emptyEventNotifier(_ Event) {}
-
-// getEventNotifier returns the configured EventNotifier or emptyEventNotifier
-// (if none is given via WithEventNotifier)
-func (spec SupervisorSpec) getEventNotifier() EventNotifier {
-	if spec.eventNotifier == nil {
-		return emptyEventNotifier
-	}
-	return spec.eventNotifier
-}
-
-////////////////////////////////////////////////////////////////////////////////
 // Public API
 
 // Stop is a synchronous procedure that halts the execution of the whole
