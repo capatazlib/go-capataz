@@ -1,5 +1,7 @@
 package s
 
+// This file all the constructor options for a SupervisorSpec
+
 import "github.com/capatazlib/go-capataz/c"
 
 // WithOrder specifies the start/stop order of a supervisor's children

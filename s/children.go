@@ -1,5 +1,7 @@
 package s
 
+// This file contains the start/stop children logic
+
 import (
 	"fmt"
 	"strings"

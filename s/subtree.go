@@ -1,5 +1,7 @@
 package s
 
+// This file contains logic on supervision sub-trees
+
 import (
 	"context"
 
