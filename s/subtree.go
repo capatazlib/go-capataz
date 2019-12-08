@@ -34,7 +34,8 @@ func subtreeMain(
 }
 
 // subtree allows to register a Supervisor Spec as a sub-tree of a bigger
-// Supervisor Spec.
+// Supervisor Spec. The sub-tree is executed in a `c.Child` goroutine, ergo, the
+// returned `c.ChildSpec` is going to contain the supervisor internally.
 func (spec SupervisorSpec) subtree(
 	subtreeSpec SupervisorSpec,
 	copts0 ...c.Opt,
