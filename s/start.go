@@ -96,6 +96,42 @@ func buildRuntimeName(spec SupervisorSpec, parentName string) string {
 	return runtimeName
 }
 
+// run performs the main logic of a Supervisor. This function:
+//
+// 1) spawns each child goroutine in the correct order
+//
+// 2) stops all the spawned children in the correct order once it gets a stop
+// signal
+//
+// 3) it monitors and reacts to errors reported by the supervised children
+//
+func (spec SupervisorSpec) run(
+	ctx context.Context,
+	parentName string,
+	onStart c.NotifyStartFn,
+) error {
+	// notifyCh is used to keep track of errors from children
+	notifyCh := make(chan c.ChildNotification)
+
+	// ctrlCh is used to keep track of request from client APIs (e.g. spawn child)
+	// ctrlCh := make(chan ControlMsg)
+
+	runtimeName := buildRuntimeName(spec, parentName)
+
+	onTerminate := func(err terminateError) {}
+
+	// spawn goroutine with supervisor monitorLoop
+	return runMonitorLoop(
+		ctx,
+		spec,
+		runtimeName,
+		notifyCh,
+		// ctrlCh,
+		onStart,
+		onTerminate,
+	)
+}
+
 // start is routine that contains the main logic of a Supervisor. This function:
 //
 // 1) spawns a new goroutine for the supervisor loop

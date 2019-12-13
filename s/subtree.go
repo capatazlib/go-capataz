@@ -18,18 +18,11 @@ func subtreeMain(
 	// is essential, as we need this callback to signal the sub-tree children have
 	// started before signaling we have started
 	return func(parentCtx context.Context, notifyChildStart c.NotifyStartFn) error {
-		// in this function we use the private versions of start and wait
-		// given we don't want to signal the eventNotifier more than once
-		// on sub-trees
-
+		// in this function we use the private versions of run given we don't want
+		// to spawn yet another goroutine
 		ctx, cancelFn := context.WithCancel(parentCtx)
 		defer cancelFn()
-		sup, err := spec.start(ctx, parentName)
-		notifyChildStart(err)
-		if err != nil {
-			return err
-		}
-		return sup.wait()
+		return spec.run(ctx, parentName, notifyChildStart)
 	}
 }
 
