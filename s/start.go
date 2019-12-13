@@ -60,6 +60,19 @@ func (sup Supervisor) monitorLoop(
 	}
 }
 
+// buildRuntimeName creates the runtimeName of a Supervisor from the parent name
+// and the spec name
+func buildRuntimeName(spec SupervisorSpec, parentName string) string {
+	var runtimeName string
+	if parentName == rootSupervisorName {
+		// We are the root supervisor, no need to add prefix
+		runtimeName = spec.Name()
+	} else {
+		runtimeName = strings.Join([]string{parentName, spec.Name()}, "/")
+	}
+	return runtimeName
+}
+
 // start is routine that contains the main logic of a Supervisor. This function:
 //
 // 1) spawns a new goroutine for the supervisor loop
@@ -87,14 +100,7 @@ func (spec SupervisorSpec) start(parentCtx context.Context, parentName string) (
 	// terminateCh is used when waiting for cancelFn to complete
 	terminateCh := make(chan terminateError)
 
-	// Calculate the runtime name of this supervisor
-	var runtimeName string
-	if parentName == rootSupervisorName {
-		// We are the root supervisor, no need to add prefix
-		runtimeName = spec.Name()
-	} else {
-		runtimeName = strings.Join([]string{parentName, spec.Name()}, "/")
-	}
+	runtimeName := buildRuntimeName(spec, parentName)
 
 	sup := Supervisor{
 		runtimeName: runtimeName,
