@@ -15,43 +15,66 @@ import (
 	"github.com/capatazlib/go-capataz/c"
 )
 
-// monitorLoop does the initialization of supervisor's children and then runs an
-// infinite loop that monitors each child error.
-func (sup Supervisor) monitorLoop(
+// runMonitorLoop does the initialization of supervisor's children and then runs
+// an infinite loop that monitors each child error.
+//
+// This function is used for both async and sync strategies, given this, we
+// receive an onStart and onTerminate callbacks that behave differently
+// depending on which strategy is used:
+//
+// 1) When called with the async strategy, these callbacks will interact with
+// gochans that communicate with the spawner goroutine.
+//
+// 2) When called with the sync strategy, these callbacks will return the given
+// error, note this implementation returns the result of the callback calls
+//
+func runMonitorLoop(
 	ctx context.Context,
-	startCh chan startError,
-	terminateCh chan terminateError,
+	spec SupervisorSpec,
+	runtimeName string,
 	notifyCh chan c.ChildNotification,
-) {
-	defer close(terminateCh)
-
+	onStart c.NotifyStartFn,
+	onTerminate func(terminateError),
+) error {
 	// Start children
-	err := sup.startChildren(notifyCh)
+	children, err := startChildren(spec, runtimeName, notifyCh)
 	if err != nil {
-		startCh <- err
-		return
+		// in case we run in the async strategy we notify the spawner that we
+		// started with an error
+		onStart(err)
+		// We signal that we terminated, the error is not reported here because
+		// it was reported in the onStart
+		onTerminate(nil)
+		return err
 	}
 
-	// Once children have been spawned we notify the supervisor thread has
-	// started
-	close(startCh)
+	// Once children have been spawned we notify the supervisor main loop has
+	// started, we ignore the return given onStart usually returns the given
+	// parameter
+	onStart(nil)
 
 	// Supervisor Loop
 	for {
 		select {
 		// parent context is done
 		case <-ctx.Done():
-			childErrMap := sup.stopChildren(false /* starting? */)
+			childErrMap := stopChildren(spec, children, false /* starting? */)
 			// If any of the children fails to stop, we should report that as an
 			// error
 			if len(childErrMap) > 0 {
-				terminateCh <- SupervisorError{
+				// On async strategy, we notify that the spawner terminated with an
+				// error
+				err := SupervisorError{
 					err:         errors.New("Supervisor stop error"),
-					runtimeName: sup.runtimeName,
+					runtimeName: runtimeName,
 					childErrMap: childErrMap,
 				}
+				onTerminate(err)
+				// On sync strategy, we return the error
+				return err
 			}
-			return
+			onTerminate(nil)
+			return nil
 		case /* childNotification = */ <-notifyCh:
 			// TODO: Deal with errors on children
 			// case msg := <-ctrlCh:
@@ -84,7 +107,10 @@ func buildRuntimeName(spec SupervisorSpec, parentName string) string {
 //
 // 4) it monitors and reacts to errors reported by the supervised children
 //
-func (spec SupervisorSpec) start(parentCtx context.Context, parentName string) (Supervisor, error) {
+func (spec SupervisorSpec) start(
+	parentCtx context.Context,
+	parentName string,
+) (Supervisor, error) {
 	// cancelFn is used when Stop is requested
 	ctx, cancelFn := context.WithCancel(parentCtx)
 
@@ -117,8 +143,34 @@ func (spec SupervisorSpec) start(parentCtx context.Context, parentName string) (
 		},
 	}
 
+	onStart := func(err startError) {
+		if err != nil {
+			startCh <- err
+		}
+		close(startCh)
+	}
+
+	onTerminate := func(err terminateError) {
+		if err != nil {
+			terminateCh <- err
+		}
+		close(terminateCh)
+	}
+
 	// spawn goroutine with supervisor monitorLoop
-	go sup.monitorLoop(ctx, startCh, terminateCh, notifyCh)
+	go func() {
+		// NOTE: we ignore the returned error as that is being handled by the
+		// onStart and onTerminate callbacks
+		_ = runMonitorLoop(
+			ctx,
+			spec,
+			runtimeName,
+			notifyCh,
+			// ctrlCh,
+			onStart,
+			onTerminate,
+		)
+	}()
 
 	// TODO: Figure out stop before start finish
 	// TODO: Figure out start with timeout

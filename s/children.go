@@ -17,16 +17,17 @@ import (
 // children, this may happen because we had a start error in the middle of
 // supervision tree initialization, and we never got to initialize all children
 // at this supervision level.
-func (sup Supervisor) stopChildren(
+func stopChildren(
+	spec SupervisorSpec,
+	children map[string]c.Child,
 	starting bool,
 ) map[string]error {
-	spec := sup.spec
 	eventNotifier := spec.eventNotifier
-	children := spec.order.SortStop(spec.children)
+	childrenSpecs := spec.order.SortStop(spec.children)
 	childErrMap := make(map[string]error)
 
-	for _, cs := range children {
-		c, ok := sup.children[cs.Name()]
+	for _, cs := range childrenSpecs {
+		c, ok := children[cs.Name()]
 		if !ok && starting {
 			// skip it as we may have not started this child before a previous one
 			// failed
@@ -58,31 +59,33 @@ func (sup Supervisor) stopChildren(
 // will be sorted as specified with the `s.WithOrder` option. In case any child
 // fails to start, the supervisor start operation will be aborted and all the
 // started children so far will be stopped in the reverse order.
-func (sup Supervisor) startChildren(
+func startChildren(
+	spec SupervisorSpec,
+	runtimeName string,
 	notifyCh chan c.ChildNotification,
-) error {
-	spec := sup.spec
+) (map[string]c.Child, error) {
 	eventNotifier := spec.getEventNotifier()
+	children := make(map[string]c.Child)
 
 	// Start children
 	for _, cs := range spec.order.SortStart(spec.children) {
 		startTime := time.Now()
-		c, err := cs.Start(sup.runtimeName, notifyCh)
+		c, err := cs.Start(runtimeName, notifyCh)
 		// NOTE: The error handling code bellow gets executed when the children
 		// fails at start time
 		if err != nil {
-			cRuntimeName := strings.Join([]string{sup.runtimeName, cs.Name()}, "/")
+			cRuntimeName := strings.Join([]string{runtimeName, cs.Name()}, "/")
 			eventNotifier.ProcessStopped(cRuntimeName, startTime, err)
-			childErrMap := sup.stopChildren(true /* starting? */)
+			childErrMap := stopChildren(spec, children, true /* starting? */)
 			// Is important we stop the children before we finish the supervisor
-			return SupervisorError{
+			return nil, SupervisorError{
 				err:         err,
-				runtimeName: sup.runtimeName,
+				runtimeName: runtimeName,
 				childErrMap: childErrMap,
 			}
 		}
 		eventNotifier.ProcessStarted(c.RuntimeName(), startTime)
-		sup.children[cs.Name()] = c
+		children[cs.Name()] = c
 	}
-	return nil
+	return children, nil
 }
