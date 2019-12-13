@@ -38,10 +38,10 @@ func main() {
 	log, logEventNotifier := newLogEventNotifier()
 
 	// Build a supervision tree that runs the Prometheus HTTP server
-	prometheusSpec, promEventNotifier := newPrometheusSpec("prometheus", metricsHTTPAddr)
+	prometheusSpec := newPrometheusSpec("prometheus", metricsHTTPAddr)
 
 	// Build a supervision tree that runs 3 greeters
-	greetersSpec := newGreeterTree(
+	greetersSpec := newGreeterTreeSpec(
 		log,
 		"greeters",
 		greeterSpec{name: "greeter1", delay: 5 * time.Second},

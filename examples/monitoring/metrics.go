@@ -24,11 +24,12 @@ var (
 ////////////////////////////////////////////////////////////////////////////////
 
 // This is an s.EventNotifier that registers capataz' Events to prometheus
-func registerEvent(ev s.Event) {
+func promEventNotifier(ev s.Event) {
+	gauge := eventGauge.WithLabelValues(ev.Tag().String(), ev.ProcessRuntimeName())
 	if ev.Tag() == s.ProcessStarted {
-		eventGauge.WithLabelValues(ev.Tag().String(), ev.ProcessRuntimeName()).Inc()
+		gauge.Inc()
 	} else {
-		eventGauge.WithLabelValues(ev.Tag().String(), ev.ProcessRuntimeName()).Dec()
+		gauge.Dec()
 	}
 }
 
@@ -41,7 +42,7 @@ func listenAndServeHTTPWorker(server *http.Server) c.ChildSpec {
 		// NOTE: we ignore the given context because we cannot use it on go's HTTP
 		// API to stop the server. When we call the server.Shutdown method (which is
 		// done in waitUntilDoneHTTPWorker) the following line is going to return.
-		// Just to be save, we do a `<-ctx.Done()` check, but is not necessary.
+		// Just to be safe, we do a `<-ctx.Done()` check, but is not necessary.
 		err := server.ListenAndServe()
 		<-ctx.Done()
 		return err
@@ -67,6 +68,9 @@ func httpServerTree(name string, server *http.Server) s.SupervisorSpec {
 			// CAUTION: The order here matters, we need waitUntilDone to start last so
 			// that it can terminate first, if this is not the case the
 			// listenAndServeHTTPWorker child will never terminate.
+			//
+			// DISCLAIMER: The caution above _is not_ a capataz requirement, but a
+			// requirement of net/https' API
 			listenAndServeHTTPWorker(server),
 			waitUntilDoneHTTPWorker(server),
 		),
@@ -101,10 +105,7 @@ func buildPrometheusHTTPServer(addr string) *http.Server {
 //
 // * addr: The http address
 //
-// The function also returns a `s.EventNotifier` that may be used on the root
-// supervisor.
-//
-func newPrometheusSpec(name, addr string) (s.SupervisorSpec, s.EventNotifier) {
+func newPrometheusSpec(name, addr string) s.SupervisorSpec {
 	server := buildPrometheusHTTPServer(addr)
-	return httpServerTree(name, server), registerEvent
+	return httpServerTree(name, server)
 }
