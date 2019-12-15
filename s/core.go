@@ -10,10 +10,6 @@ import (
 	"github.com/capatazlib/go-capataz/c"
 )
 
-// rootSupervisorName is the name the root supervisor has, this is used to
-// compare the process current name to the rootSupervisorName
-var rootSupervisorName = ""
-
 ////////////////////////////////////////////////////////////////////////////////
 // Public API
 

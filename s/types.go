@@ -255,3 +255,7 @@ type startError = error
 // terminateError is the error reported back to a Supervisor when
 // the termination of a Child fails
 type terminateError = error
+
+// rootSupervisorName is the name the root supervisor has, this is used to
+// compare the process current name to the rootSupervisorName
+var rootSupervisorName = ""
