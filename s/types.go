@@ -168,6 +168,19 @@ func (en EventNotifier) ProcessStarted(name string, startTime time.Time) {
 	})
 }
 
+// emptyEventNotifier is an utility function that works as a default value
+// whenever an EventNotifier is not specified on the Supervisor Spec
+func emptyEventNotifier(_ Event) {}
+
+// getEventNotifier returns the configured EventNotifier or emptyEventNotifier
+// (if none is given via WithEventNotifier)
+func (spec SupervisorSpec) getEventNotifier() EventNotifier {
+	if spec.eventNotifier == nil {
+		return emptyEventNotifier
+	}
+	return spec.eventNotifier
+}
+
 // Opt is used to configure a supervisor's specification
 type Opt func(*SupervisorSpec)
 
@@ -242,3 +255,7 @@ type startError = error
 // terminateError is the error reported back to a Supervisor when
 // the termination of a Child fails
 type terminateError = error
+
+// rootSupervisorName is the name the root supervisor has, this is used to
+// compare the process current name to the rootSupervisorName
+var rootSupervisorName = ""
