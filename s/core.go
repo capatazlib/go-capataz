@@ -13,30 +13,27 @@ import (
 ////////////////////////////////////////////////////////////////////////////////
 // Public API
 
-// Stop is a synchronous procedure that halts the execution of the whole
-// supervision tree.
-func (sup Supervisor) Stop() error {
-	stopTime := time.Now()
-	sup.cancel()
-	err := sup.wait()
-	sup.spec.getEventNotifier().ProcessStopped(sup.runtimeName, stopTime, err)
-	return err
-}
+// New creates a SupervisorSpec. It requires the name of the supervisor (for
+// tracing purposes), all the other settings can be specified via Opt calls
+func New(name string, opts ...Opt) SupervisorSpec {
+	spec := SupervisorSpec{
+		children:      make([]c.ChildSpec, 0, 10),
+		eventNotifier: emptyEventNotifier,
+	}
 
-// Wait blocks the execution of the current goroutine until the Supervisor
-// finishes it execution.
-func (sup Supervisor) Wait() error {
-	return sup.wait()
-}
+	// Check name cannot be empty
+	if name == "" {
+		panic("Supervisor cannot have empty name")
+	}
+	spec.name = name
 
-// Name returns the name of the Spec used to start this Supervisor
-func (sup Supervisor) Name() string {
-	return sup.spec.Name()
-}
+	// apply options
+	for _, optFn := range opts {
+		optFn(&spec)
+	}
 
-// Name returns the specified name for a Supervisor Spec
-func (spec SupervisorSpec) Name() string {
-	return spec.name
+	// return spec
+	return spec
 }
 
 // Start creates a Supervisor from the SupervisorSpec. A Supervisor is a tree of
@@ -72,25 +69,28 @@ func (spec SupervisorSpec) Start(parentCtx context.Context) (Supervisor, error) 
 	return sup, nil
 }
 
-// New creates a SupervisorSpec. It requires the name of the supervisor (for
-// tracing purposes), all the other settings can be specified via Opt calls
-func New(name string, opts ...Opt) SupervisorSpec {
-	spec := SupervisorSpec{
-		children:      make([]c.ChildSpec, 0, 10),
-		eventNotifier: emptyEventNotifier,
-	}
+// Stop is a synchronous procedure that halts the execution of the whole
+// supervision tree.
+func (sup Supervisor) Stop() error {
+	stopTime := time.Now()
+	sup.cancel()
+	err := sup.wait()
+	sup.spec.getEventNotifier().ProcessStopped(sup.runtimeName, stopTime, err)
+	return err
+}
 
-	// Check name cannot be empty
-	if name == "" {
-		panic("Supervisor cannot have empty name")
-	}
-	spec.name = name
+// Wait blocks the execution of the current goroutine until the Supervisor
+// finishes it execution.
+func (sup Supervisor) Wait() error {
+	return sup.wait()
+}
 
-	// apply options
-	for _, optFn := range opts {
-		optFn(&spec)
-	}
+// Name returns the name of the Spec used to start this Supervisor
+func (sup Supervisor) Name() string {
+	return sup.spec.Name()
+}
 
-	// return spec
-	return spec
+// Name returns the specified name for a Supervisor Spec
+func (spec SupervisorSpec) Name() string {
+	return spec.name
 }
