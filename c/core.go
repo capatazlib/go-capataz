@@ -247,17 +247,6 @@ func (cs ChildSpec) Start(
 	}, nil
 }
 
-// RuntimeName returns a name that contains a prefix with the name of this child
-// parents.
-func (c Child) RuntimeName() string {
-	return c.runtimeName
-}
-
-// Name returns the specified name for a Child Spec
-func (c Child) Name() string {
-	return c.spec.Name()
-}
-
 // Stop is a synchronous procedure that halts the execution of the child
 func (c Child) Stop() error {
 	c.cancel()

@@ -116,6 +116,22 @@ type Child struct {
 	wait         func(Shutdown) error
 }
 
+// RuntimeName returns the name of this child (once started). It will have a
+// prefix with the supervisor name
+func (c Child) RuntimeName() string {
+	return c.runtimeName
+}
+
+// Name returns the name of the `ChildSpec` of this child
+func (c Child) Name() string {
+	return c.spec.name
+}
+
+// Spec returns the `ChildSpec` of this child
+func (c Child) Spec() ChildSpec {
+	return c.spec
+}
+
 // IsWorker indicates if this child is a worker
 func (c Child) IsWorker() bool {
 	return c.spec.tag == Worker
