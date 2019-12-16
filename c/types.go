@@ -112,6 +112,7 @@ func (cs ChildSpec) Tag() ChildTag {
 type Child struct {
 	runtimeName  string
 	spec         ChildSpec
+	restartCount uint32
 	cancel       func()
 	wait         func(Shutdown) error
 }
