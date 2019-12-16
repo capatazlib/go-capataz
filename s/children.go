@@ -71,8 +71,8 @@ func (sup Supervisor) startChildren(
 		// NOTE: The error handling code bellow gets executed when the children
 		// fails at start time
 		if err != nil {
-			cRuntimeName := strings.Join([]string{sup.runtimeName, cs.Name()}, "/")
 			eventNotifier.ProcessStopped(cRuntimeName, startTime, err)
+			cRuntimeName := strings.Join([]string{sup.runtimeName, cs.Name()}, childSepToken)
 			childErrMap := sup.stopChildren(true /* starting? */)
 			// Is important we stop the children before we finish the supervisor
 			return SupervisorError{

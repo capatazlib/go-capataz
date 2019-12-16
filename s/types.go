@@ -278,3 +278,7 @@ type terminateError = error
 // rootSupervisorName is the name the root supervisor has, this is used to
 // compare the process current name to the rootSupervisorName
 var rootSupervisorName = ""
+
+// childSepToken is the token use to separate sub-trees and child names in the
+// supervision tree
+const childSepToken = "/"

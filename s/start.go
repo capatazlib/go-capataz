@@ -93,7 +93,7 @@ func (spec SupervisorSpec) start(parentCtx context.Context, parentName string) (
 		// We are the root supervisor, no need to add prefix
 		runtimeName = spec.Name()
 	} else {
-		runtimeName = strings.Join([]string{parentName, spec.Name()}, "/")
+		runtimeName = strings.Join([]string{parentName, spec.Name()}, childSepToken)
 	}
 
 	sup := Supervisor{
