@@ -13,7 +13,9 @@ type Restart uint32
 type ChildTag uint32
 
 const (
+	// Worker is used for a c.Child that run a business-logic goroutine
 	Worker ChildTag = iota
+	// Supervisor is used for a c.Child that runs another supervision tree
 	Supervisor
 )
 
@@ -104,6 +106,7 @@ type ChildSpec struct {
 	start    func(context.Context, NotifyStartFn) error
 }
 
+// Tag returns the ChildTag of this ChildSpec
 func (cs ChildSpec) Tag() ChildTag {
 	return cs.tag
 }

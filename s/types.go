@@ -159,7 +159,7 @@ func (en EventNotifier) ProcessStopped(name string, stopTime time.Time) {
 	})
 }
 
-// ProcessFailed reports an event with an EventTag of ProcessStarted
+// ProcessStartFailed reports an event with an EventTag of ProcessStartFailed
 func (en EventNotifier) ProcessStartFailed(name string, err error) {
 	en(Event{
 		tag:                ProcessStartFailed,
@@ -168,7 +168,7 @@ func (en EventNotifier) ProcessStartFailed(name string, err error) {
 	})
 }
 
-// ProcessFailed reports an event with an EventTag of ProcessStarted
+// ProcessFailed reports an event with an EventTag of ProcessFailed
 func (en EventNotifier) ProcessFailed(name string, err error) {
 	en(Event{
 		tag:                ProcessFailed,

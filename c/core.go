@@ -23,6 +23,7 @@ func WithShutdown(s Shutdown) Opt {
 	}
 }
 
+// WithTag sets the given c.ChildTag on a c.ChildSpec
 func WithTag(t ChildTag) Opt {
 	return func(spec *ChildSpec) {
 		spec.tag = t
