@@ -117,3 +117,14 @@ func ProcessFailed(name string) EventP {
 		},
 	}
 }
+
+// ProcessStartFailed is a predicate to assert an event represents a process
+// that failed on start
+func ProcessStartFailed(name string) EventP {
+	return AndP{
+		preds: []EventP{
+			EventTagP{tag: s.ProcessStartFailed},
+			ProcessNameP{name: name},
+		},
+	}
+}
