@@ -2,6 +2,7 @@ package s
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/capatazlib/go-capataz/c"
@@ -129,11 +130,16 @@ func (e Event) Created() time.Time {
 
 // String returns an string representation for the Event
 func (e Event) String() string {
-	return fmt.Sprintf("Event{tag: %s, processRuntimeName: %s, created: %v}",
-		e.tag,
-		e.processRuntimeName,
-		e.created,
-	)
+	var buffer strings.Builder
+	buffer.WriteString("Event{")
+	buffer.WriteString(fmt.Sprintf("tag: %s", e.tag))
+	buffer.WriteString(fmt.Sprintf(", processRuntime: %s", e.processRuntimeName))
+	buffer.WriteString(fmt.Sprintf(", created: %v", e.created))
+	if e.err != nil {
+		buffer.WriteString(fmt.Sprintf(", err: %+v", e.err))
+	}
+	buffer.WriteString("}")
+	return buffer.String()
 }
 
 // EventNotifier is a function that is used for reporting events from the from
