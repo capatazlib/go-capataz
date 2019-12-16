@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -126,8 +127,8 @@ func AssertPartialMatch(t *testing.T, evs []s.Event, preds []EventP) {
 	}
 }
 
-// WaitDoneChild creates a `ChildSpec` that runs a goroutine that will block
-// until the `Done` channel of given `context.Context` returns
+// WaitDoneChild creates a `c.ChildSpec` that runs a goroutine that blocks until
+// the `context.Done` channel indicates a supervisor termination
 func WaitDoneChild(name string) c.ChildSpec {
 	cspec := c.New(name, func(ctx context.Context) error {
 		// In real-world code, here we would have some business logic. For this
@@ -139,7 +140,7 @@ func WaitDoneChild(name string) c.ChildSpec {
 	return cspec
 }
 
-// FailStartChild creates a `ChildSpec` that runs a goroutine that fails on
+// FailStartChild creates a `c.ChildSpec` that runs a goroutine that fails on
 // start
 func FailStartChild(name string) c.ChildSpec {
 	cspec := c.NewWithNotifyStart(
@@ -157,7 +158,7 @@ func FailStartChild(name string) c.ChildSpec {
 	return cspec
 }
 
-// NeverStopChild creates a `ChildSpec` that runs a goroutine that never stops
+// NeverStopChild creates a `c.ChildSpec` that runs a goroutine that never stops
 // when asked to, causing the goroutine to leak in the runtime
 func NeverStopChild(name string) c.ChildSpec {
 	// For the sake of making the test go fast, lets reduce the amount of time we
@@ -177,7 +178,28 @@ func NeverStopChild(name string) c.ChildSpec {
 		c.WithShutdown(c.Timeout(waitTime)),
 	)
 	return cspec
+}
 
+// FailingChild creates a `c.ChildSpec` that runs a goroutine that will fail at
+// least the given number of times. Once this number of times has been reached,
+// it waits until the given `context.Done` channel indicates a supervisor
+// termination
+func FailingChild(totalErrCount int32, name string) (c.ChildSpec, func()) {
+	currentFailCount := int32(0)
+	startCh := make(chan struct{})
+	startSignal := func() { close(startCh) }
+	return c.New(
+		name,
+		func(ctx context.Context) error {
+			<-startCh
+			if currentFailCount < totalErrCount {
+				atomic.AddInt32(&currentFailCount, 1)
+				return fmt.Errorf("Failing child (%d out of %d)", currentFailCount, totalErrCount)
+			}
+			<-ctx.Done()
+			return nil
+		},
+	), startSignal
 }
 
 // ObserveSupervisor is an utility function that receives all the arguments

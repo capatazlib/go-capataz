@@ -16,6 +16,35 @@ import (
 	"github.com/capatazlib/go-capataz/c"
 )
 
+// oneForOneRestart executes the restart logic for a OneForOne algorithm
+func (sup Supervisor) oneForOneRestart(
+	prevChild c.Child,
+	notifyCh chan<- c.ChildNotification,
+) error {
+	spec := sup.spec
+	eventNotifier := spec.getEventNotifier()
+
+	cspec := prevChild.Spec()
+	cname := cspec.Name()
+
+	startTime := time.Now()
+	newChild, err := cspec.Restart(prevChild, sup.runtimeName, notifyCh)
+
+	// We want to keep track of the updated restartCount which is in newChild,
+	// ergo we must override the child independently of the outcome
+	sup.children[cname] = newChild
+
+	if err != nil {
+		// Given this error ocurred after supervisor bootstrap, it is treated as the
+		// child failed on supervision time, _not_ start time; return the error so
+		// that the supervisor does the restarting
+		eventNotifier.ProcessFailed(newChild.RuntimeName(), err)
+		return err
+	}
+	eventNotifier.ProcessStarted(newChild.RuntimeName(), startTime)
+	return nil
+}
+
 // supervisionLoop does the initialization of supervisor's children and then runs an
 // infinite loop that monitors each child error.
 func (sup Supervisor) supervisionLoop(
@@ -57,8 +86,23 @@ func (sup Supervisor) supervisionLoop(
 				}
 			}
 			return
-		case /* childNotification = */ <-notifyCh:
-			// TODO: Deal with errors on children
+		case childNotification := <-notifyCh:
+			oldChild, ok := sup.children[childNotification.Name()]
+			if !ok {
+				// TODO: Expand on this case, I think this is highly unlikely, but would
+				// like to exercise this branch in test somehow (if possible)
+				panic("Something horribly wrong happened here")
+			}
+
+			if err := childNotification.Unwrap(); err != nil {
+				// If the childNotification is from an error, we report it here
+				eventNotifier.ProcessFailed(oldChild.RuntimeName(), err)
+			}
+
+			// TODO: Verify error treshold here
+			// TODO: Deal with other restart strategies here
+			// TODO: Deal with err returned for start failures
+			_ /* err */ = sup.oneForOneRestart(oldChild, notifyCh)
 			// case msg := <-ctrlCh:
 			// TODO: Deal with public facing API calls
 		}
