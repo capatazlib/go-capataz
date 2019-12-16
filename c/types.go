@@ -140,11 +140,17 @@ func (c Child) IsWorker() bool {
 // ChildNotification reports when a child has terminated; if it terminated with
 // an error, it is set in the err field, otherwise, err will be nil.
 type ChildNotification struct {
+	name        string
 	runtimeName string
 	err         error
 }
 
-// RuntimeName returns the runtime name of the child that emitted this exit
+// Name returns the spec name of the child that emitted this notification
+func (ce ChildNotification) Name() string {
+	return ce.name
+}
+
+// RuntimeName returns the runtime name of the child that emitted this
 // notification
 func (ce ChildNotification) RuntimeName() string {
 	return ce.runtimeName

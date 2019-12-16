@@ -207,6 +207,7 @@ func (cs ChildSpec) Start(
 		})
 
 		childNotification := ChildNotification{
+			name:        cs.name,
 			runtimeName: runtimeName,
 			err:         err,
 		}
