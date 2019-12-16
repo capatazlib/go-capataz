@@ -12,6 +12,26 @@ type runtimeChildName = string
 // Restart specifies when a goroutine gets restarted
 type Restart uint32
 
+// ChildTag specifies the type of Child that is running, this is a closed
+// set given we only will support workers and supervisors
+type ChildTag uint32
+
+const (
+	Worker ChildTag = iota
+	Supervisor
+)
+
+func (ct ChildTag) String() string {
+	switch ct {
+	case Worker:
+		return "Worker"
+	case Supervisor:
+		return "Supervisor"
+	default:
+		return "<Unknown>"
+	}
+}
+
 const (
 	// Permanent Restart = iota
 	// Temporary
@@ -82,17 +102,27 @@ type NotifyStartFn = func(startError)
 // with the supervisor's ChildSpec.
 type ChildSpec struct {
 	name     string
+	tag      ChildTag
 	shutdown Shutdown
 	restart  Restart
 	start    func(context.Context, NotifyStartFn) error
 }
 
+func (cs ChildSpec) Tag() ChildTag {
+	return cs.tag
+}
+
 // Child is the runtime representation of an Spec
 type Child struct {
-	runtimeName string
-	spec        ChildSpec
-	cancel      func()
-	wait        func(Shutdown) error
+	runtimeName  string
+	spec         ChildSpec
+	cancel       func()
+	wait         func(Shutdown) error
+}
+
+// IsWorker indicates if this child is a worker
+func (c Child) IsWorker() bool {
+	return c.spec.tag == Worker
 }
 
 // ChildNotification reports when a child has terminated; if it terminated with

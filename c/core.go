@@ -23,6 +23,12 @@ func WithShutdown(s Shutdown) Opt {
 	}
 }
 
+func WithTag(t ChildTag) Opt {
+	return func(spec *ChildSpec) {
+		spec.tag = t
+	}
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 // New creates a `ChildSpec` that represents a worker goroutine. It requires two
