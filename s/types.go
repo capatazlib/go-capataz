@@ -231,7 +231,7 @@ type Supervisor struct {
 	spec        SupervisorSpec
 	children    map[string]c.Child
 	cancel      func()
-	wait        func() error
+	wait        func(time.Time, error) error
 }
 
 // SupervisorError wraps an error from a children, enhancing it with supervisor

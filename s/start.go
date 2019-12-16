@@ -11,6 +11,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"time"
 
 	"github.com/capatazlib/go-capataz/c"
 )
@@ -101,7 +102,7 @@ func (spec SupervisorSpec) start(parentCtx context.Context, parentName string) (
 		spec:        spec,
 		children:    make(map[string]c.Child, len(spec.children)),
 		cancel:      cancelFn,
-		wait: func() error {
+		wait: func(stoppingTime time.Time, stoppingErr error) error {
 			// Let's us wait for the Supervisor goroutine to terminate, if there are
 			// errors in the termination (e.g. Timeout of child, error treshold
 			// reached, etc.), the terminateCh is going to return an error, otherwise

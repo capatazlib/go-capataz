@@ -72,17 +72,17 @@ func (spec SupervisorSpec) Start(parentCtx context.Context) (Supervisor, error) 
 // Stop is a synchronous procedure that halts the execution of the whole
 // supervision tree.
 func (sup Supervisor) Stop() error {
-	stopTime := time.Now()
+	stoppingTime := time.Now()
 	sup.cancel()
-	err := sup.wait()
 	sup.spec.getEventNotifier().ProcessStopped(sup.runtimeName, stopTime, err)
+	err := sup.wait(stoppingTime, nil /* stoppingErr */)
 	return err
 }
 
 // Wait blocks the execution of the current goroutine until the Supervisor
 // finishes it execution.
 func (sup Supervisor) Wait() error {
-	return sup.wait()
+	return sup.wait(time.Time{}, nil /* stoppingErr */)
 }
 
 // Name returns the name of the Spec used to start this Supervisor

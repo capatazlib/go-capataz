@@ -4,6 +4,7 @@ package s
 
 import (
 	"context"
+	"time"
 
 	"github.com/capatazlib/go-capataz/c"
 )
@@ -29,7 +30,8 @@ func subtreeMain(
 		if err != nil {
 			return err
 		}
-		return sup.wait()
+		// wait for supervisor goroutine to finish
+		return sup.wait(time.Time{}, nil /* stoppingErr */)
 	}
 }
 
