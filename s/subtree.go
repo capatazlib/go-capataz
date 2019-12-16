@@ -25,10 +25,10 @@ func subtreeMain(
 
 		ctx, cancelFn := context.WithCancel(parentCtx)
 		defer cancelFn()
-		sup, err := spec.start(ctx, parentName)
-		notifyChildStart(err)
-		if err != nil {
-			return err
+		sup, startErr := spec.start(ctx, parentName)
+		notifyChildStart(startErr)
+		if startErr != nil {
+			return startErr
 		}
 		// wait for supervisor goroutine to finish
 		return sup.wait(time.Time{}, nil /* stoppingErr */)
