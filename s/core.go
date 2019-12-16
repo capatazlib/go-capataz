@@ -58,14 +58,11 @@ func New(name string, opts ...Opt) SupervisorSpec {
 // will reach the root supervisor and the program will get a hard failure.
 //
 func (spec SupervisorSpec) Start(parentCtx context.Context) (Supervisor, error) {
-	startTime := time.Now()
 	sup, err := spec.start(parentCtx, rootSupervisorName)
 	if err != nil {
 		// NOTE we are using the spec.Name() as we know this is the top-level supervisor
-		spec.getEventNotifier().ProcessStopped(spec.Name(), startTime, err)
 		return Supervisor{}, err
 	}
-	spec.getEventNotifier().ProcessStarted(sup.runtimeName, startTime)
 	return sup, nil
 }
 
@@ -74,7 +71,6 @@ func (spec SupervisorSpec) Start(parentCtx context.Context) (Supervisor, error) 
 func (sup Supervisor) Stop() error {
 	stoppingTime := time.Now()
 	sup.cancel()
-	sup.spec.getEventNotifier().ProcessStopped(sup.runtimeName, stopTime, err)
 	err := sup.wait(stoppingTime, nil /* stoppingErr */)
 	return err
 }

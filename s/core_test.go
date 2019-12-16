@@ -246,7 +246,7 @@ func TestStartFailedChild(t *testing.T) {
 			//
 			// Note child3 fails at this point
 			//
-			ProcessFailed("root/branch1/child3"),
+			ProcessStartFailed("root/branch1/child3"),
 			//
 			// After a failure a few things will happen:
 			//

@@ -26,7 +26,7 @@ func (sup Supervisor) stopChildren(
 	childErrMap := make(map[string]error)
 
 	for _, cs := range children {
-		c, ok := sup.children[cs.Name()]
+		ch, ok := sup.children[cs.Name()]
 		if !ok && starting {
 			// skip it as we may have not started this child before a previous one
 			// failed
@@ -41,14 +41,20 @@ func (sup Supervisor) stopChildren(
 				),
 			)
 		}
-		stopTime := time.Now()
-		err := c.Stop()
+		stoppingTime := time.Now()
+		terminationErr := ch.Stop()
 		// If a child fails to stop (either because of a legit failure or a
 		// timeout), we store the error so that we can report all of them later
 		if err != nil {
-			childErrMap[cs.Name()] = err
+			childErrMap[cs.Name()] = terminationErr
 		}
-		eventNotifier.ProcessStopped(c.RuntimeName(), stopTime, err)
+
+		// Send notification to supervision system
+		if cs.Tag() == c.Worker && err != nil {
+			eventNotifier.ProcessFailed(ch.RuntimeName(), err)
+		} else if cs.Tag() == c.Worker {
+			eventNotifier.ProcessStopped(ch.RuntimeName(), stoppingTime)
+		}
 	}
 	return childErrMap
 }
@@ -67,12 +73,14 @@ func (sup Supervisor) startChildren(
 	// Start children
 	for _, cs := range spec.order.SortStart(spec.children) {
 		startTime := time.Now()
-		c, err := cs.Start(sup.runtimeName, notifyCh)
+		ch, err := cs.Start(sup.runtimeName, notifyCh)
 		// NOTE: The error handling code bellow gets executed when the children
 		// fails at start time
 		if err != nil {
-			eventNotifier.ProcessStopped(cRuntimeName, startTime, err)
 			cRuntimeName := strings.Join([]string{sup.runtimeName, cs.Name()}, childSepToken)
+			if cs.Tag() == c.Worker {
+				eventNotifier.ProcessStartFailed(cRuntimeName, err)
+			}
 			childErrMap := sup.stopChildren(true /* starting? */)
 			// Is important we stop the children before we finish the supervisor
 			return SupervisorError{
@@ -81,8 +89,10 @@ func (sup Supervisor) startChildren(
 				childErrMap: childErrMap,
 			}
 		}
-		eventNotifier.ProcessStarted(c.RuntimeName(), startTime)
-		sup.children[cs.Name()] = c
+		if cs.Tag() == c.Worker {
+			eventNotifier.ProcessStarted(ch.RuntimeName(), startTime)
+		}
+		sup.children[cs.Name()] = ch
 	}
 	return nil
 }

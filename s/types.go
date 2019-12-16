@@ -147,20 +147,14 @@ func (e Event) String() string {
 type EventNotifier func(Event)
 
 // ProcessStopped reports an event with an EventTag of ProcessStopped
-func (en EventNotifier) ProcessStopped(name string, stopTime time.Time, err error) {
-	tag := ProcessStopped
-	if err != nil {
-		tag = ProcessFailed
-	}
-
+func (en EventNotifier) ProcessStopped(name string, stopTime time.Time) {
 	createdTime := time.Now()
 	stopDuration := createdTime.Sub(stopTime)
 
 	en(Event{
-		tag:                tag,
+		tag:                ProcessStopped,
 		processRuntimeName: name,
-		err:                err,
-		created:            time.Now(),
+		created:            createdTime,
 		duration:           stopDuration,
 	})
 }
@@ -169,6 +163,15 @@ func (en EventNotifier) ProcessStopped(name string, stopTime time.Time, err erro
 func (en EventNotifier) ProcessStartFailed(name string, err error) {
 	en(Event{
 		tag:                ProcessStartFailed,
+		processRuntimeName: name,
+		err:                err,
+	})
+}
+
+// ProcessFailed reports an event with an EventTag of ProcessStarted
+func (en EventNotifier) ProcessFailed(name string, err error) {
+	en(Event{
+		tag:                ProcessFailed,
 		processRuntimeName: name,
 		err:                err,
 	})

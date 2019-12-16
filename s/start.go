@@ -16,15 +16,18 @@ import (
 	"github.com/capatazlib/go-capataz/c"
 )
 
-// monitorLoop does the initialization of supervisor's children and then runs an
+// supervisionLoop does the initialization of supervisor's children and then runs an
 // infinite loop that monitors each child error.
-func (sup Supervisor) monitorLoop(
+func (sup Supervisor) supervisionLoop(
 	ctx context.Context,
+	startTime time.Time,
 	startCh chan startError,
 	terminateCh chan terminateError,
 	notifyCh chan c.ChildNotification,
 ) {
 	defer close(terminateCh)
+	spec := sup.spec
+	eventNotifier := spec.getEventNotifier()
 
 	// Start children
 	err := sup.startChildren(notifyCh)
@@ -33,6 +36,7 @@ func (sup Supervisor) monitorLoop(
 		return
 	}
 
+	eventNotifier.ProcessStarted(sup.runtimeName, startTime)
 	// Once children have been spawned we notify the supervisor thread has
 	// started
 	close(startCh)
@@ -73,6 +77,8 @@ func (sup Supervisor) monitorLoop(
 // 4) it monitors and reacts to errors reported by the supervised children
 //
 func (spec SupervisorSpec) start(parentCtx context.Context, parentName string) (Supervisor, error) {
+	eventNotifier := spec.getEventNotifier()
+
 	// cancelFn is used when Stop is requested
 	ctx, cancelFn := context.WithCancel(parentCtx)
 
@@ -107,25 +113,43 @@ func (spec SupervisorSpec) start(parentCtx context.Context, parentName string) (
 			// errors in the termination (e.g. Timeout of child, error treshold
 			// reached, etc.), the terminateCh is going to return an error, otherwise
 			// it will nil
-			err := <-terminateCh
-			return err
+			terminateErr := <-terminateCh
+			// stoppingTime is only relevant when we call the internal wait function from
+			// the Stop() public API; if we just get called from Wait(), we don't need
+			// to keep track of the stop duration
+			if stoppingTime == (time.Time{}) {
+				stoppingTime = time.Now()
+			}
+
+			if terminateErr != nil {
+				eventNotifier.ProcessFailed(runtimeName, terminateErr)
+				return terminateErr
+			}
+			if stoppingErr != nil {
+				eventNotifier.ProcessFailed(runtimeName, stoppingErr)
+				return stoppingErr
+			}
+			eventNotifier.ProcessStopped(runtimeName, stoppingTime)
+			return nil
 		},
 	}
 
-	// spawn goroutine with supervisor monitorLoop
-	go sup.monitorLoop(ctx, startCh, terminateCh, notifyCh)
+	startTime := time.Now()
+	// spawn supervision goroutine
+	go sup.supervisionLoop(ctx, startTime, startCh, terminateCh, notifyCh)
 
 	// TODO: Figure out stop before start finish
 	// TODO: Figure out start with timeout
 
-	// We check if there was an start error reported from the monitorLoop, if this
+	// We check if there was an start error reported from the supervisionLoop, if this
 	// is the case, we wait for the termination of started children and return the
 	// reported error
 	err := <-startCh
 	if err != nil {
 		// Let's wait for the supervisor to stop all children before returning the
 		// final error
-		_ /* err */ = sup.wait()
+		stoppingTime := time.Now()
+		_ /* err */ = sup.wait(stoppingTime, err)
 		return Supervisor{}, err
 	}
 
