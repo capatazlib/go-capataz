@@ -45,13 +45,13 @@ func (sup Supervisor) stopChildren(
 		terminationErr := ch.Stop()
 		// If a child fails to stop (either because of a legit failure or a
 		// timeout), we store the error so that we can report all of them later
-		if err != nil {
+		if terminationErr != nil {
 			childErrMap[cs.Name()] = terminationErr
 		}
 
 		// Send notification to supervision system
-		if cs.Tag() == c.Worker && err != nil {
-			eventNotifier.ProcessFailed(ch.RuntimeName(), err)
+		if cs.Tag() == c.Worker && terminationErr != nil {
+			eventNotifier.ProcessFailed(ch.RuntimeName(), terminationErr)
 		} else if cs.Tag() == c.Worker {
 			eventNotifier.ProcessStopped(ch.RuntimeName(), stoppingTime)
 		}
