@@ -5,10 +5,6 @@ import (
 	"time"
 )
 
-// supervisorName represents the runtime name of the supervisor that is spawning
-// the current child
-type runtimeChildName = string
-
 // Restart specifies when a goroutine gets restarted
 type Restart uint32
 
