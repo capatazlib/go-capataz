@@ -15,6 +15,8 @@ import (
 	"github.com/capatazlib/go-capataz/c"
 )
 
+type NotifyTerminationFn = func(terminateError)
+
 // runMonitorLoop does the initialization of supervisor's children and then runs
 // an infinite loop that monitors each child error.
 //
@@ -34,7 +36,7 @@ func runMonitorLoop(
 	runtimeName string,
 	notifyCh chan c.ChildNotification,
 	onStart c.NotifyStartFn,
-	onTerminate func(terminateError),
+	onTerminate NotifyTerminationFn,
 ) error {
 	// Start children
 	children, err := startChildren(spec, runtimeName, notifyCh)
@@ -48,9 +50,8 @@ func runMonitorLoop(
 		return err
 	}
 
-	// Once children have been spawned we notify the supervisor main loop has
-	// started, we ignore the return given onStart usually returns the given
-	// parameter
+	// Once children have been spawned, we notify to the caller thread that the
+	// main loop has started without errors.
 	onStart(nil)
 
 	// Supervisor Loop
