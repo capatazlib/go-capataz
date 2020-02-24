@@ -15,7 +15,9 @@ import (
 	"github.com/capatazlib/go-capataz/c"
 )
 
-type NotifyTerminationFn = func(terminateError)
+// notifyTerminationFn is a callback that gets called when a supervisor is
+// terminating (with or without an error).
+type notifyTerminationFn = func(terminateError)
 
 // runMonitorLoop does the initialization of supervisor's children and then runs
 // an infinite loop that monitors each child error.
@@ -36,7 +38,7 @@ func runMonitorLoop(
 	runtimeName string,
 	notifyCh chan c.ChildNotification,
 	onStart c.NotifyStartFn,
-	onTerminate NotifyTerminationFn,
+	onTerminate notifyTerminationFn,
 ) error {
 	// Start children
 	children, err := startChildren(spec, runtimeName, notifyCh)
