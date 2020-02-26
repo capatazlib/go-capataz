@@ -15,49 +15,124 @@ import (
 	"github.com/capatazlib/go-capataz/c"
 )
 
-// monitorLoop does the initialization of supervisor's children and then runs an
-// infinite loop that monitors each child error.
-func (sup Supervisor) monitorLoop(
-	ctx context.Context,
-	startCh chan startError,
-	terminateCh chan terminateError,
-	notifyCh chan c.ChildNotification,
-) {
-	defer close(terminateCh)
+// notifyTerminationFn is a callback that gets called when a supervisor is
+// terminating (with or without an error).
+type notifyTerminationFn = func(terminateError)
 
+// runMonitorLoop does the initialization of supervisor's children and then runs
+// an infinite loop that monitors each child error.
+//
+// This function is used for both async and sync strategies, given this, we
+// receive an onStart and onTerminate callbacks that behave differently
+// depending on which strategy is used:
+//
+// 1) When called with the async strategy, these callbacks will interact with
+// gochans that communicate with the spawner goroutine.
+//
+// 2) When called with the sync strategy, these callbacks will return the given
+// error, note this implementation returns the result of the callback calls
+//
+func runMonitorLoop(
+	ctx context.Context,
+	spec SupervisorSpec,
+	runtimeName string,
+	notifyCh chan c.ChildNotification,
+	onStart c.NotifyStartFn,
+	onTerminate notifyTerminationFn,
+) error {
 	// Start children
-	err := sup.startChildren(notifyCh)
+	children, err := startChildren(spec, runtimeName, notifyCh)
 	if err != nil {
-		startCh <- err
-		return
+		// in case we run in the async strategy we notify the spawner that we
+		// started with an error
+		onStart(err)
+		// We signal that we terminated, the error is not reported here because
+		// it was reported in the onStart
+		onTerminate(nil)
+		return err
 	}
 
-	// Once children have been spawned we notify the supervisor thread has
-	// started
-	close(startCh)
+	// Once children have been spawned, we notify to the caller thread that the
+	// main loop has started without errors.
+	onStart(nil)
 
 	// Supervisor Loop
 	for {
 		select {
 		// parent context is done
 		case <-ctx.Done():
-			childErrMap := sup.stopChildren(false /* starting? */)
+			childErrMap := stopChildren(spec, children, false /* starting? */)
 			// If any of the children fails to stop, we should report that as an
 			// error
 			if len(childErrMap) > 0 {
-				terminateCh <- SupervisorError{
+				// On async strategy, we notify that the spawner terminated with an
+				// error
+				err := SupervisorError{
 					err:         errors.New("Supervisor stop error"),
-					runtimeName: sup.runtimeName,
+					runtimeName: runtimeName,
 					childErrMap: childErrMap,
 				}
+				onTerminate(err)
+				// On sync strategy, we return the error
+				return err
 			}
-			return
+			onTerminate(nil)
+			return nil
 		case /* childNotification = */ <-notifyCh:
 			// TODO: Deal with errors on children
 			// case msg := <-ctrlCh:
 			// TODO: Deal with public facing API calls
 		}
 	}
+}
+
+// buildRuntimeName creates the runtimeName of a Supervisor from the parent name
+// and the spec name
+func buildRuntimeName(spec SupervisorSpec, parentName string) string {
+	var runtimeName string
+	if parentName == rootSupervisorName {
+		// We are the root supervisor, no need to add prefix
+		runtimeName = spec.Name()
+	} else {
+		runtimeName = strings.Join([]string{parentName, spec.Name()}, "/")
+	}
+	return runtimeName
+}
+
+// run performs the main logic of a Supervisor. This function:
+//
+// 1) spawns each child goroutine in the correct order
+//
+// 2) stops all the spawned children in the correct order once it gets a stop
+// signal
+//
+// 3) it monitors and reacts to errors reported by the supervised children
+//
+func (spec SupervisorSpec) run(
+	ctx context.Context,
+	parentName string,
+	onStart c.NotifyStartFn,
+) error {
+	// notifyCh is used to keep track of errors from children
+	notifyCh := make(chan c.ChildNotification)
+
+	// ctrlCh is used to keep track of request from client APIs (e.g. spawn child)
+	// ctrlCh := make(chan ControlMsg)
+
+	runtimeName := buildRuntimeName(spec, parentName)
+
+	onTerminate := func(err terminateError) {}
+
+	// spawn goroutine with supervisor monitorLoop
+	return runMonitorLoop(
+		ctx,
+		spec,
+		runtimeName,
+		notifyCh,
+		// ctrlCh,
+		onStart,
+		onTerminate,
+	)
 }
 
 // start is routine that contains the main logic of a Supervisor. This function:
@@ -71,7 +146,10 @@ func (sup Supervisor) monitorLoop(
 //
 // 4) it monitors and reacts to errors reported by the supervised children
 //
-func (spec SupervisorSpec) start(parentCtx context.Context, parentName string) (Supervisor, error) {
+func (spec SupervisorSpec) start(
+	parentCtx context.Context,
+	parentName string,
+) (Supervisor, error) {
 	// cancelFn is used when Stop is requested
 	ctx, cancelFn := context.WithCancel(parentCtx)
 
@@ -87,14 +165,7 @@ func (spec SupervisorSpec) start(parentCtx context.Context, parentName string) (
 	// terminateCh is used when waiting for cancelFn to complete
 	terminateCh := make(chan terminateError)
 
-	// Calculate the runtime name of this supervisor
-	var runtimeName string
-	if parentName == rootSupervisorName {
-		// We are the root supervisor, no need to add prefix
-		runtimeName = spec.Name()
-	} else {
-		runtimeName = strings.Join([]string{parentName, spec.Name()}, "/")
-	}
+	runtimeName := buildRuntimeName(spec, parentName)
 
 	sup := Supervisor{
 		runtimeName: runtimeName,
@@ -111,8 +182,34 @@ func (spec SupervisorSpec) start(parentCtx context.Context, parentName string) (
 		},
 	}
 
+	onStart := func(err startError) {
+		if err != nil {
+			startCh <- err
+		}
+		close(startCh)
+	}
+
+	onTerminate := func(err terminateError) {
+		if err != nil {
+			terminateCh <- err
+		}
+		close(terminateCh)
+	}
+
 	// spawn goroutine with supervisor monitorLoop
-	go sup.monitorLoop(ctx, startCh, terminateCh, notifyCh)
+	go func() {
+		// NOTE: we ignore the returned error as that is being handled by the
+		// onStart and onTerminate callbacks
+		_ = runMonitorLoop(
+			ctx,
+			spec,
+			runtimeName,
+			notifyCh,
+			// ctrlCh,
+			onStart,
+			onTerminate,
+		)
+	}()
 
 	// TODO: Figure out stop before start finish
 	// TODO: Figure out start with timeout
