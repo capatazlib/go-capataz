@@ -11,23 +11,33 @@ import (
 	"github.com/capatazlib/go-capataz/s"
 )
 
+func renderEvents(evs []s.Event) string {
+	var builder strings.Builder
+	for i, ev := range evs {
+		builder.WriteString(fmt.Sprintf("  %3d: %+v\n", i, ev))
+	}
+	return builder.String()
+}
+
 // verifyExactMatch is an utility function that checks the input slice of EventP
 // predicate match 1 to 1 with a given list of supervision system events.
 func verifyExactMatch(preds []EventP, given []s.Event) error {
 	if len(preds) != len(given) {
 		return fmt.Errorf(
-			"Expecting exact match, but length is not the same:\nwant %d\ngiven: %d",
+			"Expecting exact match, but length is not the same:\nwant: %d\ngiven: %d\nevents:\n%s",
 			len(preds),
 			len(given),
+			renderEvents(given),
 		)
 	}
 	for i, pred := range preds {
 		if !pred.Call(given[i]) {
 			return fmt.Errorf(
-				"Expecting exact match, but entry %d did not match:\ncriteria:%s\nevent:%s",
+				"Expecting exact match, but entry %d did not match:\ncriteria: %s\nevent: %s\nevents:\n%s",
 				i,
 				pred.String(),
 				given[i].String(),
+				renderEvents(given),
 			)
 		}
 	}
