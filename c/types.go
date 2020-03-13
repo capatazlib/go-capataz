@@ -5,12 +5,30 @@ import (
 	"time"
 )
 
-// supervisorName represents the runtime name of the supervisor that is spawning
-// the current child
-type runtimeChildName = string
-
 // Restart specifies when a goroutine gets restarted
 type Restart uint32
+
+// ChildTag specifies the type of Child that is running, this is a closed
+// set given we only will support workers and supervisors
+type ChildTag uint32
+
+const (
+	// Worker is used for a c.Child that run a business-logic goroutine
+	Worker ChildTag = iota
+	// Supervisor is used for a c.Child that runs another supervision tree
+	Supervisor
+)
+
+func (ct ChildTag) String() string {
+	switch ct {
+	case Worker:
+		return "Worker"
+	case Supervisor:
+		return "Supervisor"
+	default:
+		return "<Unknown>"
+	}
+}
 
 const (
 	// Permanent Restart = iota
@@ -82,27 +100,66 @@ type NotifyStartFn = func(startError)
 // with the supervisor's ChildSpec.
 type ChildSpec struct {
 	name     string
+	tag      ChildTag
 	shutdown Shutdown
 	restart  Restart
 	start    func(context.Context, NotifyStartFn) error
 }
 
+// Tag returns the ChildTag of this ChildSpec
+func (cs ChildSpec) Tag() ChildTag {
+	return cs.tag
+}
+
+// IsWorker indicates if this child is a worker
+func (cs ChildSpec) IsWorker() bool {
+	return cs.tag == Worker
+}
+
 // Child is the runtime representation of an Spec
 type Child struct {
-	runtimeName string
-	spec        ChildSpec
-	cancel      func()
-	wait        func(Shutdown) error
+	runtimeName  string
+	spec         ChildSpec
+	restartCount uint32
+	cancel       func()
+	wait         func(Shutdown) error
+}
+
+// RuntimeName returns the name of this child (once started). It will have a
+// prefix with the supervisor name
+func (c Child) RuntimeName() string {
+	return c.runtimeName
+}
+
+// Name returns the name of the `ChildSpec` of this child
+func (c Child) Name() string {
+	return c.spec.name
+}
+
+// Spec returns the `ChildSpec` of this child
+func (c Child) Spec() ChildSpec {
+	return c.spec
+}
+
+// IsWorker indicates if this child is a worker
+func (c Child) IsWorker() bool {
+	return c.spec.IsWorker()
 }
 
 // ChildNotification reports when a child has terminated; if it terminated with
 // an error, it is set in the err field, otherwise, err will be nil.
 type ChildNotification struct {
+	name        string
 	runtimeName string
 	err         error
 }
 
-// RuntimeName returns the runtime name of the child that emitted this exit
+// Name returns the spec name of the child that emitted this notification
+func (ce ChildNotification) Name() string {
+	return ce.name
+}
+
+// RuntimeName returns the runtime name of the child that emitted this
 // notification
 func (ce ChildNotification) RuntimeName() string {
 	return ce.runtimeName

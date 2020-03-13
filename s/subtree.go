@@ -38,7 +38,11 @@ func (spec SupervisorSpec) subtree(
 	// NOTE: Child goroutines that are running a sub-tree supervisor must always
 	// have a timeout of Infinity, as specified in the documentation from OTP
 	// http://erlang.org/doc/design_principles/sup_princ.html#child-specification
-	copts := append(copts0, c.WithShutdown(c.Inf))
+	copts := append(
+		copts0,
+		c.WithShutdown(c.Inf),
+		c.WithTag(c.Supervisor),
+	)
 
 	return c.NewWithNotifyStart(
 		subtreeSpec.Name(),

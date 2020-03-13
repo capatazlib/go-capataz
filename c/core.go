@@ -23,6 +23,13 @@ func WithShutdown(s Shutdown) Opt {
 	}
 }
 
+// WithTag sets the given c.ChildTag on a c.ChildSpec
+func WithTag(t ChildTag) Opt {
+	return func(spec *ChildSpec) {
+		spec.tag = t
+	}
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 // New creates a `ChildSpec` that represents a worker goroutine. It requires two
@@ -239,17 +246,6 @@ func (cs ChildSpec) Start(
 		cancel:      cancelFn,
 		wait:        waitTimeout(terminateCh),
 	}, nil
-}
-
-// RuntimeName returns a name that contains a prefix with the name of this child
-// parents.
-func (c Child) RuntimeName() string {
-	return c.runtimeName
-}
-
-// Name returns the specified name for a Child Spec
-func (c Child) Name() string {
-	return c.spec.Name()
 }
 
 // Stop is a synchronous procedure that halts the execution of the child
