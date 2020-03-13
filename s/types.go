@@ -74,6 +74,8 @@ const (
 	// ProcessStopped is an Event that indicates a process was stopped by a parent
 	// supervisor
 	ProcessStopped
+	// ProcessStartFailed is an Event that indicates a process failed to start
+	ProcessStartFailed
 	// ProcessFailed is an Event that indicates a process reported an error
 	ProcessFailed
 )
@@ -85,6 +87,8 @@ func (tag EventTag) String() string {
 		return "ProcessStarted"
 	case ProcessStopped:
 		return "ProcessStopped"
+	case ProcessStartFailed:
+		return "ProcessStartFailed"
 	case ProcessFailed:
 		return "ProcessFailed"
 	default:
