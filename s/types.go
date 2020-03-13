@@ -147,21 +147,33 @@ func (e Event) String() string {
 type EventNotifier func(Event)
 
 // ProcessStopped reports an event with an EventTag of ProcessStopped
-func (en EventNotifier) ProcessStopped(name string, stopTime time.Time, err error) {
-	tag := ProcessStopped
-	if err != nil {
-		tag = ProcessFailed
-	}
-
+func (en EventNotifier) ProcessStopped(name string, stopTime time.Time) {
 	createdTime := time.Now()
 	stopDuration := createdTime.Sub(stopTime)
 
 	en(Event{
-		tag:                tag,
+		tag:                ProcessStopped,
+		processRuntimeName: name,
+		created:            createdTime,
+		duration:           stopDuration,
+	})
+}
+
+// ProcessStartFailed reports an event with an EventTag of ProcessStartFailed
+func (en EventNotifier) ProcessStartFailed(name string, err error) {
+	en(Event{
+		tag:                ProcessStartFailed,
 		processRuntimeName: name,
 		err:                err,
-		created:            time.Now(),
-		duration:           stopDuration,
+	})
+}
+
+// ProcessFailed reports an event with an EventTag of ProcessFailed
+func (en EventNotifier) ProcessFailed(name string, err error) {
+	en(Event{
+		tag:                ProcessFailed,
+		processRuntimeName: name,
+		err:                err,
 	})
 }
 
@@ -222,7 +234,7 @@ type Supervisor struct {
 	spec        SupervisorSpec
 	children    map[string]c.Child
 	cancel      func()
-	wait        func() error
+	wait        func(time.Time, error) error
 }
 
 // SupervisorError wraps an error from a children, enhancing it with supervisor
@@ -269,3 +281,7 @@ type terminateError = error
 // rootSupervisorName is the name the root supervisor has, this is used to
 // compare the process current name to the rootSupervisorName
 var rootSupervisorName = ""
+
+// childSepToken is the token use to separate sub-trees and child names in the
+// supervision tree
+const childSepToken = "/"

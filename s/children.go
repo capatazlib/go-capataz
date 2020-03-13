@@ -27,7 +27,7 @@ func stopChildren(
 	childErrMap := make(map[string]error)
 
 	for _, cs := range childrenSpecs {
-		c, ok := children[cs.Name()]
+		ch, ok := children[cs.Name()]
 		if !ok && starting {
 			// skip it as we may have not started this child before a previous one
 			// failed
@@ -42,14 +42,21 @@ func stopChildren(
 				),
 			)
 		}
-		stopTime := time.Now()
-		err := c.Stop()
-		// If a child fails to stop (either because of a legit failure or a
-		// timeout), we store the error so that we can report all of them later
-		if err != nil {
-			childErrMap[cs.Name()] = err
+		stoppingTime := time.Now()
+		terminationErr := ch.Stop()
+
+		if terminationErr != nil {
+			// if a child fails to stop (either because of a legit failure or a
+			// timeout), we store the terminationError so that we can report all of them
+			// later
+			childErrMap[cs.Name()] = terminationErr
+
+			// we also notify that the process failed
+			eventNotifier.ProcessFailed(ch.RuntimeName(), terminationErr)
+		} else {
+			// we need to modify that the process stopped
+			eventNotifier.ProcessStopped(ch.RuntimeName(), stoppingTime)
 		}
-		eventNotifier.ProcessStopped(c.RuntimeName(), stopTime, err)
 	}
 	return childErrMap
 }
@@ -69,23 +76,34 @@ func startChildren(
 
 	// Start children
 	for _, cs := range spec.order.SortStart(spec.children) {
-		startTime := time.Now()
-		c, err := cs.Start(runtimeName, notifyCh)
+		startedTime := time.Now()
+		ch, startErr := cs.Start(runtimeName, notifyCh)
+
 		// NOTE: The error handling code bellow gets executed when the children
 		// fails at start time
-		if err != nil {
-			cRuntimeName := strings.Join([]string{runtimeName, cs.Name()}, "/")
-			eventNotifier.ProcessStopped(cRuntimeName, startTime, err)
+		if startErr != nil {
+			cRuntimeName := strings.Join([]string{runtimeName, cs.Name()}, childSepToken)
+			// NOTE: we only notify when child is a worker because sub-trees
+			// supervisors are responsible of their own notification
+			eventNotifier.ProcessStartFailed(cRuntimeName, startErr)
+			// if cs.IsWorker() {
+			//	eventNotifier.ProcessStartFailed(cRuntimeName, startErr)
+			// }
 			childErrMap := stopChildren(spec, children, true /* starting? */)
 			// Is important we stop the children before we finish the supervisor
 			return nil, SupervisorError{
-				err:         err,
+				err:         startErr,
 				runtimeName: runtimeName,
 				childErrMap: childErrMap,
 			}
 		}
-		eventNotifier.ProcessStarted(c.RuntimeName(), startTime)
-		children[cs.Name()] = c
+
+		// NOTE: we only notify when child is a worker because sub-trees supervisors
+		// are responsible of their own notification
+		if cs.IsWorker() {
+			eventNotifier.ProcessStarted(ch.RuntimeName(), startedTime)
+		}
+		children[cs.Name()] = ch
 	}
 	return children, nil
 }
