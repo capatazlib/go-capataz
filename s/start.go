@@ -20,6 +20,35 @@ import (
 // terminating (with or without an error).
 type notifyTerminationFn = func(terminateError)
 
+func oneForOneRestart(
+	supRuntimeName string,
+	eventNotifier EventNotifier,
+	children map[string]c.Child,
+	prevChild c.Child,
+	notifyCh chan<- c.ChildNotification,
+) error {
+	chSpec := prevChild.Spec()
+	chName := chSpec.Name()
+
+	startTime := time.Now()
+	newChild, err := chSpec.Restart(prevChild, supRuntimeName, notifyCh)
+
+	// We want to keep track of the updated restartCount which is in the newChild
+	// record, we must override the child independently of the outcome.
+	children[chName] = newChild
+
+	if err != nil {
+		// Given this error ocurred after supervisor bootstrap, it is treated as the
+		// child failed on supervision time, _not_ start time; return the error so that
+		// the supervisor does the restarting
+		eventNotifier.ProcessFailed(newChild.RuntimeName(), err)
+		return err
+	}
+
+	eventNotifier.ProcessStarted(newChild.RuntimeName(), startTime)
+	return nil
+}
+
 // runMonitorLoop does the initialization of supervisor's children and then runs
 // an infinite loop that monitors each child error.
 //
@@ -84,8 +113,29 @@ func runMonitorLoop(
 			}
 			onTerminate(nil)
 			return nil
-		case /* childNotification = */ <-notifyCh:
-			// TODO: Deal with errors on children
+		case childNotification := <-notifyCh:
+			oldChild, ok := children[childNotification.Name()]
+
+			if !ok {
+				// TODO: Expand on this case, I think this is highly unlikely, but would
+				// like to exercise this branch in test somehow (if possible)
+				panic("something horribly wrong happened here")
+			}
+
+			if err := childNotification.Unwrap(); err != nil {
+				eventNotifier.ProcessFailed(oldChild.RuntimeName(), err)
+			}
+
+			// TODO: Verify error treshold here
+			// TODO: Deal with other restart strategies here
+			// TODO: Deal with err returned start failures
+			_ /* err */ = oneForOneRestart(
+				runtimeName,
+				eventNotifier,
+				children,
+				oldChild,
+				notifyCh,
+			)
 			// case msg := <-ctrlCh:
 			// TODO: Deal with public facing API calls
 		}
@@ -184,7 +234,6 @@ func (spec SupervisorSpec) start(
 			eventNotifier := spec.getEventNotifier()
 
 			if stopingErr != nil {
-				eventNotifier.ProcessFailed(runtimeName, stopingErr)
 				return stopingErr
 			}
 

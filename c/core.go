@@ -159,6 +159,22 @@ func waitTimeout(
 	}
 }
 
+// Restart spawns a new Child and keeps track of the restart count.
+func (cs ChildSpec) Restart(
+	prevChild Child,
+	parentName string,
+	notifyCh chan<- ChildNotification,
+) (Child, error) {
+	newChild, err := cs.Start(parentName, notifyCh)
+	if err != nil {
+		return Child{}, err
+	}
+	// TODO: When working on treshold restart, verify the create date of
+	// prevChild; if the spec treshold has passed, restart the count here
+	newChild.restartCount = prevChild.restartCount + 1
+	return newChild, nil
+}
+
 // Start spawns a new goroutine that will execute the start attribute of the
 // ChildSpec, this function will block until the spawned goroutine notifies it
 // has been initialized.
@@ -208,6 +224,7 @@ func (cs ChildSpec) Start(
 		})
 
 		childNotification := ChildNotification{
+			name:        cs.name,
 			runtimeName: runtimeName,
 			err:         err,
 		}
