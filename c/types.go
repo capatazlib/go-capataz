@@ -156,6 +156,7 @@ func (c Child) IsWorker() bool {
 	return c.spec.IsWorker()
 }
 
+// Tag returns the ChildTag of this ChildSpec
 func (c Child) Tag() ChildTag {
 	return c.spec.tag
 }
