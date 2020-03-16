@@ -65,6 +65,11 @@ func (spec SupervisorSpec) Start(parentCtx context.Context) (Supervisor, error) 
 	return sup, nil
 }
 
+// Name returns the specified name for a Supervisor Spec
+func (spec SupervisorSpec) Name() string {
+	return spec.name
+}
+
 // Stop is a synchronous procedure that halts the execution of the whole
 // supervision tree.
 func (sup Supervisor) Stop() error {
@@ -83,9 +88,4 @@ func (sup Supervisor) Wait() error {
 // Name returns the name of the Spec used to start this Supervisor
 func (sup Supervisor) Name() string {
 	return sup.spec.Name()
-}
-
-// Name returns the specified name for a Supervisor Spec
-func (spec SupervisorSpec) Name() string {
-	return spec.name
 }

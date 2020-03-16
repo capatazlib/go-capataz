@@ -156,10 +156,15 @@ func (c Child) IsWorker() bool {
 	return c.spec.IsWorker()
 }
 
+func (c Child) Tag() ChildTag {
+	return c.spec.tag
+}
+
 // ChildNotification reports when a child has terminated; if it terminated with
 // an error, it is set in the err field, otherwise, err will be nil.
 type ChildNotification struct {
 	name        string
+	tag         ChildTag
 	runtimeName string
 	err         error
 }

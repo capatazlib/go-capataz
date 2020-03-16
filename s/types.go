@@ -102,6 +102,7 @@ func (tag EventTag) String() string {
 // supervision system.
 type Event struct {
 	tag                EventTag
+	childTag           c.ChildTag
 	processRuntimeName string
 	err                error
 	created            time.Time
@@ -111,6 +112,11 @@ type Event struct {
 // Tag returns the EventTag from an Event
 func (e Event) Tag() EventTag {
 	return e.tag
+}
+
+// ChildTag returns the ChildTag from an Event
+func (e Event) ChildTag() c.ChildTag {
+	return e.childTag
 }
 
 // ProcessRuntimeName returns the given name of a process that emitted this event
@@ -133,6 +139,7 @@ func (e Event) String() string {
 	var buffer strings.Builder
 	buffer.WriteString("Event{")
 	buffer.WriteString(fmt.Sprintf("tag: %s", e.tag))
+	buffer.WriteString(fmt.Sprintf(", childTag: %s", e.childTag))
 	buffer.WriteString(fmt.Sprintf(", processRuntime: %s", e.processRuntimeName))
 	buffer.WriteString(fmt.Sprintf(", created: %v", e.created))
 	if e.err != nil {
@@ -147,47 +154,97 @@ func (e Event) String() string {
 type EventNotifier func(Event)
 
 // ProcessStopped reports an event with an EventTag of ProcessStopped
-func (en EventNotifier) ProcessStopped(name string, stopTime time.Time) {
+func (en EventNotifier) ProcessStopped(
+	childTag c.ChildTag,
+	name string,
+	stopTime time.Time,
+) {
 	createdTime := time.Now()
 	stopDuration := createdTime.Sub(stopTime)
 
 	en(Event{
 		tag:                ProcessStopped,
+		childTag:           childTag,
 		processRuntimeName: name,
 		created:            createdTime,
 		duration:           stopDuration,
 	})
 }
 
-// ProcessStartFailed reports an event with an EventTag of ProcessStartFailed
-func (en EventNotifier) ProcessStartFailed(name string, err error) {
-	en(Event{
-		tag:                ProcessStartFailed,
-		processRuntimeName: name,
-		err:                err,
-	})
+// SupervisorStopped reports an event with an EventTag of ProcessStopped
+func (en EventNotifier) SupervisorStopped(name string, stopTime time.Time) {
+	en.ProcessStopped(c.Supervisor, name, stopTime)
 }
 
-// ProcessFailed reports an event with an EventTag of ProcessFailed
-func (en EventNotifier) ProcessFailed(name string, err error) {
+// ProcessFailed reports an event with an EventTag of ProcessStartFailed
+func (en EventNotifier) ProcessFailed(
+	childTag c.ChildTag,
+	name string,
+	err error,
+) {
 	en(Event{
 		tag:                ProcessFailed,
+		childTag:           childTag,
 		processRuntimeName: name,
 		err:                err,
 	})
 }
 
-// ProcessStarted reports an event with an EventTag of ProcessStarted
-func (en EventNotifier) ProcessStarted(name string, startTime time.Time) {
+// SupervisorFailed reports an event with an EventTag of ProcessFailed
+func (en EventNotifier) SupervisorFailed(name string, err error) {
+	en.ProcessFailed(c.Supervisor, name, err)
+}
+
+// WorkerFailed reports an event with an EventTag of ProcessFailed
+func (en EventNotifier) WorkerFailed(name string, err error) {
+	en.ProcessFailed(c.Worker, name, err)
+}
+
+// ProcessStartFailed reports an event with an EventTag of ProcessStartFailed
+func (en EventNotifier) ProcessStartFailed(
+	childTag c.ChildTag,
+	name string,
+	err error,
+) {
+	en(Event{
+		tag:                ProcessStartFailed,
+		childTag:           childTag,
+		processRuntimeName: name,
+		err:                err,
+	})
+}
+
+// SupervisorStartFailed reports an event with an EventTag of ProcessFailed
+func (en EventNotifier) SupervisorStartFailed(name string, err error) {
+	en.ProcessStartFailed(c.Supervisor, name, err)
+}
+
+// WorkerStartFailed reports an event with an EventTag of ProcessFailed
+func (en EventNotifier) WorkerStartFailed(name string, err error) {
+	en.ProcessStartFailed(c.Worker, name, err)
+}
+
+func processStarted(en EventNotifier, childTag c.ChildTag, name string, startTime time.Time) {
 	createdTime := time.Now()
 	startDuration := createdTime.Sub(startTime)
 	en(Event{
 		tag:                ProcessStarted,
+		childTag:           childTag,
 		processRuntimeName: name,
 		err:                nil,
 		created:            createdTime,
 		duration:           startDuration,
 	})
+}
+
+// SupervisorStarted reports an event with an EventTag of ProcessStarted
+func (en EventNotifier) SupervisorStarted(name string, startTime time.Time) {
+	processStarted(en, c.Supervisor, name, startTime)
+}
+
+// WorkerStarted reports an event with an EventTag of ProcessStarted
+func (en EventNotifier) WorkerStarted(name string, startTime time.Time) {
+	processStarted(en, c.Worker, name, startTime)
 }
 
 // emptyEventNotifier is an utility function that works as a default value

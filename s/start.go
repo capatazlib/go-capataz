@@ -10,6 +10,7 @@ package s
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -41,11 +42,15 @@ func oneForOneRestart(
 		// Given this error ocurred after supervisor bootstrap, it is treated as the
 		// child failed on supervision time, _not_ start time; return the error so that
 		// the supervisor does the restarting
-		eventNotifier.ProcessFailed(newChild.RuntimeName(), err)
+		if newChild.Tag() == c.Worker {
+			eventNotifier.WorkerFailed(newChild.RuntimeName(), err)
+		}
 		return err
 	}
 
-	eventNotifier.ProcessStarted(newChild.RuntimeName(), startTime)
+	if newChild.Tag() == c.Worker {
+		eventNotifier.WorkerStarted(newChild.RuntimeName(), startTime)
+	}
 	return nil
 }
 
@@ -88,7 +93,7 @@ func runMonitorLoop(
 	// started (we would get race-conditions if we notify from the parent
 	// otherwise).
 	eventNotifier := spec.getEventNotifier()
-	eventNotifier.ProcessStarted(runtimeName, startTime)
+	eventNotifier.SupervisorStarted(runtimeName, startTime)
 
 	/// Once children have been spawned, we notify to the caller thread that the
 	// main loop has started without errors.
@@ -122,11 +127,20 @@ func runMonitorLoop(
 			if !ok {
 				// TODO: Expand on this case, I think this is highly unlikely, but would
 				// like to exercise this branch in test somehow (if possible)
-				panic("something horribly wrong happened here")
+				cs := oldChild.Spec()
+				panic(
+					fmt.Errorf(
+						"something horribly wrong happened here (name: %s, tag: %s)",
+						cs.Name(),
+						cs.Tag(),
+					),
+				)
 			}
 
 			if err := childNotification.Unwrap(); err != nil {
-				eventNotifier.ProcessFailed(oldChild.RuntimeName(), err)
+				if oldChild.Tag() == c.Worker {
+					eventNotifier.WorkerFailed(oldChild.RuntimeName(), err)
+				}
 			}
 
 			// TODO: Verify error treshold here
@@ -247,7 +261,7 @@ func (spec SupervisorSpec) start(
 			terminateErr := <-terminateCh
 
 			if terminateErr != nil {
-				eventNotifier.ProcessFailed(runtimeName, terminateErr)
+				eventNotifier.SupervisorFailed(runtimeName, terminateErr)
 				return terminateErr
 			}
 
@@ -258,7 +272,7 @@ func (spec SupervisorSpec) start(
 				stopingTime = time.Now()
 			}
 
-			eventNotifier.ProcessStopped(runtimeName, stopingTime)
+			eventNotifier.SupervisorStopped(runtimeName, stopingTime)
 			return nil
 		},
 	}
@@ -303,7 +317,7 @@ func (spec SupervisorSpec) start(
 	startErr := <-startCh
 	if startErr != nil {
 		eventNotifier := spec.getEventNotifier()
-		eventNotifier.ProcessStartFailed(runtimeName, startErr)
+		eventNotifier.SupervisorStartFailed(runtimeName, startErr)
 
 		// Let's wait for the supervisor to stop all children before returning the
 		// final error
