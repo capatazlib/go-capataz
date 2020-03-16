@@ -96,8 +96,18 @@ type startError = error
 type NotifyStartFn = func(startError)
 
 // ChildSpec represents a Child specification; it serves as a template for the
-// construction of a worker goroutine. The ChildSpec record is used in conjunction
-// with the supervisor's ChildSpec.
+// construction of a goroutine. The ChildSpec record is used in conjunction with
+// the supervisor's SupervisorSpec.
+//
+// # A note about ChildTag
+//
+// An approach that we considered was to define a type heriarchy for
+// SupervisorChildSpec and WorkerChildSpec to deal with differences between
+// Workers and Supervisors rather than having a value you can use in a switch
+// statement. In reality, the differences between the two are minimal (only
+// behavior change happens when sending notifications to the events system). If
+// this changes, we may consider a design where we have a ChildSpec interface
+// and we have different implementations.
 type ChildSpec struct {
 	name     string
 	tag      ChildTag
@@ -116,7 +126,7 @@ func (cs ChildSpec) IsWorker() bool {
 	return cs.tag == Worker
 }
 
-// Child is the runtime representation of an Spec
+// Child is the runtime representation of a Spec
 type Child struct {
 	runtimeName  string
 	spec         ChildSpec

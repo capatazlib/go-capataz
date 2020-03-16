@@ -83,7 +83,10 @@ func runMonitorLoop(
 		return startErr
 	}
 
-	// Supervisors are responsible of notifying their start events
+	// Supervisors are responsible of notifying their start events, this is
+	// important because only the supervisor goroutine nows the exact time it gets
+	// started (we would get race-conditions if we notify from the parent
+	// otherwise).
 	eventNotifier := spec.getEventNotifier()
 	eventNotifier.ProcessStarted(runtimeName, startTime)
 

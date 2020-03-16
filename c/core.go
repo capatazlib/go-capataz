@@ -169,8 +169,11 @@ func (cs ChildSpec) Restart(
 	if err != nil {
 		return Child{}, err
 	}
-	// TODO: When working on treshold restart, verify the create date of
-	// prevChild; if the spec treshold has passed, restart the count here
+	// TODO: When working on threshold restart, verify the create date of
+	// prevChild; if the spec threshold has passed, restart the count here. For
+	// example if we have threshold of 3 errors every 10 seconds, and we get a 4th
+	// error at the 11th second, we don't make the supervisor restarting this
+	// worker fail.
 	newChild.restartCount = prevChild.restartCount + 1
 	return newChild, nil
 }

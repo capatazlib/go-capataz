@@ -83,12 +83,7 @@ func startChildren(
 		// fails at start time
 		if startErr != nil {
 			cRuntimeName := strings.Join([]string{runtimeName, cs.Name()}, childSepToken)
-			// NOTE: we only notify when child is a worker because sub-trees
-			// supervisors are responsible of their own notification
 			eventNotifier.ProcessStartFailed(cRuntimeName, startErr)
-			// if cs.IsWorker() {
-			//	eventNotifier.ProcessStartFailed(cRuntimeName, startErr)
-			// }
 			childErrMap := stopChildren(spec, children, true /* starting? */)
 			// Is important we stop the children before we finish the supervisor
 			return nil, SupervisorError{
