@@ -11,7 +11,7 @@ pool:
 steps:
   - bash: |
       set -ex
-      ls -lah /usr/local
+      ls -lah /usr/local/go1.13
       mkdir -p '$(GOBIN)'
       mkdir -p '$(GOPATH)/pkg'
       mkdir -p '$(modulePath)'
