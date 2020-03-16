@@ -1,54 +1,48 @@
 variables:
   GOBIN: '$(GOPATH)/bin'
-  GOROOT: '/usr/local/go1.12'
+  GOROOT: '/usr/local/go1.13'
   GO111MODULE: 'on'
   GOPATH: '$(system.defaultWorkingDirectory)/gopath'
   modulePath: '$(GOPATH)/src/github.com/$(build.repository.name)'
 
 pool:
-  vmImage: 'ubuntu-16.04'
+  vmImage: 'ubuntu-latest'
 
-stages:
-  stage: dev
-  displayName: Development
-  jobs:
-    - job: build
-      displayName: Development
-      steps:
-        - bash: |
-            set -ex
-            mkdir -p '$(GOBIN)'
-            mkdir -p '$(GOPATH)/pkg'
-            mkdir -p '$(modulePath)'
-            shopt -s extglob
-            mv !(gopath|codecov.yaml) '$(modulePath)'
-          displayName: 'Set up Go workspace'
+steps:
+  - bash: |
+      set -ex
+      mkdir -p '$(GOBIN)'
+      mkdir -p '$(GOPATH)/pkg'
+      mkdir -p '$(modulePath)'
+      shopt -s extglob
+      mv !(gopath|codecov.yaml) '$(modulePath)'
+    displayName: 'Set up Go workspace'
 
-        - bash: |
-            set -ex
-            go mod download
-          displayName: 'Get Project Dependencies'
-          workingDirectory: '$(modulePath)'
+  - bash: |
+      set -ex
+      go mod download
+    displayName: 'Get Project Dependencies'
+    workingDirectory: '$(modulePath)'
 
-        - bash: |
-            set -ex
-            make lint
-          displayName: 'Run Linters'
-          workingDirectory: '$(modulePath)'
+  - bash: |
+      set -ex
+      make lint
+    displayName: 'Run Linters'
+    workingDirectory: '$(modulePath)'
 
-        - bash: |
-            set -ex
-            make test
-          displayName: 'Run Tests'
-          workingDirectory: '$(modulePath)'
+  - bash: |
+      set -ex
+      make test
+    displayName: 'Run Tests'
+    workingDirectory: '$(modulePath)'
 
-        - bash: |
-            pwd
-            wget https://codecov.io/bash -O codecov.sh
-            chmod +x codecov.sh
-            ./codecov.sh -R '$(modulePath)' -K -v -t $(CODECOV_TOKEN)
-          env:
-            CODECOV_TOKEN: $(CODECOV_TOKEN_SECRET)
-          displayName: 'Send Coverage Reports'
-          # workingDirectory: '$(modulePath)'
-          condition: succeeded()
+  - bash: |
+      pwd
+      wget https://codecov.io/bash -O codecov.sh
+      chmod +x codecov.sh
+      ./codecov.sh -R '$(modulePath)' -K -v -t $(CODECOV_TOKEN)
+    env:
+      CODECOV_TOKEN: $(CODECOV_TOKEN_SECRET)
+    displayName: 'Send Coverage Reports'
+    # workingDirectory: '$(modulePath)'
+    condition: succeeded()
