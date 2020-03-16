@@ -11,6 +11,8 @@ pool:
 steps:
   - bash: |
       set -ex
+      go version
+      which go
       mkdir -p '$(GOBIN)'
       mkdir -p '$(GOPATH)/pkg'
       mkdir -p '$(modulePath)'
