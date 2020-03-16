@@ -8,7 +8,7 @@ test: ## Run tests
 .PHONY: test
 
 lint: ## Run linters
-	go vet ./...
+	go vet $(shell go list ./...)
 	test -z $(shell gofmt -l ./..) || (gofmt -l -d ./..; exit 1)
-	go run golang.org/x/lint/golint -set_exit_status ./...
+	go run golang.org/x/lint/golint -set_exit_status $(shell go list ./...)
 .PHONY: lint
