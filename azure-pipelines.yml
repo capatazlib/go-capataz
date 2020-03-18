@@ -1,12 +1,12 @@
 variables:
   GOBIN: '$(GOPATH)/bin'
-  GOROOT: '/usr/local/go1.12'
+  GOROOT: '/usr/local/go1.13'
   GO111MODULE: 'on'
   GOPATH: '$(system.defaultWorkingDirectory)/gopath'
   modulePath: '$(GOPATH)/src/github.com/$(build.repository.name)'
 
 pool:
-  vmImage: 'ubuntu-16.04'
+  vmImage: 'ubuntu-latest'
 
 steps:
   - bash: |
@@ -20,18 +20,21 @@ steps:
 
   - bash: |
       set -ex
+      export PATH="/usr/local/go1.13/bin:${PATH}"
       go mod download
     displayName: 'Get Project Dependencies'
     workingDirectory: '$(modulePath)'
 
   - bash: |
       set -ex
+      export PATH="/usr/local/go1.13/bin:${PATH}"
       make lint
     displayName: 'Run Linters'
     workingDirectory: '$(modulePath)'
 
   - bash: |
       set -ex
+      export PATH="/usr/local/go1.13/bin:${PATH}"
       make test
     displayName: 'Run Tests'
     workingDirectory: '$(modulePath)'

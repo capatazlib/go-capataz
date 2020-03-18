@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/capatazlib/go-capataz/c"
 	"github.com/capatazlib/go-capataz/s"
 )
 
@@ -52,6 +53,22 @@ func (p ProcessNameP) String() string {
 	return fmt.Sprintf("name == %s", p.name)
 }
 
+// ProcessChildTagP is a predicate that asserts the ChildTag of the `Child` that
+// triggered the event matches the expect ChildTag
+type ProcessChildTagP struct {
+	childTag c.ChildTag
+}
+
+// Call will execute predicate that checks the ChildTag of the process that
+// triggered the event matches the expected ChildTag
+func (p ProcessChildTagP) Call(ev s.Event) bool {
+	return ev.ChildTag() == p.childTag
+}
+
+func (p ProcessChildTagP) String() string {
+	return fmt.Sprintf("childTag == %s", p.childTag)
+}
+
 // AndP is a predicate that builds the conjunction of a group EventP predicates
 // (e.g. join EventP predicates with &&)
 type AndP struct {
@@ -85,35 +102,98 @@ func ProcessName(name string) EventP {
 	return ProcessNameP{name: name}
 }
 
-// ProcessStarted is a predicate to assert an event represents a process that
+// SupervisorStarted is a predicate to assert an event represents a process that
 // got started
-func ProcessStarted(name string) EventP {
+func SupervisorStarted(name string) EventP {
 	return AndP{
 		preds: []EventP{
 			EventTagP{tag: s.ProcessStarted},
 			ProcessNameP{name: name},
+			ProcessChildTagP{childTag: c.Supervisor},
 		},
 	}
 }
 
-// ProcessStopped is a predicate to assert an event represents a process that
+// WorkerStarted is a predicate to assert an event represents a process that
+// got started
+func WorkerStarted(name string) EventP {
+	return AndP{
+		preds: []EventP{
+			EventTagP{tag: s.ProcessStarted},
+			ProcessNameP{name: name},
+			ProcessChildTagP{childTag: c.Worker},
+		},
+	}
+}
+
+// SupervisorStopped is a predicate to assert an event represents a process that
 // got stopped by its parent supervisor
-func ProcessStopped(name string) EventP {
+func SupervisorStopped(name string) EventP {
 	return AndP{
 		preds: []EventP{
 			EventTagP{tag: s.ProcessStopped},
 			ProcessNameP{name: name},
+			ProcessChildTagP{childTag: c.Supervisor},
 		},
 	}
 }
 
-// ProcessFailed is a predicate to assert an event represents a process that
+// WorkerStopped is a predicate to assert an event represents a process that
+// got stopped by its parent supervisor
+func WorkerStopped(name string) EventP {
+	return AndP{
+		preds: []EventP{
+			EventTagP{tag: s.ProcessStopped},
+			ProcessNameP{name: name},
+			ProcessChildTagP{childTag: c.Worker},
+		},
+	}
+}
+
+// SupervisorFailed is a predicate to assert an event represents a process that
 // failed
-func ProcessFailed(name string) EventP {
+func SupervisorFailed(name string) EventP {
 	return AndP{
 		preds: []EventP{
 			EventTagP{tag: s.ProcessFailed},
 			ProcessNameP{name: name},
+			ProcessChildTagP{childTag: c.Supervisor},
+		},
+	}
+}
+
+// WorkerFailed is a predicate to assert an event represents a process that
+// failed
+func WorkerFailed(name string) EventP {
+	return AndP{
+		preds: []EventP{
+			EventTagP{tag: s.ProcessFailed},
+			ProcessNameP{name: name},
+			ProcessChildTagP{childTag: c.Worker},
+		},
+	}
+}
+
+// SupervisorStartFailed is a predicate to assert an event represents a process
+// that failed on start
+func SupervisorStartFailed(name string) EventP {
+	return AndP{
+		preds: []EventP{
+			EventTagP{tag: s.ProcessStartFailed},
+			ProcessNameP{name: name},
+			ProcessChildTagP{childTag: c.Supervisor},
+		},
+	}
+}
+
+// WorkerStartFailed is a predicate to assert an event represents a process
+// that failed on start
+func WorkerStartFailed(name string) EventP {
+	return AndP{
+		preds: []EventP{
+			EventTagP{tag: s.ProcessStartFailed},
+			ProcessNameP{name: name},
+			ProcessChildTagP{childTag: c.Worker},
 		},
 	}
 }

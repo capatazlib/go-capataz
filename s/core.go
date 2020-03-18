@@ -58,39 +58,34 @@ func New(name string, opts ...Opt) SupervisorSpec {
 // will reach the root supervisor and the program will get a hard failure.
 //
 func (spec SupervisorSpec) Start(parentCtx context.Context) (Supervisor, error) {
-	startTime := time.Now()
 	sup, err := spec.start(parentCtx, rootSupervisorName)
 	if err != nil {
-		// NOTE we are using the spec.Name() as we know this is the top-level supervisor
-		spec.getEventNotifier().ProcessStopped(spec.Name(), startTime, err)
 		return Supervisor{}, err
 	}
-	spec.getEventNotifier().ProcessStarted(sup.runtimeName, startTime)
 	return sup, nil
+}
+
+// Name returns the specified name for a Supervisor Spec
+func (spec SupervisorSpec) Name() string {
+	return spec.name
 }
 
 // Stop is a synchronous procedure that halts the execution of the whole
 // supervision tree.
 func (sup Supervisor) Stop() error {
-	stopTime := time.Now()
+	stopingTime := time.Now()
 	sup.cancel()
-	err := sup.wait()
-	sup.spec.getEventNotifier().ProcessStopped(sup.runtimeName, stopTime, err)
+	err := sup.wait(stopingTime, nil /* stopingErr */)
 	return err
 }
 
 // Wait blocks the execution of the current goroutine until the Supervisor
 // finishes it execution.
 func (sup Supervisor) Wait() error {
-	return sup.wait()
+	return sup.wait(time.Time{}, nil /* stopingErr */)
 }
 
 // Name returns the name of the Spec used to start this Supervisor
 func (sup Supervisor) Name() string {
 	return sup.spec.Name()
-}
-
-// Name returns the specified name for a Supervisor Spec
-func (spec SupervisorSpec) Name() string {
-	return spec.name
 }

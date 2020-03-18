@@ -23,6 +23,13 @@ func WithShutdown(s Shutdown) Opt {
 	}
 }
 
+// WithTag sets the given c.ChildTag on a c.ChildSpec
+func WithTag(t ChildTag) Opt {
+	return func(spec *ChildSpec) {
+		spec.tag = t
+	}
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 // New creates a `ChildSpec` that represents a worker goroutine. It requires two
@@ -152,6 +159,25 @@ func waitTimeout(
 	}
 }
 
+// Restart spawns a new Child and keeps track of the restart count.
+func (cs ChildSpec) Restart(
+	prevChild Child,
+	parentName string,
+	notifyCh chan<- ChildNotification,
+) (Child, error) {
+	newChild, err := cs.Start(parentName, notifyCh)
+	if err != nil {
+		return Child{}, err
+	}
+	// TODO: When working on threshold restart, verify the create date of
+	// prevChild; if the spec threshold has passed, restart the count here. For
+	// example if we have threshold of 3 errors every 10 seconds, and we get a 4th
+	// error at the 11th second, we don't make the supervisor restarting this
+	// worker fail.
+	newChild.restartCount = prevChild.restartCount + 1
+	return newChild, nil
+}
+
 // Start spawns a new goroutine that will execute the start attribute of the
 // ChildSpec, this function will block until the spawned goroutine notifies it
 // has been initialized.
@@ -201,6 +227,8 @@ func (cs ChildSpec) Start(
 		})
 
 		childNotification := ChildNotification{
+			name:        cs.name,
+			tag:         cs.tag,
 			runtimeName: runtimeName,
 			err:         err,
 		}
@@ -239,17 +267,6 @@ func (cs ChildSpec) Start(
 		cancel:      cancelFn,
 		wait:        waitTimeout(terminateCh),
 	}, nil
-}
-
-// RuntimeName returns a name that contains a prefix with the name of this child
-// parents.
-func (c Child) RuntimeName() string {
-	return c.runtimeName
-}
-
-// Name returns the specified name for a Child Spec
-func (c Child) Name() string {
-	return c.spec.Name()
 }
 
 // Stop is a synchronous procedure that halts the execution of the child

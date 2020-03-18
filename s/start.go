@@ -10,7 +10,9 @@ package s
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
+	"time"
 
 	"github.com/capatazlib/go-capataz/c"
 )
@@ -18,6 +20,39 @@ import (
 // notifyTerminationFn is a callback that gets called when a supervisor is
 // terminating (with or without an error).
 type notifyTerminationFn = func(terminateError)
+
+func oneForOneRestart(
+	supRuntimeName string,
+	eventNotifier EventNotifier,
+	children map[string]c.Child,
+	prevChild c.Child,
+	notifyCh chan<- c.ChildNotification,
+) error {
+	chSpec := prevChild.Spec()
+	chName := chSpec.Name()
+
+	startTime := time.Now()
+	newChild, err := chSpec.Restart(prevChild, supRuntimeName, notifyCh)
+
+	// We want to keep track of the updated restartCount which is in the newChild
+	// record, we must override the child independently of the outcome.
+	children[chName] = newChild
+
+	if err != nil {
+		// Given this error ocurred after supervisor bootstrap, it is treated as the
+		// child failed on supervision time, _not_ start time; return the error so that
+		// the supervisor does the restarting
+		if newChild.Tag() == c.Worker {
+			eventNotifier.WorkerFailed(newChild.RuntimeName(), err)
+		}
+		return err
+	}
+
+	if newChild.Tag() == c.Worker {
+		eventNotifier.WorkerStarted(newChild.RuntimeName(), startTime)
+	}
+	return nil
+}
 
 // runMonitorLoop does the initialization of supervisor's children and then runs
 // an infinite loop that monitors each child error.
@@ -37,22 +72,30 @@ func runMonitorLoop(
 	spec SupervisorSpec,
 	runtimeName string,
 	notifyCh chan c.ChildNotification,
+	startTime time.Time,
 	onStart c.NotifyStartFn,
 	onTerminate notifyTerminationFn,
 ) error {
 	// Start children
-	children, err := startChildren(spec, runtimeName, notifyCh)
-	if err != nil {
+	children, startErr := startChildren(spec, runtimeName, notifyCh)
+	if startErr != nil {
 		// in case we run in the async strategy we notify the spawner that we
 		// started with an error
-		onStart(err)
+		onStart(startErr)
 		// We signal that we terminated, the error is not reported here because
-		// it was reported in the onStart
+		// it was reported in the onStart callback
 		onTerminate(nil)
-		return err
+		return startErr
 	}
 
-	// Once children have been spawned, we notify to the caller thread that the
+	// Supervisors are responsible of notifying their start events, this is
+	// important because only the supervisor goroutine nows the exact time it gets
+	// started (we would get race-conditions if we notify from the parent
+	// otherwise).
+	eventNotifier := spec.getEventNotifier()
+	eventNotifier.SupervisorStarted(runtimeName, startTime)
+
+	/// Once children have been spawned, we notify to the caller thread that the
 	// main loop has started without errors.
 	onStart(nil)
 
@@ -67,19 +110,49 @@ func runMonitorLoop(
 			if len(childErrMap) > 0 {
 				// On async strategy, we notify that the spawner terminated with an
 				// error
-				err := SupervisorError{
+				stopErr := SupervisorError{
 					err:         errors.New("Supervisor stop error"),
 					runtimeName: runtimeName,
 					childErrMap: childErrMap,
 				}
-				onTerminate(err)
+				onTerminate(stopErr)
 				// On sync strategy, we return the error
-				return err
+				return stopErr
 			}
 			onTerminate(nil)
 			return nil
-		case /* childNotification = */ <-notifyCh:
-			// TODO: Deal with errors on children
+		case childNotification := <-notifyCh:
+			oldChild, ok := children[childNotification.Name()]
+
+			if !ok {
+				// TODO: Expand on this case, I think this is highly unlikely, but would
+				// like to exercise this branch in test somehow (if possible)
+				cs := oldChild.Spec()
+				panic(
+					fmt.Errorf(
+						"something horribly wrong happened here (name: %s, tag: %s)",
+						cs.Name(),
+						cs.Tag(),
+					),
+				)
+			}
+
+			if err := childNotification.Unwrap(); err != nil {
+				if oldChild.Tag() == c.Worker {
+					eventNotifier.WorkerFailed(oldChild.RuntimeName(), err)
+				}
+			}
+
+			// TODO: Verify error treshold here
+			// TODO: Deal with other restart strategies here
+			// TODO: Deal with err returned start failures
+			_ /* err */ = oneForOneRestart(
+				runtimeName,
+				eventNotifier,
+				children,
+				oldChild,
+				notifyCh,
+			)
 			// case msg := <-ctrlCh:
 			// TODO: Deal with public facing API calls
 		}
@@ -123,6 +196,7 @@ func (spec SupervisorSpec) run(
 
 	onTerminate := func(err terminateError) {}
 
+	startTime := time.Now()
 	// spawn goroutine with supervisor monitorLoop
 	return runMonitorLoop(
 		ctx,
@@ -130,6 +204,7 @@ func (spec SupervisorSpec) run(
 		runtimeName,
 		notifyCh,
 		// ctrlCh,
+		startTime,
 		onStart,
 		onTerminate,
 	)
@@ -172,13 +247,33 @@ func (spec SupervisorSpec) start(
 		spec:        spec,
 		children:    make(map[string]c.Child, len(spec.children)),
 		cancel:      cancelFn,
-		wait: func() error {
+		wait: func(stopingTime time.Time, stopingErr error) error {
+			eventNotifier := spec.getEventNotifier()
+
+			if stopingErr != nil {
+				return stopingErr
+			}
+
 			// Let's us wait for the Supervisor goroutine to terminate, if there are
 			// errors in the termination (e.g. Timeout of child, error treshold
 			// reached, etc.), the terminateCh is going to return an error, otherwise
-			// it will nil
-			err := <-terminateCh
-			return err
+			// it will return nil
+			terminateErr := <-terminateCh
+
+			if terminateErr != nil {
+				eventNotifier.SupervisorFailed(runtimeName, terminateErr)
+				return terminateErr
+			}
+
+			// stopingTime is only relevant when we call the internal wait function
+			// from the Stop() public API; if we just called from Wait(), we don't
+			// need to keep track of the stop duration
+			if stopingTime == (time.Time{}) {
+				stopingTime = time.Now()
+			}
+
+			eventNotifier.SupervisorStopped(runtimeName, stopingTime)
+			return nil
 		},
 	}
 
@@ -200,12 +295,14 @@ func (spec SupervisorSpec) start(
 	go func() {
 		// NOTE: we ignore the returned error as that is being handled by the
 		// onStart and onTerminate callbacks
+		startTime := time.Now()
 		_ = runMonitorLoop(
 			ctx,
 			spec,
 			runtimeName,
 			notifyCh,
 			// ctrlCh,
+			startTime,
 			onStart,
 			onTerminate,
 		)
@@ -217,12 +314,17 @@ func (spec SupervisorSpec) start(
 	// We check if there was an start error reported from the monitorLoop, if this
 	// is the case, we wait for the termination of started children and return the
 	// reported error
-	err := <-startCh
-	if err != nil {
+	startErr := <-startCh
+	if startErr != nil {
+		eventNotifier := spec.getEventNotifier()
+		eventNotifier.SupervisorStartFailed(runtimeName, startErr)
+
 		// Let's wait for the supervisor to stop all children before returning the
 		// final error
-		_ /* err */ = sup.wait()
-		return Supervisor{}, err
+		stopingTime := time.Now()
+		_ /* err */ = sup.wait(stopingTime, startErr)
+
+		return Supervisor{}, startErr
 	}
 
 	return sup, nil

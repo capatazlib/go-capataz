@@ -1,5 +1,10 @@
 package s_test
 
+//
+// NOTE: If you feel is counter-intuitive to have workers start before
+// supervisors in the assertions bellow, check stest/README.md
+//
+
 import (
 	"context"
 	"fmt"
@@ -116,10 +121,10 @@ func TestStartSingleChild(t *testing.T) {
 	assert.NoError(t, err)
 	AssertExactMatch(t, events,
 		[]EventP{
-			ProcessStarted("root/one"),
-			ProcessStarted("root"),
-			ProcessStopped("root/one"),
-			ProcessStopped("root"),
+			WorkerStarted("root/one"),
+			SupervisorStarted("root"),
+			WorkerStopped("root/one"),
+			SupervisorStopped("root"),
 		})
 }
 
@@ -143,14 +148,14 @@ func TestStartMutlipleChildren(t *testing.T) {
 	t.Run("starts and stops routines in the correct order", func(t *testing.T) {
 		AssertExactMatch(t, events,
 			[]EventP{
-				ProcessStarted("root/child0"),
-				ProcessStarted("root/child1"),
-				ProcessStarted("root/child2"),
-				ProcessStarted("root"),
-				ProcessStopped("root/child2"),
-				ProcessStopped("root/child1"),
-				ProcessStopped("root/child0"),
-				ProcessStopped("root"),
+				WorkerStarted("root/child0"),
+				WorkerStarted("root/child1"),
+				WorkerStarted("root/child2"),
+				SupervisorStarted("root"),
+				WorkerStopped("root/child2"),
+				WorkerStopped("root/child1"),
+				WorkerStopped("root/child0"),
+				SupervisorStopped("root"),
 			})
 	})
 }
@@ -187,21 +192,21 @@ func TestStartNestedSupervisors(t *testing.T) {
 		AssertExactMatch(t, events,
 			[]EventP{
 				// start children from left to right
-				ProcessStarted("root/branch0/child0"),
-				ProcessStarted("root/branch0/child1"),
-				ProcessStarted("root/branch0"),
-				ProcessStarted("root/branch1/child2"),
-				ProcessStarted("root/branch1/child3"),
-				ProcessStarted("root/branch1"),
-				ProcessStarted("root"),
+				WorkerStarted("root/branch0/child0"),
+				WorkerStarted("root/branch0/child1"),
+				SupervisorStarted("root/branch0"),
+				WorkerStarted("root/branch1/child2"),
+				WorkerStarted("root/branch1/child3"),
+				SupervisorStarted("root/branch1"),
+				SupervisorStarted("root"),
 				// stops children from right to left
-				ProcessStopped("root/branch1/child3"),
-				ProcessStopped("root/branch1/child2"),
-				ProcessStopped("root/branch1"),
-				ProcessStopped("root/branch0/child1"),
-				ProcessStopped("root/branch0/child0"),
-				ProcessStopped("root/branch0"),
-				ProcessStopped("root"),
+				WorkerStopped("root/branch1/child3"),
+				WorkerStopped("root/branch1/child2"),
+				SupervisorStopped("root/branch1"),
+				WorkerStopped("root/branch0/child1"),
+				WorkerStopped("root/branch0/child0"),
+				SupervisorStopped("root/branch0"),
+				SupervisorStopped("root"),
 			},
 		)
 	})
@@ -239,14 +244,14 @@ func TestStartFailedChild(t *testing.T) {
 	AssertExactMatch(t, events,
 		[]EventP{
 			// start children from left to right
-			ProcessStarted("root/branch0/child0"),
-			ProcessStarted("root/branch0/child1"),
-			ProcessStarted("root/branch0"),
-			ProcessStarted("root/branch1/child2"),
+			WorkerStarted("root/branch0/child0"),
+			WorkerStarted("root/branch0/child1"),
+			SupervisorStarted("root/branch0"),
+			WorkerStarted("root/branch1/child2"),
 			//
 			// Note child3 fails at this point
 			//
-			ProcessFailed("root/branch1/child3"),
+			WorkerStartFailed("root/branch1/child3"),
 			//
 			// After a failure a few things will happen:
 			//
@@ -257,12 +262,12 @@ func TestStartFailedChild(t *testing.T) {
 			//
 			// * The start function returns an error
 			//
-			ProcessStopped("root/branch1/child2"),
-			ProcessFailed("root/branch1"),
-			ProcessStopped("root/branch0/child1"),
-			ProcessStopped("root/branch0/child0"),
-			ProcessStopped("root/branch0"),
-			ProcessFailed("root"),
+			WorkerStopped("root/branch1/child2"),
+			SupervisorStartFailed("root/branch1"),
+			WorkerStopped("root/branch0/child1"),
+			WorkerStopped("root/branch0/child0"),
+			SupervisorStopped("root/branch0"),
+			SupervisorStartFailed("root"),
 		},
 	)
 }
@@ -298,23 +303,23 @@ func TestStopFailedChild(t *testing.T) {
 	AssertExactMatch(t, events,
 		[]EventP{
 			// start children from left to right
-			ProcessStarted("root/branch0/child0"),
-			ProcessStarted("root/branch0/child1"),
-			ProcessStarted("root/branch0"),
-			ProcessStarted("root/branch1/child2"),
-			ProcessStarted("root/branch1/child3"),
-			ProcessStarted("root/branch1"),
-			ProcessStarted("root"),
+			WorkerStarted("root/branch0/child0"),
+			WorkerStarted("root/branch0/child1"),
+			SupervisorStarted("root/branch0"),
+			WorkerStarted("root/branch1/child2"),
+			WorkerStarted("root/branch1/child3"),
+			SupervisorStarted("root/branch1"),
+			SupervisorStarted("root"),
 			// NOTE: From here, the stop of the supervisor begins
-			ProcessStopped("root/branch1/child3"),
+			WorkerStopped("root/branch1/child3"),
 			// NOTE: the child2 never stops and fails with a timeout
-			ProcessFailed("root/branch1/child2"),
+			WorkerFailed("root/branch1/child2"),
 			// NOTE: The supervisor branch1 fails because of child2 timeout
-			ProcessFailed("root/branch1"),
-			ProcessStopped("root/branch0/child1"),
-			ProcessStopped("root/branch0/child0"),
-			ProcessStopped("root/branch0"),
-			ProcessFailed("root"),
+			SupervisorFailed("root/branch1"),
+			WorkerStopped("root/branch0/child1"),
+			WorkerStopped("root/branch0/child0"),
+			SupervisorStopped("root/branch0"),
+			SupervisorFailed("root"),
 		},
 	)
 }

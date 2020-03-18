@@ -2,6 +2,7 @@ package s
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/capatazlib/go-capataz/c"
@@ -74,6 +75,8 @@ const (
 	// ProcessStopped is an Event that indicates a process was stopped by a parent
 	// supervisor
 	ProcessStopped
+	// ProcessStartFailed is an Event that indicates a process failed to start
+	ProcessStartFailed
 	// ProcessFailed is an Event that indicates a process reported an error
 	ProcessFailed
 )
@@ -85,6 +88,8 @@ func (tag EventTag) String() string {
 		return "ProcessStarted"
 	case ProcessStopped:
 		return "ProcessStopped"
+	case ProcessStartFailed:
+		return "ProcessStartFailed"
 	case ProcessFailed:
 		return "ProcessFailed"
 	default:
@@ -97,6 +102,7 @@ func (tag EventTag) String() string {
 // supervision system.
 type Event struct {
 	tag                EventTag
+	childTag           c.ChildTag
 	processRuntimeName string
 	err                error
 	created            time.Time
@@ -106,6 +112,11 @@ type Event struct {
 // Tag returns the EventTag from an Event
 func (e Event) Tag() EventTag {
 	return e.tag
+}
+
+// ChildTag returns the ChildTag from an Event
+func (e Event) ChildTag() c.ChildTag {
+	return e.childTag
 }
 
 // ProcessRuntimeName returns the given name of a process that emitted this event
@@ -125,11 +136,17 @@ func (e Event) Created() time.Time {
 
 // String returns an string representation for the Event
 func (e Event) String() string {
-	return fmt.Sprintf("Event{tag: %s, processRuntimeName: %s, created: %v}",
-		e.tag,
-		e.processRuntimeName,
-		e.created,
-	)
+	var buffer strings.Builder
+	buffer.WriteString("Event{")
+	buffer.WriteString(fmt.Sprintf("tag: %s", e.tag))
+	buffer.WriteString(fmt.Sprintf(", childTag: %s", e.childTag))
+	buffer.WriteString(fmt.Sprintf(", processRuntime: %s", e.processRuntimeName))
+	buffer.WriteString(fmt.Sprintf(", created: %v", e.created))
+	if e.err != nil {
+		buffer.WriteString(fmt.Sprintf(", err: %+v", e.err))
+	}
+	buffer.WriteString("}")
+	return buffer.String()
 }
 
 // EventNotifier is a function that is used for reporting events from the from
@@ -137,35 +154,97 @@ func (e Event) String() string {
 type EventNotifier func(Event)
 
 // ProcessStopped reports an event with an EventTag of ProcessStopped
-func (en EventNotifier) ProcessStopped(name string, stopTime time.Time, err error) {
-	tag := ProcessStopped
-	if err != nil {
-		tag = ProcessFailed
-	}
-
+func (en EventNotifier) ProcessStopped(
+	childTag c.ChildTag,
+	name string,
+	stopTime time.Time,
+) {
 	createdTime := time.Now()
 	stopDuration := createdTime.Sub(stopTime)
 
 	en(Event{
-		tag:                tag,
+		tag:                ProcessStopped,
+		childTag:           childTag,
 		processRuntimeName: name,
-		err:                err,
-		created:            time.Now(),
+		created:            createdTime,
 		duration:           stopDuration,
 	})
 }
 
-// ProcessStarted reports an event with an EventTag of ProcessStarted
-func (en EventNotifier) ProcessStarted(name string, startTime time.Time) {
+// SupervisorStopped reports an event with an EventTag of ProcessStopped
+func (en EventNotifier) SupervisorStopped(name string, stopTime time.Time) {
+	en.ProcessStopped(c.Supervisor, name, stopTime)
+}
+
+// ProcessFailed reports an event with an EventTag of ProcessStartFailed
+func (en EventNotifier) ProcessFailed(
+	childTag c.ChildTag,
+	name string,
+	err error,
+) {
+	en(Event{
+		tag:                ProcessFailed,
+		childTag:           childTag,
+		processRuntimeName: name,
+		err:                err,
+	})
+}
+
+// SupervisorFailed reports an event with an EventTag of ProcessFailed
+func (en EventNotifier) SupervisorFailed(name string, err error) {
+	en.ProcessFailed(c.Supervisor, name, err)
+}
+
+// WorkerFailed reports an event with an EventTag of ProcessFailed
+func (en EventNotifier) WorkerFailed(name string, err error) {
+	en.ProcessFailed(c.Worker, name, err)
+}
+
+// ProcessStartFailed reports an event with an EventTag of ProcessStartFailed
+func (en EventNotifier) ProcessStartFailed(
+	childTag c.ChildTag,
+	name string,
+	err error,
+) {
+	en(Event{
+		tag:                ProcessStartFailed,
+		childTag:           childTag,
+		processRuntimeName: name,
+		err:                err,
+	})
+}
+
+// SupervisorStartFailed reports an event with an EventTag of ProcessFailed
+func (en EventNotifier) SupervisorStartFailed(name string, err error) {
+	en.ProcessStartFailed(c.Supervisor, name, err)
+}
+
+// WorkerStartFailed reports an event with an EventTag of ProcessFailed
+func (en EventNotifier) WorkerStartFailed(name string, err error) {
+	en.ProcessStartFailed(c.Worker, name, err)
+}
+
+func processStarted(en EventNotifier, childTag c.ChildTag, name string, startTime time.Time) {
 	createdTime := time.Now()
 	startDuration := createdTime.Sub(startTime)
 	en(Event{
 		tag:                ProcessStarted,
+		childTag:           childTag,
 		processRuntimeName: name,
 		err:                nil,
 		created:            createdTime,
 		duration:           startDuration,
 	})
+}
+
+// SupervisorStarted reports an event with an EventTag of ProcessStarted
+func (en EventNotifier) SupervisorStarted(name string, startTime time.Time) {
+	processStarted(en, c.Supervisor, name, startTime)
+}
+
+// WorkerStarted reports an event with an EventTag of ProcessStarted
+func (en EventNotifier) WorkerStarted(name string, startTime time.Time) {
+	processStarted(en, c.Worker, name, startTime)
 }
 
 // emptyEventNotifier is an utility function that works as a default value
@@ -212,7 +291,7 @@ type Supervisor struct {
 	spec        SupervisorSpec
 	children    map[string]c.Child
 	cancel      func()
-	wait        func() error
+	wait        func(time.Time, error) error
 }
 
 // SupervisorError wraps an error from a children, enhancing it with supervisor
@@ -259,3 +338,7 @@ type terminateError = error
 // rootSupervisorName is the name the root supervisor has, this is used to
 // compare the process current name to the rootSupervisorName
 var rootSupervisorName = ""
+
+// childSepToken is the token use to separate sub-trees and child names in the
+// supervision tree
+const childSepToken = "/"
