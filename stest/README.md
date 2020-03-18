@@ -73,13 +73,13 @@ Check the test implementation to see how they are used.
 
 #### A note about event order in assertions
 
-Some of the readers may find counter-intuitive the order of the collected
-events. The supervision system will spawn goroutines the leafs of the tree
-first. All the leaves of the supervision tree are Worker goroutines. Each
-sub-tree is a supervisor in the middle of the supervision tree.
+Some may find counter-intuitive the order of the collected events. The
+supervision tree start procedure will spawn goroutines for the leafs of the tree
+first. Every leave of the tree correspond to a Worker goroutine, and every
+branch corresponds to a supervisor that tracks errors on its children.
 
-A supervisor is considered in a _running_ state when all it's children are
-running. You may be wondering, what happens to errors triggered while the
-supervision tree is starting to run. Each worker goroutine will block trying to
-send an error to it's supervisor; once the supervisor is running it's monitor
-loop, the errors are handled as expected.
+A supervisor is considered in a _running_ state when all its children goroutines
+are spawned. You may be wondering, what happens to errors triggered by
+goroutines while a supervisor is bootstraping? Each worker goroutine will block
+trying to send an error to it's supervisor monitor; once the supervisor is in a
+running state, the errors are handled as expected.
