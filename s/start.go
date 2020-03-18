@@ -150,7 +150,7 @@ func handleChildNotification(
 	supRuntimeName string,
 	supChildren map[string]c.Child,
 	supNotifyCh chan c.ChildNotification,
-	oldChild c.Child,
+	prevChild c.Child,
 	chNotification c.ChildNotification,
 ) error {
 	chErr := chNotification.Unwrap()
@@ -163,7 +163,7 @@ func handleChildNotification(
 			supRuntimeName,
 			supChildren,
 			supNotifyCh,
-			oldChild,
+			prevChild,
 			chErr,
 		)
 	}
@@ -173,11 +173,11 @@ func handleChildNotification(
 		supRuntimeName,
 		supChildren,
 		supNotifyCh,
-		oldChild,
+		prevChild,
 	)
 }
 
-// runMonitorLoop does the initialization of supervisor's children and then runs
+// runMonitorLoop does the initialization of supervisor's supChildren and then runs
 // an infinite loop that monitors each child error.
 //
 // This function is used for both async and sync strategies, given this, we
@@ -192,15 +192,15 @@ func handleChildNotification(
 //
 func runMonitorLoop(
 	ctx context.Context,
-	spec SupervisorSpec,
-	runtimeName string,
-	notifyCh chan c.ChildNotification,
-	startTime time.Time,
+	supSpec SupervisorSpec,
+	supRuntimeName string,
+	supNotifyCh chan c.ChildNotification,
+	supStartTime time.Time,
 	onStart c.NotifyStartFn,
 	onTerminate notifyTerminationFn,
 ) error {
 	// Start children
-	children, startErr := startChildren(spec, runtimeName, notifyCh)
+	supChildren, startErr := startChildren(supSpec, supRuntimeName, supNotifyCh)
 	if startErr != nil {
 		// in case we run in the async strategy we notify the spawner that we
 		// started with an error
@@ -215,10 +215,10 @@ func runMonitorLoop(
 	// important because only the supervisor goroutine nows the exact time it gets
 	// started (we would get race-conditions if we notify from the parent
 	// otherwise).
-	eventNotifier := spec.getEventNotifier()
-	eventNotifier.SupervisorStarted(runtimeName, startTime)
+	eventNotifier := supSpec.getEventNotifier()
+	eventNotifier.SupervisorStarted(supRuntimeName, supStartTime)
 
-	/// Once children have been spawned, we notify to the caller thread that the
+	/// Once supChildren have been spawned, we notify to the caller thread that the
 	// main loop has started without errors.
 	onStart(nil)
 
@@ -227,16 +227,16 @@ func runMonitorLoop(
 		select {
 		// parent context is done
 		case <-ctx.Done():
-			childErrMap := stopChildren(spec, children, false /* starting? */)
-			// If any of the children fails to stop, we should report that as an
+			supChildErrMap := stopChildren(supSpec, supChildren, false /* starting? */)
+			// If any of the supChildren fails to stop, we should report that as an
 			// error
-			if len(childErrMap) > 0 {
+			if len(supChildErrMap) > 0 {
 				// On async strategy, we notify that the spawner terminated with an
 				// error
 				stopErr := SupervisorError{
 					err:         errors.New("Supervisor stop error"),
-					runtimeName: runtimeName,
-					childErrMap: childErrMap,
+					runtimeName: supRuntimeName,
+					childErrMap: supChildErrMap,
 				}
 				onTerminate(stopErr)
 				// On sync strategy, we return the error
@@ -245,8 +245,8 @@ func runMonitorLoop(
 			onTerminate(nil)
 			return nil
 
-		case chNotification := <-notifyCh:
-			oldChild, ok := children[chNotification.Name()]
+		case chNotification := <-supNotifyCh:
+			prevChild, ok := supChildren[chNotification.Name()]
 
 			if !ok {
 				// TODO: Expand on this case, I think this is highly unlikely, but would
@@ -254,18 +254,18 @@ func runMonitorLoop(
 				panic(
 					fmt.Errorf(
 						"something horribly wrong happened here (name: %s, tag: %s)",
-						oldChild.RuntimeName(),
-						oldChild.Tag(),
+						prevChild.RuntimeName(),
+						prevChild.Tag(),
 					),
 				)
 			}
 
 			handleChildNotification(
 				eventNotifier,
-				runtimeName,
-				children,
-				notifyCh,
-				oldChild,
+				supRuntimeName,
+				supChildren,
+				supNotifyCh,
+				prevChild,
 				chNotification,
 			)
 			// case msg := <-ctrlCh:

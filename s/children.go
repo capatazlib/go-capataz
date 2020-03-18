@@ -35,11 +35,11 @@ func stopChild(
 }
 
 // stopChildren is used on the shutdown of the supervisor tree, it stops
-// supChildren in the desired order. The starting argument indicates if the
+// children in the desired order. The starting argument indicates if the
 // supervision tree is starting, if that is the case, it is more permisive
-// around spec supChildren not matching one to one with it's corresponding runtime
-// supChildren, this may happen because we had a start error in the middle of
-// supervision tree initialization, and we never got to initialize all supChildren
+// around spec children not matching one to one with it's corresponding runtime
+// children, this may happen because we had a start error in the middle of
+// supervision tree initialization, and we never got to initialize all children
 // at this supervision level.
 func stopChildren(
 	spec SupervisorSpec,
