@@ -3,62 +3,69 @@ package s
 // This file contains the start/stop children logic
 
 import (
-	"fmt"
 	"strings"
 	"time"
 
 	"github.com/capatazlib/go-capataz/c"
 )
 
+func stopChild(
+	eventNotifier EventNotifier,
+	supChildErrMap map[string]error,
+	ch c.Child,
+) map[string]error {
+	chSpec := ch.Spec()
+	stoppingTime := time.Now()
+	terminationErr := ch.Stop()
+
+	if terminationErr != nil {
+		// if a child fails to stop (either because of a legit failure or a
+		// timeout), we store the terminationError so that we can report all of them
+		// later
+		supChildErrMap[chSpec.Name()] = terminationErr
+
+		// we also notify that the process failed
+		eventNotifier.ProcessFailed(chSpec.Tag(), ch.RuntimeName(), terminationErr)
+	} else {
+		// we need to notify that the process stopped
+		eventNotifier.ProcessStopped(chSpec.Tag(), ch.RuntimeName(), stoppingTime)
+	}
+
+	return supChildErrMap
+}
+
 // stopChildren is used on the shutdown of the supervisor tree, it stops
-// children in the desired order. The starting argument indicates if the
+// supChildren in the desired order. The starting argument indicates if the
 // supervision tree is starting, if that is the case, it is more permisive
-// around spec children not matching one to one with it's corresponding runtime
-// children, this may happen because we had a start error in the middle of
-// supervision tree initialization, and we never got to initialize all children
+// around spec supChildren not matching one to one with it's corresponding runtime
+// supChildren, this may happen because we had a start error in the middle of
+// supervision tree initialization, and we never got to initialize all supChildren
 // at this supervision level.
 func stopChildren(
 	spec SupervisorSpec,
-	children map[string]c.Child,
+	supChildren map[string]c.Child,
 	starting bool,
 ) map[string]error {
 	eventNotifier := spec.eventNotifier
 	childrenSpecs := spec.order.SortStop(spec.children)
-	childErrMap := make(map[string]error)
+	supChildErrMap := make(map[string]error)
 
 	for _, cs := range childrenSpecs {
-		ch, ok := children[cs.Name()]
-		if !ok && starting {
-			// skip it as we may have not started this child before a previous one
-			// failed
-			continue
-		} else if !ok {
-			// There is no excuse for a runtime child to not have a corresponding
-			// spec, this is a serious implementation error.
-			panic(
-				fmt.Sprintf(
-					"Invariant violetated: Child %s is not on started list",
-					cs.Name(),
-				),
-			)
-		}
-		stoppingTime := time.Now()
-		terminationErr := ch.Stop()
-
-		if terminationErr != nil {
-			// if a child fails to stop (either because of a legit failure or a
-			// timeout), we store the terminationError so that we can report all of them
-			// later
-			childErrMap[cs.Name()] = terminationErr
-
-			// we also notify that the process failed
-			eventNotifier.ProcessFailed(cs.Tag(), ch.RuntimeName(), terminationErr)
-		} else {
-			// we need to notify that the process stopped
-			eventNotifier.ProcessStopped(cs.Tag(), ch.RuntimeName(), stoppingTime)
+		ch, ok := supChildren[cs.Name()]
+		// There are scenarios where is ok to ignore supChildren not having the
+		// entry:
+		//
+		// * On start, there may be a failure mid-way in the initialization and on
+		// the rollback we iterate over children spec that are not present in the
+		// runtime children map
+		//
+		// * On stop, there may be a Transient child that completed, or a Temporary child
+		// that completed or failed.
+		if ok {
+			supChildErrMap = stopChild(eventNotifier, supChildErrMap, ch)
 		}
 	}
-	return childErrMap
+	return supChildErrMap
 }
 
 // startChildren iterates over all the children (specified with `s.WithChildren`
