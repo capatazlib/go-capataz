@@ -126,7 +126,7 @@ func WorkerStarted(name string) EventP {
 	}
 }
 
-// WorkerStarted is a predicate to assert an event represents a worker process
+// WorkerCompleted is a predicate to assert an event represents a worker process
 // that got completed
 func WorkerCompleted(name string) EventP {
 	return AndP{

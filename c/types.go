@@ -145,6 +145,7 @@ func (cs ChildSpec) IsWorker() bool {
 	return cs.tag == Worker
 }
 
+// GetRestart returns the Restart setting for this ChildSpec
 func (cs ChildSpec) GetRestart() Restart {
 	return cs.restart
 }

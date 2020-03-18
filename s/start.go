@@ -166,15 +166,15 @@ func handleChildNotification(
 			oldChild,
 			chErr,
 		)
-	} else {
-		return handleChildCompletion(
-			eventNotifier,
-			supRuntimeName,
-			supChildren,
-			supNotifyCh,
-			oldChild,
-		)
 	}
+
+	return handleChildCompletion(
+		eventNotifier,
+		supRuntimeName,
+		supChildren,
+		supNotifyCh,
+		oldChild,
+	)
 }
 
 // runMonitorLoop does the initialization of supervisor's children and then runs

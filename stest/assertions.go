@@ -203,7 +203,7 @@ func FailOnSignalChild(totalErrCount int32, name string, opts ...c.Opt) (c.Child
 	), startSignal
 }
 
-// FailOnSignalChild creates a `c.ChildSpec` that runs a goroutine that will complete at
+// CompleteOnSignalChild creates a `c.ChildSpec` that runs a goroutine that will complete at
 // at as soon as the returned start signal is called.
 func CompleteOnSignalChild(name string, opts ...c.Opt) (c.ChildSpec, func()) {
 	startCh := make(chan struct{})
