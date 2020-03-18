@@ -238,11 +238,11 @@ func ObserveSupervisor(
 	opts := append([]s.Opt{
 		s.WithNotifier(evManager.EventCollector(ctx)),
 	}, opts0...)
-	spec := s.New(rootName, opts...)
+	supSpec := s.New(rootName, opts...)
 
 	// We always want to start the supervisor for test purposes, so this is
 	// embedded in the ObserveSupervisor call
-	sup, err := spec.Start(ctx)
+	sup, err := supSpec.Start(ctx)
 
 	evIt := evManager.Iterator()
 

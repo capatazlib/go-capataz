@@ -177,7 +177,7 @@ func handleChildNotification(
 	)
 }
 
-// runMonitorLoop does the initialization of supervisor's supChildren and then runs
+// runMonitorLoop does the initialization of supervisor's children and then runs
 // an infinite loop that monitors each child error.
 //
 // This function is used for both async and sync strategies, given this, we
@@ -218,7 +218,7 @@ func runMonitorLoop(
 	eventNotifier := supSpec.getEventNotifier()
 	eventNotifier.SupervisorStarted(supRuntimeName, supStartTime)
 
-	/// Once supChildren have been spawned, we notify to the caller thread that the
+	/// Once children have been spawned, we notify to the caller thread that the
 	// main loop has started without errors.
 	onStart(nil)
 
@@ -228,7 +228,7 @@ func runMonitorLoop(
 		// parent context is done
 		case <-ctx.Done():
 			supChildErrMap := stopChildren(supSpec, supChildren, false /* starting? */)
-			// If any of the supChildren fails to stop, we should report that as an
+			// If any of the children fails to stop, we should report that as an
 			// error
 			if len(supChildErrMap) > 0 {
 				// On async strategy, we notify that the spawner terminated with an
