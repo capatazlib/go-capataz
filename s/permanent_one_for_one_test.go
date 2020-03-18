@@ -11,14 +11,15 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/capatazlib/go-capataz/c"
 	"github.com/capatazlib/go-capataz/s"
 	. "github.com/capatazlib/go-capataz/stest"
 )
 
-func TestSingleFailingChildRecovers(t *testing.T) {
+func TestPermanentOneForOneSingleFailingChildRecovers(t *testing.T) {
 	parentName := "root"
 	// Fail only one time
-	child1, startFailingChild1 := FailingChild(1, "child1")
+	child1, startFailingChild1 := FailOnSignalChild(1, "child1", c.WithRestart(c.Permanent))
 
 	events, err := ObserveSupervisor(
 		context.TODO(),
@@ -57,10 +58,10 @@ func TestSingleFailingChildRecovers(t *testing.T) {
 	)
 }
 
-func TestNestedFailingChildRecovers(t *testing.T) {
+func TestPermanentOneForOneNestedFailingChildRecovers(t *testing.T) {
 	parentName := "root"
 	// Fail only one time
-	child1, startFailingChild1 := FailingChild(1, "child1")
+	child1, startFailingChild1 := FailOnSignalChild(1, "child1", c.WithRestart(c.Permanent))
 	tree1 := s.New("subtree1", s.WithChildren(child1))
 
 	events, err := ObserveSupervisor(

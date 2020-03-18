@@ -180,11 +180,11 @@ func NeverStopChild(name string) c.ChildSpec {
 	return cspec
 }
 
-// FailingChild creates a `c.ChildSpec` that runs a goroutine that will fail at
-// least the given number of times. Once this number of times has been reached,
-// it waits until the given `context.Done` channel indicates a supervisor
-// termination
-func FailingChild(totalErrCount int32, name string) (c.ChildSpec, func()) {
+// FailOnSignalChild creates a `c.ChildSpec` that runs a goroutine that will fail at
+// least the given number of times as soon as the returned start signal is
+// called. Once this number of times has been reached, it waits until the given
+// `context.Done` channel indicates a supervisor termination.
+func FailOnSignalChild(totalErrCount int32, name string, opts ...c.Opt) (c.ChildSpec, func()) {
 	currentFailCount := int32(0)
 	startCh := make(chan struct{})
 	startSignal := func() { close(startCh) }
@@ -199,6 +199,22 @@ func FailingChild(totalErrCount int32, name string) (c.ChildSpec, func()) {
 			<-ctx.Done()
 			return nil
 		},
+		opts...,
+	), startSignal
+}
+
+// FailOnSignalChild creates a `c.ChildSpec` that runs a goroutine that will complete at
+// at as soon as the returned start signal is called.
+func CompleteOnSignalChild(name string, opts ...c.Opt) (c.ChildSpec, func()) {
+	startCh := make(chan struct{})
+	startSignal := func() { close(startCh) }
+	return c.New(
+		name,
+		func(ctx context.Context) error {
+			<-startCh
+			return nil
+		},
+		opts...,
 	), startSignal
 }
 
