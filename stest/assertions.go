@@ -184,10 +184,16 @@ func NeverStopChild(name string) c.ChildSpec {
 // least the given number of times as soon as the returned start signal is
 // called. Once this number of times has been reached, it waits until the given
 // `context.Done` channel indicates a supervisor termination.
-func FailOnSignalChild(totalErrCount int32, name string, opts ...c.Opt) (c.ChildSpec, func()) {
+func FailOnSignalChild(totalErrCount int32, name string, opts ...c.Opt) (c.ChildSpec, func(bool)) {
 	currentFailCount := int32(0)
 	startCh := make(chan struct{})
-	startSignal := func() { close(startCh) }
+	startSignal := func(done bool) {
+		if done {
+			close(startCh)
+			return
+		}
+		startCh <- struct{}{}
+	}
 	return c.New(
 		name,
 		func(ctx context.Context) error {

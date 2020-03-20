@@ -30,6 +30,13 @@ func WithTag(t ChildTag) Opt {
 	}
 }
 
+func WithTolerance(errCount uint32, window time.Duration) Opt {
+	return func(spec *ChildSpec) {
+		spec.thresholdErrCount = errCount
+		spec.thresholdErrDuration = window
+	}
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 // New creates a `ChildSpec` that represents a worker goroutine. It requires two
@@ -159,25 +166,6 @@ func waitTimeout(
 	}
 }
 
-// Restart spawns a new Child and keeps track of the restart count.
-func (cs ChildSpec) Restart(
-	prevChild Child,
-	parentName string,
-	notifyCh chan<- ChildNotification,
-) (Child, error) {
-	newChild, err := cs.Start(parentName, notifyCh)
-	if err != nil {
-		return Child{}, err
-	}
-	// TODO: When working on threshold restart, verify the create date of
-	// prevChild; if the spec threshold has passed, restart the count here. For
-	// example if we have threshold of 3 errors every 10 seconds, and we get a 4th
-	// error at the 11th second, we don't make the supervisor restarting this
-	// worker fail.
-	newChild.restartCount = prevChild.restartCount + 1
-	return newChild, nil
-}
-
 // Start spawns a new goroutine that will execute the start attribute of the
 // ChildSpec, this function will block until the spawned goroutine notifies it
 // has been initialized.
@@ -196,7 +184,7 @@ func (cs ChildSpec) Restart(
 //
 func (cs ChildSpec) Start(
 	parentName string,
-	notifyCh chan<- ChildNotification,
+	supNotifyCh chan<- ChildNotification,
 ) (Child, error) {
 
 	runtimeName := strings.Join([]string{parentName, cs.name}, "/")
@@ -238,17 +226,17 @@ func (cs ChildSpec) Start(
 		// There are two ways the supervisor could receive this notification:
 		//
 		// 1) If the supervisor is running it's supervision loop (e.g. normal
-		// execution), the notification will be received over the `notifyCh`
+		// execution), the notification will be received over the `supNotifyCh`
 		// channel; this will execute the restart mechanisms.
 		//
 		// 2) If the supervisor is shutting down, it won't be reading the
-		// `notifyCh`, but instead is going to be executing the `stopChildren`
+		// `supNotifyCh`, but instead is going to be executing the `stopChildren`
 		// function, which calls the `child.Stop` method for each of the supervised
 		// internally, this function reads the `terminateCh`.
 		//
 		select {
 		// (1)
-		case notifyCh <- childNotification:
+		case supNotifyCh <- childNotification:
 		// (2)
 		case terminateCh <- childNotification:
 		}
@@ -263,10 +251,62 @@ func (cs ChildSpec) Start(
 
 	return Child{
 		runtimeName: runtimeName,
+		createdAt:   time.Now(),
 		spec:        cs,
 		cancel:      cancelFn,
 		wait:        waitTimeout(terminateCh),
 	}, nil
+}
+
+func (cs ChildSpec) isWithinErrorThresholdWindow(createdAt time.Time) bool {
+	return time.Since(createdAt) < cs.thresholdErrDuration
+}
+
+func (cs ChildSpec) isErrorThresholdSurpassed(restartCount uint32) bool {
+	return cs.thresholdErrCount < restartCount
+}
+
+func (ch Child) assertErrorThreshold() (uint32, *ErrorToleranceReached) {
+	chSpec := ch.Spec()
+	if chSpec.isWithinErrorThresholdWindow(ch.createdAt) {
+		if chSpec.isErrorThresholdSurpassed(ch.restartCount + 1) {
+			// This is an error scenario that needs to signal the supervisor to fail
+			return 0, &ErrorToleranceReached{
+				failedChildName:                 ch.RuntimeName(),
+				failedChildThresholdErrCount:    chSpec.thresholdErrCount,
+				failedChildThresholdErrDuration: chSpec.thresholdErrDuration,
+			}
+		} else {
+			// If the error is tolerable, we increase the restartCount of the future
+			// newChild
+			return ch.restartCount + uint32(1), nil
+		}
+	} else {
+		// If we are not within the tolerance error threshold window, it is ok to
+		// reset the count to 1
+		return 0, nil
+	}
+}
+
+// Restart spawns a new Child and keeps track of the restart count.
+func (ch Child) Restart(
+	supParentName string,
+	supNotifyCh chan<- ChildNotification,
+) (Child, error) {
+
+	restartCount, restartErr := ch.assertErrorThreshold()
+	if restartErr != nil {
+		return Child{}, restartErr
+	}
+
+	chSpec := ch.Spec()
+	newChild, startErr := chSpec.Start(supParentName, supNotifyCh)
+	if startErr != nil {
+		return Child{}, startErr
+	}
+
+	newChild.restartCount = restartCount
+	return newChild, nil
 }
 
 // Stop is a synchronous procedure that halts the execution of the child

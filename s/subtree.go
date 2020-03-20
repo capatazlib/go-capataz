@@ -12,7 +12,7 @@ import (
 // sub-tree. It returns an error if the child supervisor fails to start.
 func subtreeMain(
 	parentName string,
-	spec SupervisorSpec,
+	supSpec SupervisorSpec,
 ) func(context.Context, c.NotifyStartFn) error {
 	// we use the start version that receives the notifyChildStart callback, this
 	// is essential, as we need this callback to signal the sub-tree children have
@@ -22,7 +22,7 @@ func subtreeMain(
 		// to spawn yet another goroutine
 		ctx, cancelFn := context.WithCancel(parentCtx)
 		defer cancelFn()
-		return spec.run(ctx, parentName, notifyChildStart)
+		return supSpec.run(ctx, parentName, notifyChildStart)
 	}
 }
 

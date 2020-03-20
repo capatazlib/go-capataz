@@ -34,7 +34,7 @@ func TestTemporaryOneForOneSingleFailingChildDoesNotRecover(t *testing.T) {
 			// 1) Wait till all the tree is up
 			evIt.SkipTill(SupervisorStarted("root"))
 			// 2) Start the failing behavior of child1
-			failChild1()
+			failChild1(true /* done */)
 			// 3) Wait till first restart
 			evIt.SkipTill(WorkerFailed("root/child1"))
 		},
@@ -72,7 +72,7 @@ func TestTemporaryOneForOneNestedFailingChildDoesNotRecover(t *testing.T) {
 			// 1) Wait till all the tree is up
 			evIt.SkipTill(SupervisorStarted("root"))
 			// 2) Start the failing behavior of child1
-			failChild1()
+			failChild1(true /* done */)
 			// 3) Wait till first restart
 			evIt.SkipTill(WorkerFailed("root/subtree1/child1"))
 		},

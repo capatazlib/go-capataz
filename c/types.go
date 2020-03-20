@@ -2,6 +2,7 @@ package c
 
 import (
 	"context"
+	"fmt"
 	"time"
 )
 
@@ -132,7 +133,11 @@ type ChildSpec struct {
 	tag      ChildTag
 	shutdown Shutdown
 	restart  Restart
-	start    func(context.Context, NotifyStartFn) error
+
+	thresholdErrCount    uint32
+	thresholdErrDuration time.Duration
+
+	start func(context.Context, NotifyStartFn) error
 }
 
 // Tag returns the ChildTag of this ChildSpec
@@ -155,6 +160,7 @@ type Child struct {
 	runtimeName  string
 	spec         ChildSpec
 	restartCount uint32
+	createdAt    time.Time
 	cancel       func()
 	wait         func(Shutdown) error
 }
@@ -208,4 +214,26 @@ func (ce ChildNotification) RuntimeName() string {
 // Unwrap returns the error reported by ChildNotification, if any.
 func (ce ChildNotification) Unwrap() error {
 	return ce.err
+}
+
+// ErrorToleranceReached is an error that gets reported when a supervisor has
+// restarted a child so many times over a period of time that it does not make
+// sense to keep restarting.
+type ErrorToleranceReached struct {
+	failedChildName                 string
+	failedChildThresholdErrCount    uint32
+	failedChildThresholdErrDuration time.Duration
+	err                             error
+}
+
+func (err *ErrorToleranceReached) String() string {
+	return fmt.Sprintf("Child failures surpassed error tolerance")
+}
+
+func (err *ErrorToleranceReached) Error() string {
+	return err.String()
+}
+
+func (err *ErrorToleranceReached) Unwrap() error {
+	return err.err
 }
