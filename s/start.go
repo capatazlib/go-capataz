@@ -22,21 +22,21 @@ import (
 type notifyTerminationFn = func(terminateError)
 
 func oneForOneRestart(
-	supRuntimeName string,
 	eventNotifier EventNotifier,
-	children map[string]c.Child,
+	supRuntimeName string,
+	supChildren map[string]c.Child,
+	supNotifyCh chan<- c.ChildNotification,
 	prevChild c.Child,
-	notifyCh chan<- c.ChildNotification,
-) error {
+) (c.Child, error) {
 	chSpec := prevChild.Spec()
 	chName := chSpec.Name()
 
 	startTime := time.Now()
-	newChild, err := chSpec.Restart(prevChild, supRuntimeName, notifyCh)
+	newChild, err := chSpec.Restart(prevChild, supRuntimeName, supNotifyCh)
 
 	// We want to keep track of the updated restartCount which is in the newChild
 	// record, we must override the child independently of the outcome.
-	children[chName] = newChild
+	supChildren[chName] = newChild
 
 	if err != nil {
 		// Given this error ocurred after supervisor bootstrap, it is treated as the
@@ -45,13 +45,132 @@ func oneForOneRestart(
 		if newChild.Tag() == c.Worker {
 			eventNotifier.WorkerFailed(newChild.RuntimeName(), err)
 		}
-		return err
+		return c.Child{}, err
 	}
 
 	if newChild.Tag() == c.Worker {
 		eventNotifier.WorkerStarted(newChild.RuntimeName(), startTime)
 	}
-	return nil
+	return newChild, nil
+}
+
+func oneForOneRestartLoop(
+	eventNotifier EventNotifier,
+	supRuntimeName string,
+	supChildren map[string]c.Child,
+	supNotifyCh chan<- c.ChildNotification,
+	prevChild c.Child,
+) error {
+	for {
+		newChild, startErr := oneForOneRestart(
+			eventNotifier,
+			supRuntimeName,
+			supChildren,
+			supNotifyCh,
+			prevChild,
+		)
+		// if we don't get start errors, break the loop
+		if startErr == nil {
+			return nil
+		}
+
+		// otherwise, repeat until error treshold is met
+		// TODO: deal with restart error treshold here
+		prevChild = newChild
+	}
+}
+
+func handleChildError(
+	eventNotifier EventNotifier,
+	supRuntimeName string,
+	supChildren map[string]c.Child,
+	supNotifyCh chan c.ChildNotification,
+	prevChild c.Child,
+	prevChErr error,
+) error {
+	chSpec := prevChild.Spec()
+
+	eventNotifier.ProcessFailed(chSpec.Tag(), prevChild.RuntimeName(), prevChErr)
+
+	switch chSpec.GetRestart() {
+	case c.Permanent, c.Transient:
+		// On error scenarios, Permanent and Transient try as much as possible
+		// to restart the failing child
+		return oneForOneRestartLoop(
+			eventNotifier,
+			supRuntimeName,
+			supChildren,
+			supNotifyCh,
+			prevChild,
+		)
+
+	default: /* Temporary */
+		// Temporary children can complete or fail, supervisor will not restart them
+		delete(supChildren, chSpec.Name())
+		return nil
+	}
+}
+
+func handleChildCompletion(
+	eventNotifier EventNotifier,
+	supRuntimeName string,
+	supChildren map[string]c.Child,
+	supNotifyCh chan c.ChildNotification,
+	prevChild c.Child,
+) error {
+	eventNotifier.WorkerCompleted(prevChild.RuntimeName())
+
+	chSpec := prevChild.Spec()
+
+	switch chSpec.GetRestart() {
+
+	case c.Transient, c.Temporary:
+		delete(supChildren, chSpec.Name())
+		// Do nothing
+		return nil
+	default: /* Permanent */
+		// On child completion, the supervisor still restart the child when the
+		// c.Restart is Permanent
+		return oneForOneRestartLoop(
+			eventNotifier,
+			supRuntimeName,
+			supChildren,
+			supNotifyCh,
+			prevChild,
+		)
+	}
+}
+
+func handleChildNotification(
+	eventNotifier EventNotifier,
+	supRuntimeName string,
+	supChildren map[string]c.Child,
+	supNotifyCh chan c.ChildNotification,
+	prevChild c.Child,
+	chNotification c.ChildNotification,
+) error {
+	chErr := chNotification.Unwrap()
+
+	if chErr != nil {
+		// if the notification contains an error, we send a notification
+		// saying that the process failed
+		return handleChildError(
+			eventNotifier,
+			supRuntimeName,
+			supChildren,
+			supNotifyCh,
+			prevChild,
+			chErr,
+		)
+	}
+
+	return handleChildCompletion(
+		eventNotifier,
+		supRuntimeName,
+		supChildren,
+		supNotifyCh,
+		prevChild,
+	)
 }
 
 // runMonitorLoop does the initialization of supervisor's children and then runs
@@ -69,15 +188,15 @@ func oneForOneRestart(
 //
 func runMonitorLoop(
 	ctx context.Context,
-	spec SupervisorSpec,
-	runtimeName string,
-	notifyCh chan c.ChildNotification,
-	startTime time.Time,
+	supSpec SupervisorSpec,
+	supRuntimeName string,
+	supNotifyCh chan c.ChildNotification,
+	supStartTime time.Time,
 	onStart c.NotifyStartFn,
 	onTerminate notifyTerminationFn,
 ) error {
 	// Start children
-	children, startErr := startChildren(spec, runtimeName, notifyCh)
+	supChildren, startErr := startChildren(supSpec, supRuntimeName, supNotifyCh)
 	if startErr != nil {
 		// in case we run in the async strategy we notify the spawner that we
 		// started with an error
@@ -92,8 +211,8 @@ func runMonitorLoop(
 	// important because only the supervisor goroutine nows the exact time it gets
 	// started (we would get race-conditions if we notify from the parent
 	// otherwise).
-	eventNotifier := spec.getEventNotifier()
-	eventNotifier.SupervisorStarted(runtimeName, startTime)
+	eventNotifier := supSpec.getEventNotifier()
+	eventNotifier.SupervisorStarted(supRuntimeName, supStartTime)
 
 	/// Once children have been spawned, we notify to the caller thread that the
 	// main loop has started without errors.
@@ -104,16 +223,16 @@ func runMonitorLoop(
 		select {
 		// parent context is done
 		case <-ctx.Done():
-			childErrMap := stopChildren(spec, children, false /* starting? */)
+			supChildErrMap := stopChildren(supSpec, supChildren, false /* starting? */)
 			// If any of the children fails to stop, we should report that as an
 			// error
-			if len(childErrMap) > 0 {
+			if len(supChildErrMap) > 0 {
 				// On async strategy, we notify that the spawner terminated with an
 				// error
 				stopErr := SupervisorError{
 					err:         errors.New("Supervisor stop error"),
-					runtimeName: runtimeName,
-					childErrMap: childErrMap,
+					runtimeName: supRuntimeName,
+					childErrMap: supChildErrMap,
 				}
 				onTerminate(stopErr)
 				// On sync strategy, we return the error
@@ -121,37 +240,29 @@ func runMonitorLoop(
 			}
 			onTerminate(nil)
 			return nil
-		case childNotification := <-notifyCh:
-			oldChild, ok := children[childNotification.Name()]
+
+		case chNotification := <-supNotifyCh:
+			prevChild, ok := supChildren[chNotification.Name()]
 
 			if !ok {
 				// TODO: Expand on this case, I think this is highly unlikely, but would
 				// like to exercise this branch in test somehow (if possible)
-				cs := oldChild.Spec()
 				panic(
 					fmt.Errorf(
 						"something horribly wrong happened here (name: %s, tag: %s)",
-						cs.Name(),
-						cs.Tag(),
+						prevChild.RuntimeName(),
+						prevChild.Tag(),
 					),
 				)
 			}
 
-			if err := childNotification.Unwrap(); err != nil {
-				if oldChild.Tag() == c.Worker {
-					eventNotifier.WorkerFailed(oldChild.RuntimeName(), err)
-				}
-			}
-
-			// TODO: Verify error treshold here
-			// TODO: Deal with other restart strategies here
-			// TODO: Deal with err returned start failures
-			_ /* err */ = oneForOneRestart(
-				runtimeName,
+			handleChildNotification(
 				eventNotifier,
-				children,
-				oldChild,
-				notifyCh,
+				supRuntimeName,
+				supChildren,
+				supNotifyCh,
+				prevChild,
+				chNotification,
 			)
 			// case msg := <-ctrlCh:
 			// TODO: Deal with public facing API calls

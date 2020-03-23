@@ -5,9 +5,6 @@ import (
 	"time"
 )
 
-// Restart specifies when a goroutine gets restarted
-type Restart uint32
-
 // ChildTag specifies the type of Child that is running, this is a closed
 // set given we only will support workers and supervisors
 type ChildTag uint32
@@ -30,15 +27,37 @@ func (ct ChildTag) String() string {
 	}
 }
 
+// Restart specifies when a goroutine gets restarted
+type Restart uint32
+
 const (
-	// Permanent Restart = iota
-	// Temporary
+	// Permanent specifies that the goroutine should be restarted any time there
+	// is an error. If the goroutine is finished without errors, it is restarted
+	// again.
+	Permanent Restart = iota
 
 	// Transient specifies that the goroutine should be restarted if and only if
 	// the goroutine failed with an error. If the goroutine finishes without
 	// errors it is not restarted again.
-	Transient Restart = iota
+	Transient
+
+	// Temporary specifies that the goroutine should not be restarted, not even
+	// when the goroutine fails
+	Temporary
 )
+
+func (r Restart) String() string {
+	switch r {
+	case Permanent:
+		return "Permanent"
+	case Transient:
+		return "Transient"
+	case Temporary:
+		return "Temporary"
+	default:
+		return "<Unknown>"
+	}
+}
 
 // ShutdownTag specifies the type of Shutdown strategy that is used when
 // stopping a goroutine
@@ -124,6 +143,11 @@ func (cs ChildSpec) Tag() ChildTag {
 // IsWorker indicates if this child is a worker
 func (cs ChildSpec) IsWorker() bool {
 	return cs.tag == Worker
+}
+
+// GetRestart returns the Restart setting for this ChildSpec
+func (cs ChildSpec) GetRestart() Restart {
+	return cs.restart
 }
 
 // Child is the runtime representation of a Spec

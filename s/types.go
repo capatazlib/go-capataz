@@ -79,6 +79,8 @@ const (
 	ProcessStartFailed
 	// ProcessFailed is an Event that indicates a process reported an error
 	ProcessFailed
+	// ProcessCompleted is an Event that indicates a process finished without errors
+	ProcessCompleted
 )
 
 // String returns a string representation of the current EventTag
@@ -92,6 +94,8 @@ func (tag EventTag) String() string {
 		return "ProcessStartFailed"
 	case ProcessFailed:
 		return "ProcessFailed"
+	case ProcessCompleted:
+		return "ProcessCompleted"
 	default:
 		return "<Unknown>"
 	}
@@ -193,6 +197,15 @@ func (en EventNotifier) ProcessFailed(
 // SupervisorFailed reports an event with an EventTag of ProcessFailed
 func (en EventNotifier) SupervisorFailed(name string, err error) {
 	en.ProcessFailed(c.Supervisor, name, err)
+}
+
+// WorkerCompleted reports an event with an EventTag of ProcessCompleted
+func (en EventNotifier) WorkerCompleted(name string) {
+	en(Event{
+		tag:                ProcessCompleted,
+		childTag:           c.Worker,
+		processRuntimeName: name,
+	})
 }
 
 // WorkerFailed reports an event with an EventTag of ProcessFailed

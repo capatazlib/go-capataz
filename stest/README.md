@@ -15,7 +15,7 @@ The different known children builders are:
 
 * `WaitDoneChild`
 * `FailStartChild`
-* `FailingChild`
+* `FailOnSignalChild`
 * `NeverStopChild`
 
 All of them always return a `ChildSpec` with some expected behavior. In some
