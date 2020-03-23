@@ -131,15 +131,13 @@ func handleChildCompletion(
 	default: /* Permanent */
 		// On child completion, the supervisor still restart the child when the
 		// c.Restart is Permanent
-		for {
-			return oneForOneRestartLoop(
-				eventNotifier,
-				supRuntimeName,
-				supChildren,
-				supNotifyCh,
-				prevChild,
-			)
-		}
+		return oneForOneRestartLoop(
+			eventNotifier,
+			supRuntimeName,
+			supChildren,
+			supNotifyCh,
+			prevChild,
+		)
 	}
 }
 
