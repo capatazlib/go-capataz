@@ -96,15 +96,13 @@ func handleChildError(
 	case c.Permanent, c.Transient:
 		// On error scenarios, Permanent and Transient try as much as possible
 		// to restart the failing child
-		for {
-			return oneForOneRestartLoop(
-				eventNotifier,
-				supRuntimeName,
-				supChildren,
-				supNotifyCh,
-				prevChild,
-			)
-		}
+		return oneForOneRestartLoop(
+			eventNotifier,
+			supRuntimeName,
+			supChildren,
+			supNotifyCh,
+			prevChild,
+		)
 
 	default: /* Temporary */
 		// Temporary children can complete or fail, supervisor will not restart them
