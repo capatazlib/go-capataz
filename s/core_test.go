@@ -1,7 +1,7 @@
 package s_test
 
 //
-// NOTE: If you feel is counter-intuitive to have workers start before
+// NOTE: If you feel it is counter-intuitive to have workers start before
 // supervisors in the assertions bellow, check stest/README.md
 //
 
