@@ -234,6 +234,8 @@ func (err *ErrorToleranceReached) Error() string {
 	return err.String()
 }
 
+// Unwrap returns the last error that caused the creation of an
+// ErrorToleranceReached error
 func (err *ErrorToleranceReached) Unwrap() error {
 	return err.err
 }

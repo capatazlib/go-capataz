@@ -30,6 +30,9 @@ func WithTag(t ChildTag) Opt {
 	}
 }
 
+// WithTolerance specifies to the supervisor monitor of this child how many
+// errors it should be willing to tolerate before giving up restarting it and
+// fail.
 func WithTolerance(errCount uint32, window time.Duration) Opt {
 	return func(spec *ChildSpec) {
 		spec.thresholdErrCount = errCount
@@ -276,16 +279,14 @@ func (ch Child) assertErrorThreshold() (uint32, *ErrorToleranceReached) {
 				failedChildThresholdErrCount:    chSpec.thresholdErrCount,
 				failedChildThresholdErrDuration: chSpec.thresholdErrDuration,
 			}
-		} else {
-			// If the error is tolerable, we increase the restartCount of the future
-			// newChild
-			return ch.restartCount + uint32(1), nil
 		}
-	} else {
-		// If we are not within the tolerance error threshold window, it is ok to
-		// reset the count to 1
-		return 0, nil
+		// If the error is tolerable, we increase the restartCount of the future
+		// newChild
+		return ch.restartCount + uint32(1), nil
 	}
+	// If we are not within the tolerance error threshold window, it is ok to
+	// reset the count to 1
+	return 0, nil
 }
 
 // Restart spawns a new Child and keeps track of the restart count.
@@ -310,7 +311,7 @@ func (ch Child) Restart(
 }
 
 // Stop is a synchronous procedure that halts the execution of the child
-func (c Child) Stop() error {
-	c.cancel()
-	return c.wait(c.spec.shutdown)
+func (ch Child) Stop() error {
+	ch.cancel()
+	return ch.wait(ch.spec.shutdown)
 }
