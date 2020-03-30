@@ -33,10 +33,9 @@ func WithTag(t ChildTag) Opt {
 // WithTolerance specifies to the supervisor monitor of this child how many
 // errors it should be willing to tolerate before giving up restarting it and
 // fail.
-func WithTolerance(errCount uint32, window time.Duration) Opt {
+func WithTolerance(maxErrCount uint32, errWindow time.Duration) Opt {
 	return func(spec *ChildSpec) {
-		spec.thresholdErrCount = errCount
-		spec.thresholdErrDuration = window
+		spec.errTolerance = errTolerance{maxErrCount: maxErrCount, errWindow: errWindow}
 	}
 }
 
@@ -109,6 +108,11 @@ func NewWithNotifyStart(
 		// supervisor will continue with the shutdown procedure, possibly leaving
 		// the goroutine running in memory (e.g. memory leak).
 		shutdown: Timeout(5 * time.Second),
+
+		// Children will have a tolerance of 1 error every 5 seconds before telling
+		// the supervisor to give up, this is insipired by Erlang OTP documentation.
+		// http://erlang.org/doc/design_principles/sup_princ.html#maximum-restart-intensity
+		errTolerance: errTolerance{maxErrCount: 1, errWindow: 5 * time.Second},
 	}
 
 	if name == "" {
@@ -261,32 +265,23 @@ func (cs ChildSpec) Start(
 	}, nil
 }
 
-func (cs ChildSpec) isWithinErrorThresholdWindow(createdAt time.Time) bool {
-	return time.Since(createdAt) < cs.thresholdErrDuration
-}
-
-func (cs ChildSpec) isErrorThresholdSurpassed(restartCount uint32) bool {
-	return cs.thresholdErrCount < restartCount
-}
-
-func (ch Child) assertErrorThreshold() (uint32, *ErrorToleranceReached) {
-	chSpec := ch.Spec()
-	if chSpec.isWithinErrorThresholdWindow(ch.createdAt) {
-		if chSpec.isErrorThresholdSurpassed(ch.restartCount + 1) {
-			// This is an error scenario that needs to signal the supervisor to fail
-			return 0, &ErrorToleranceReached{
-				failedChildName:                 ch.RuntimeName(),
-				failedChildThresholdErrCount:    chSpec.thresholdErrCount,
-				failedChildThresholdErrDuration: chSpec.thresholdErrDuration,
-			}
+func (ch Child) assertErrorTolerance() (uint32, *ErrorToleranceReached) {
+	errTolerance := ch.spec.errTolerance
+	switch errTolerance.check(ch.restartCount, ch.createdAt) {
+	case errToleranceSurpassed:
+		return 0, &ErrorToleranceReached{
+			failedChildName:        ch.RuntimeName(),
+			failedChildErrCount:    errTolerance.maxErrCount,
+			failedChildErrDuration: errTolerance.errWindow,
 		}
-		// If the error is tolerable, we increase the restartCount of the future
-		// newChild
+	case increaseErrCount:
 		return ch.restartCount + uint32(1), nil
+	case resetErrCount:
+		// not zero given we need to account for the error that just happened
+		return uint32(1), nil
+	default:
+		panic("Invalid implementation of errTolerance values")
 	}
-	// If we are not within the tolerance error threshold window, it is ok to
-	// reset the count to 1
-	return 0, nil
 }
 
 // Restart spawns a new Child and keeps track of the restart count.
@@ -295,9 +290,9 @@ func (ch Child) Restart(
 	supNotifyCh chan<- ChildNotification,
 ) (Child, error) {
 
-	restartCount, restartErr := ch.assertErrorThreshold()
-	if restartErr != nil {
-		return Child{}, restartErr
+	restartCount, toleranceErr := ch.assertErrorTolerance()
+	if toleranceErr != nil {
+		return Child{}, toleranceErr
 	}
 
 	chSpec := ch.Spec()

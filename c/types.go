@@ -129,13 +129,11 @@ type NotifyStartFn = func(startError)
 // this changes, we may consider a design where we have a ChildSpec interface
 // and we have different implementations.
 type ChildSpec struct {
-	name     string
-	tag      ChildTag
-	shutdown Shutdown
-	restart  Restart
-
-	thresholdErrCount    uint32
-	thresholdErrDuration time.Duration
+	name         string
+	tag          ChildTag
+	shutdown     Shutdown
+	restart      Restart
+	errTolerance errTolerance
 
 	start func(context.Context, NotifyStartFn) error
 }
@@ -220,10 +218,10 @@ func (ce ChildNotification) Unwrap() error {
 // restarted a child so many times over a period of time that it does not make
 // sense to keep restarting.
 type ErrorToleranceReached struct {
-	failedChildName                 string
-	failedChildThresholdErrCount    uint32
-	failedChildThresholdErrDuration time.Duration
-	err                             error
+	failedChildName        string
+	failedChildErrCount    uint32
+	failedChildErrDuration time.Duration
+	err                    error
 }
 
 func (err *ErrorToleranceReached) String() string {

@@ -4,6 +4,7 @@ package s
 
 import (
 	"context"
+	"time"
 
 	"github.com/capatazlib/go-capataz/c"
 )
@@ -42,6 +43,7 @@ func (spec SupervisorSpec) subtree(
 		copts0,
 		c.WithShutdown(c.Inf),
 		c.WithTag(c.Supervisor),
+		c.WithTolerance(1, 5*time.Second),
 	)
 
 	return c.NewWithNotifyStart(
