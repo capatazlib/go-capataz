@@ -75,14 +75,14 @@ func (spec SupervisorSpec) Name() string {
 func (sup Supervisor) Stop() error {
 	stopingTime := time.Now()
 	sup.cancel()
-	err := sup.wait(stopingTime, nil /* stopingErr */)
+	err := sup.wait(stopingTime, nil /* no startErr */)
 	return err
 }
 
 // Wait blocks the execution of the current goroutine until the Supervisor
 // finishes it execution.
 func (sup Supervisor) Wait() error {
-	return sup.wait(time.Time{}, nil /* stopingErr */)
+	return sup.wait(time.Time{}, nil /* no startErr */)
 }
 
 // Name returns the name of the Spec used to start this Supervisor

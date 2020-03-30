@@ -411,17 +411,20 @@ func (spec SupervisorSpec) start(
 		spec:        spec,
 		children:    make(map[string]c.Child, len(spec.children)),
 		cancel:      cancelFn,
-		wait: func(stopingTime time.Time, stopingErr error) error {
+		wait: func(stopingTime time.Time, startErr error) error {
 			eventNotifier := spec.getEventNotifier()
 
-			if stopingErr != nil {
-				return stopingErr
+			// We check if there was an start error reported, if this is the case, we
+			// notify that the supervisor start failed
+			if startErr != nil {
+				eventNotifier.SupervisorStartFailed(runtimeName, startErr)
+				return startErr
 			}
 
 			// Let us wait for the Supervisor goroutine to terminate, if there are
-			// errors in the termination (e.g. Timeout of child, error treshold
-			// reached, etc.), the terminateCh is going to return an error, otherwise
-			// it will return nil
+			// errors in the termination (e.g. Timeout of child, error tolerance
+			// surpassed, etc.), the terminateCh is going to return an error,
+			// otherwise it will return nil
 			terminateErr := <-terminateCh
 
 			if terminateErr != nil {
@@ -478,17 +481,14 @@ func (spec SupervisorSpec) start(
 	// We check if there was an start error reported from the monitorLoop, if this
 	// is the case, we wait for the termination of started children and return the
 	// reported error
-	restartErr := <-startCh
-	if restartErr != nil {
-		eventNotifier := spec.getEventNotifier()
-		eventNotifier.SupervisorStartFailed(runtimeName, restartErr)
-
+	startErr := <-startCh
+	if startErr != nil {
 		// Let's wait for the supervisor to stop all children before returning the
 		// final error
 		stopingTime := time.Now()
-		_ /* err */ = sup.wait(stopingTime, restartErr)
+		_ /* err */ = sup.wait(stopingTime, startErr)
 
-		return Supervisor{}, restartErr
+		return Supervisor{}, startErr
 	}
 
 	return sup, nil

@@ -306,7 +306,7 @@ type Supervisor struct {
 	spec        SupervisorSpec
 	children    map[string]c.Child
 	cancel      func()
-	wait        func(time.Time, error) error
+	wait        func(time.Time, startError) error
 }
 
 // SupervisorError wraps an error from a children, enhancing it with supervisor
@@ -373,8 +373,9 @@ func (err supervisionError) String() string {
 	} else if err.childErr != nil {
 		return fmt.Sprintf("Supervisor child surpassed error tolerance")
 	}
-	// THIS never happens, an invariant of this type is that it only gets
-	// created with a childErr
+	// NOTE: this case never happens, an invariant condition of this type is that
+	// it only hold values with a childErr. If we are here, it means we manually
+	// created a wrong supervisionError value (implementation error).
 	panic(
 		errors.New("invalid supervisionError was created"),
 	)

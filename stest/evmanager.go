@@ -66,6 +66,7 @@ func (em EventManager) StartCollector(ctx context.Context) {
 // EventCollector is used as an event notifier of a supervision system
 func (em EventManager) EventCollector(ctx context.Context) func(ev s.Event) {
 	return func(ev s.Event) {
+		// NOTE: DO NOT REMOVE LINE BELLOW (debug tool)
 		// fmt.Printf("%+v\n", ev)
 		select {
 		case <-ctx.Done():
