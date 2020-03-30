@@ -1,6 +1,7 @@
 package s
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -142,10 +143,10 @@ func (e Event) Created() time.Time {
 func (e Event) String() string {
 	var buffer strings.Builder
 	buffer.WriteString("Event{")
-	buffer.WriteString(fmt.Sprintf("tag: %s", e.tag))
-	buffer.WriteString(fmt.Sprintf(", childTag: %s", e.childTag))
+	buffer.WriteString(fmt.Sprintf("created: %55s", e.created.String()))
+	buffer.WriteString(fmt.Sprintf(", tag: %20s", e.tag))
+	buffer.WriteString(fmt.Sprintf(", childTag: %10s", e.childTag))
 	buffer.WriteString(fmt.Sprintf(", processRuntime: %s", e.processRuntimeName))
-	buffer.WriteString(fmt.Sprintf(", created: %v", e.created))
 	if e.err != nil {
 		buffer.WriteString(fmt.Sprintf(", err: %+v", e.err))
 	}
@@ -180,6 +181,15 @@ func (en EventNotifier) SupervisorStopped(name string, stopTime time.Time) {
 	en.ProcessStopped(c.Supervisor, name, stopTime)
 }
 
+// WorkerCompleted reports an event with an EventTag of ProcessCompleted
+func (en EventNotifier) WorkerCompleted(name string) {
+	en(Event{
+		tag:                ProcessCompleted,
+		childTag:           c.Worker,
+		processRuntimeName: name,
+	})
+}
+
 // ProcessFailed reports an event with an EventTag of ProcessStartFailed
 func (en EventNotifier) ProcessFailed(
 	childTag c.ChildTag,
@@ -191,21 +201,13 @@ func (en EventNotifier) ProcessFailed(
 		childTag:           childTag,
 		processRuntimeName: name,
 		err:                err,
+		created:            time.Now(),
 	})
 }
 
 // SupervisorFailed reports an event with an EventTag of ProcessFailed
 func (en EventNotifier) SupervisorFailed(name string, err error) {
 	en.ProcessFailed(c.Supervisor, name, err)
-}
-
-// WorkerCompleted reports an event with an EventTag of ProcessCompleted
-func (en EventNotifier) WorkerCompleted(name string) {
-	en(Event{
-		tag:                ProcessCompleted,
-		childTag:           c.Worker,
-		processRuntimeName: name,
-	})
 }
 
 // WorkerFailed reports an event with an EventTag of ProcessFailed
@@ -304,7 +306,7 @@ type Supervisor struct {
 	spec        SupervisorSpec
 	children    map[string]c.Child
 	cancel      func()
-	wait        func(time.Time, error) error
+	wait        func(time.Time, startError) error
 }
 
 // SupervisorError wraps an error from a children, enhancing it with supervisor
@@ -355,3 +357,38 @@ var rootSupervisorName = ""
 // childSepToken is the token use to separate sub-trees and child names in the
 // supervision tree
 const childSepToken = "/"
+
+type supervisionError struct {
+	supRuntimeName string
+	childErr       *c.ErrorToleranceReached
+	terminateErr   terminateError
+}
+
+func (err supervisionError) String() string {
+	if err.childErr != nil && err.terminateErr != nil {
+		return fmt.Sprintf(
+			"Supervisor child surpassed error threshold, " +
+				"(and other children failed to terminate as well)",
+		)
+	} else if err.childErr != nil {
+		return fmt.Sprintf("Supervisor child surpassed error tolerance")
+	}
+	// NOTE: this case never happens, an invariant condition of this type is that
+	// it only hold values with a childErr. If we are here, it means we manually
+	// created a wrong supervisionError value (implementation error).
+	panic(
+		errors.New("invalid supervisionError was created"),
+	)
+}
+
+func (err supervisionError) Error() string {
+	return err.String()
+}
+
+func (err supervisionError) Unwrap() error {
+	// it should never be nil
+	if err.childErr != nil {
+		return err.childErr.Unwrap()
+	}
+	return nil
+}

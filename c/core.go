@@ -30,6 +30,15 @@ func WithTag(t ChildTag) Opt {
 	}
 }
 
+// WithTolerance specifies to the supervisor monitor of this child how many
+// errors it should be willing to tolerate before giving up restarting it and
+// fail.
+func WithTolerance(maxErrCount uint32, errWindow time.Duration) Opt {
+	return func(spec *ChildSpec) {
+		spec.errTolerance = errTolerance{maxErrCount: maxErrCount, errWindow: errWindow}
+	}
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 // New creates a `ChildSpec` that represents a worker goroutine. It requires two
@@ -99,6 +108,11 @@ func NewWithNotifyStart(
 		// supervisor will continue with the shutdown procedure, possibly leaving
 		// the goroutine running in memory (e.g. memory leak).
 		shutdown: Timeout(5 * time.Second),
+
+		// Children will have a tolerance of 1 error every 5 seconds before telling
+		// the supervisor to give up, this is insipired by Erlang OTP documentation.
+		// http://erlang.org/doc/design_principles/sup_princ.html#maximum-restart-intensity
+		errTolerance: errTolerance{maxErrCount: 1, errWindow: 5 * time.Second},
 	}
 
 	if name == "" {
@@ -159,25 +173,6 @@ func waitTimeout(
 	}
 }
 
-// Restart spawns a new Child and keeps track of the restart count.
-func (cs ChildSpec) Restart(
-	prevChild Child,
-	parentName string,
-	notifyCh chan<- ChildNotification,
-) (Child, error) {
-	newChild, err := cs.Start(parentName, notifyCh)
-	if err != nil {
-		return Child{}, err
-	}
-	// TODO: When working on threshold restart, verify the create date of
-	// prevChild; if the spec threshold has passed, restart the count here. For
-	// example if we have threshold of 3 errors every 10 seconds, and we get a 4th
-	// error at the 11th second, we don't make the supervisor restarting this
-	// worker fail.
-	newChild.restartCount = prevChild.restartCount + 1
-	return newChild, nil
-}
-
 // Start spawns a new goroutine that will execute the start attribute of the
 // ChildSpec, this function will block until the spawned goroutine notifies it
 // has been initialized.
@@ -196,7 +191,7 @@ func (cs ChildSpec) Restart(
 //
 func (cs ChildSpec) Start(
 	parentName string,
-	notifyCh chan<- ChildNotification,
+	supNotifyCh chan<- ChildNotification,
 ) (Child, error) {
 
 	runtimeName := strings.Join([]string{parentName, cs.name}, "/")
@@ -238,17 +233,17 @@ func (cs ChildSpec) Start(
 		// There are two ways the supervisor could receive this notification:
 		//
 		// 1) If the supervisor is running it's supervision loop (e.g. normal
-		// execution), the notification will be received over the `notifyCh`
+		// execution), the notification will be received over the `supNotifyCh`
 		// channel; this will execute the restart mechanisms.
 		//
 		// 2) If the supervisor is shutting down, it won't be reading the
-		// `notifyCh`, but instead is going to be executing the `stopChildren`
+		// `supNotifyCh`, but instead is going to be executing the `stopChildren`
 		// function, which calls the `child.Stop` method for each of the supervised
 		// internally, this function reads the `terminateCh`.
 		//
 		select {
 		// (1)
-		case notifyCh <- childNotification:
+		case supNotifyCh <- childNotification:
 		// (2)
 		case terminateCh <- childNotification:
 		}
@@ -263,14 +258,55 @@ func (cs ChildSpec) Start(
 
 	return Child{
 		runtimeName: runtimeName,
+		createdAt:   time.Now(),
 		spec:        cs,
 		cancel:      cancelFn,
 		wait:        waitTimeout(terminateCh),
 	}, nil
 }
 
+func (ch Child) assertErrorTolerance() (uint32, *ErrorToleranceReached) {
+	errTolerance := ch.spec.errTolerance
+	switch errTolerance.check(ch.restartCount, ch.createdAt) {
+	case errToleranceSurpassed:
+		return 0, &ErrorToleranceReached{
+			failedChildName:        ch.RuntimeName(),
+			failedChildErrCount:    errTolerance.maxErrCount,
+			failedChildErrDuration: errTolerance.errWindow,
+		}
+	case increaseErrCount:
+		return ch.restartCount + uint32(1), nil
+	case resetErrCount:
+		// not zero given we need to account for the error that just happened
+		return uint32(1), nil
+	default:
+		panic("Invalid implementation of errTolerance values")
+	}
+}
+
+// Restart spawns a new Child and keeps track of the restart count.
+func (ch Child) Restart(
+	supParentName string,
+	supNotifyCh chan<- ChildNotification,
+) (Child, error) {
+
+	restartCount, toleranceErr := ch.assertErrorTolerance()
+	if toleranceErr != nil {
+		return Child{}, toleranceErr
+	}
+
+	chSpec := ch.Spec()
+	newChild, startErr := chSpec.Start(supParentName, supNotifyCh)
+	if startErr != nil {
+		return Child{}, startErr
+	}
+
+	newChild.restartCount = restartCount
+	return newChild, nil
+}
+
 // Stop is a synchronous procedure that halts the execution of the child
-func (c Child) Stop() error {
-	c.cancel()
-	return c.wait(c.spec.shutdown)
+func (ch Child) Stop() error {
+	ch.cancel()
+	return ch.wait(ch.spec.shutdown)
 }
