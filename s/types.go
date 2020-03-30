@@ -144,7 +144,7 @@ func (e Event) String() string {
 	var buffer strings.Builder
 	buffer.WriteString("Event{")
 	buffer.WriteString(fmt.Sprintf("created: %55s", e.created.String()))
-	buffer.WriteString(fmt.Sprintf(", tag: %16s", e.tag))
+	buffer.WriteString(fmt.Sprintf(", tag: %20s", e.tag))
 	buffer.WriteString(fmt.Sprintf(", childTag: %10s", e.childTag))
 	buffer.WriteString(fmt.Sprintf(", processRuntime: %s", e.processRuntimeName))
 	if e.err != nil {
