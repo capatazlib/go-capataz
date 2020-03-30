@@ -51,7 +51,7 @@ func TestErrTolerance(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			et := errTolerance{maxErrCount: tc.maxErrCount, errWindow: tc.errWindow}
+			et := ErrTolerance{MaxErrCount: tc.maxErrCount, ErrWindow: tc.errWindow}
 			result := et.check(tc.errCount, tc.createdAt)
 			require.True(t, tc.result == result, result.String())
 		})

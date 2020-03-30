@@ -7,7 +7,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/capatazlib/go-capataz/c"
+	"github.com/capatazlib/go-capataz/internal/c"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -58,15 +58,15 @@ func New(name string, opts ...Opt) SupervisorSpec {
 // will reach the root supervisor and the program will get a hard failure.
 //
 func (spec SupervisorSpec) Start(parentCtx context.Context) (Supervisor, error) {
-	sup, err := spec.start(parentCtx, rootSupervisorName)
+	sup, err := spec.rootStart(parentCtx, rootSupervisorName)
 	if err != nil {
 		return Supervisor{}, err
 	}
 	return sup, nil
 }
 
-// Name returns the specified name for a Supervisor Spec
-func (spec SupervisorSpec) Name() string {
+// GetName returns the specified name for a Supervisor Spec
+func (spec SupervisorSpec) GetName() string {
 	return spec.name
 }
 
@@ -85,7 +85,7 @@ func (sup Supervisor) Wait() error {
 	return sup.wait(time.Time{}, nil /* no startErr */)
 }
 
-// Name returns the name of the Spec used to start this Supervisor
-func (sup Supervisor) Name() string {
-	return sup.spec.Name()
+// GetName returns the name of the Spec used to start this Supervisor
+func (sup Supervisor) GetName() string {
+	return sup.spec.GetName()
 }

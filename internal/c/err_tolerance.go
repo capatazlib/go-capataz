@@ -23,21 +23,22 @@ func (etr errToleranceResult) String() string {
 	}
 }
 
-type errTolerance struct {
-	maxErrCount uint32
-	errWindow   time.Duration
+// ErrTolerance is a helper type that manages error tolerance logic
+type ErrTolerance struct {
+	MaxErrCount uint32
+	ErrWindow   time.Duration
 }
 
-func (et errTolerance) isWithinErrorWindow(createdAt time.Time) bool {
+func (et ErrTolerance) isWithinErrorWindow(createdAt time.Time) bool {
 	// when errWindow is 0, it means we never forget errors happened
-	return time.Since(createdAt) < et.errWindow || et.errWindow == 0
+	return time.Since(createdAt) < et.ErrWindow || et.ErrWindow == 0
 }
 
-func (et errTolerance) didSurpassErrorCount(restartCount uint32) bool {
-	return et.maxErrCount < restartCount
+func (et ErrTolerance) didSurpassErrorCount(restartCount uint32) bool {
+	return et.MaxErrCount < restartCount
 }
 
-func (et errTolerance) check(restartCount uint32, createdAt time.Time) errToleranceResult {
+func (et ErrTolerance) check(restartCount uint32, createdAt time.Time) errToleranceResult {
 	if et.isWithinErrorWindow(createdAt) {
 		if et.didSurpassErrorCount(restartCount + 1) {
 			return errToleranceSurpassed

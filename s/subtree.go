@@ -7,7 +7,46 @@ import (
 	"time"
 
 	"github.com/capatazlib/go-capataz/c"
+	ic "github.com/capatazlib/go-capataz/internal/c"
 )
+
+// run performs the main logic of a Supervisor. This function:
+//
+// 1) spawns each child goroutine in the correct order
+//
+// 2) stops all the spawned children in the correct order once it gets a stop
+// signal
+//
+// 3) it monitors and reacts to errors reported by the supervised children
+//
+func (spec SupervisorSpec) run(
+	ctx context.Context,
+	parentName string,
+	onStart c.NotifyStartFn,
+) error {
+	// notifyCh is used to keep track of errors from children
+	notifyCh := make(chan ic.ChildNotification)
+
+	// ctrlCh is used to keep track of request from client APIs (e.g. spawn child)
+	// ctrlCh := make(chan ControlMsg)
+
+	runtimeName := buildRuntimeName(spec, parentName)
+
+	onTerminate := func(err terminateError) {}
+
+	startTime := time.Now()
+	// spawn goroutine with supervisor monitorLoop
+	return runMonitorLoop(
+		ctx,
+		spec,
+		runtimeName,
+		notifyCh,
+		// ctrlCh,
+		startTime,
+		onStart,
+		onTerminate,
+	)
+}
 
 // subtreeMain contains the main logic of the Child spec that runs a supervision
 // sub-tree. It returns an error if the child supervisor fails to start.
@@ -41,13 +80,13 @@ func (spec SupervisorSpec) subtree(
 	// http://erlang.org/doc/design_principles/sup_princ.html#child-specification
 	copts := append(
 		copts0,
-		c.WithShutdown(c.Inf),
-		c.WithTag(c.Supervisor),
+		c.WithShutdown(ic.Inf),
+		c.WithTag(ic.Supervisor),
 		c.WithTolerance(1, 5*time.Second),
 	)
 
 	return c.NewWithNotifyStart(
-		subtreeSpec.Name(),
+		subtreeSpec.GetName(),
 		subtreeMain(spec.name, subtreeSpec),
 		copts...,
 	)

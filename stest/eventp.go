@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/capatazlib/go-capataz/c"
+	"github.com/capatazlib/go-capataz/internal/c"
 	"github.com/capatazlib/go-capataz/s"
 )
 
@@ -30,7 +30,7 @@ type EventTagP struct {
 
 // Call will execute predicate that checks tag name of event
 func (p EventTagP) Call(ev s.Event) bool {
-	return ev.Tag() == p.tag
+	return ev.GetTag() == p.tag
 }
 
 func (p EventTagP) String() string {
@@ -46,7 +46,7 @@ type ProcessNameP struct {
 // Call will execute predicate that checks the name of the process that
 // triggered the event
 func (p ProcessNameP) Call(ev s.Event) bool {
-	return ev.ProcessRuntimeName() == p.name
+	return ev.GetProcessRuntimeName() == p.name
 }
 
 func (p ProcessNameP) String() string {
@@ -62,7 +62,7 @@ type ProcessChildTagP struct {
 // Call will execute predicate that checks the ChildTag of the process that
 // triggered the event matches the expected ChildTag
 func (p ProcessChildTagP) Call(ev s.Event) bool {
-	return ev.ChildTag() == p.childTag
+	return ev.GetChildTag() == p.childTag
 }
 
 func (p ProcessChildTagP) String() string {

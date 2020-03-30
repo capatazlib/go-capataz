@@ -2,9 +2,11 @@ package c
 
 import (
 	"context"
-	"fmt"
 	"time"
 )
+
+// Opt is used to configure a child's specification
+type Opt func(*ChildSpec)
 
 // ChildTag specifies the type of Child that is running, this is a closed
 // set given we only will support workers and supervisors
@@ -98,9 +100,6 @@ func Timeout(d time.Duration) Shutdown {
 	}
 }
 
-// Opt is used to configure a child's specification
-type Opt func(*ChildSpec)
-
 // startError is the error reported back to a Supervisor when the start of a
 // Child fails
 type startError = error
@@ -129,111 +128,33 @@ type NotifyStartFn = func(startError)
 // this changes, we may consider a design where we have a ChildSpec interface
 // and we have different implementations.
 type ChildSpec struct {
-	name         string
-	tag          ChildTag
-	shutdown     Shutdown
-	restart      Restart
-	errTolerance errTolerance
+	Name         string
+	Tag          ChildTag
+	Shutdown     Shutdown
+	Restart      Restart
+	ErrTolerance ErrTolerance
 
-	start func(context.Context, NotifyStartFn) error
+	Start func(context.Context, NotifyStartFn) error
 }
 
-// Tag returns the ChildTag of this ChildSpec
-func (cs ChildSpec) Tag() ChildTag {
-	return cs.tag
+// GetTag returns the ChildTag of this ChildSpec
+func (chSpec ChildSpec) GetTag() ChildTag {
+	return chSpec.Tag
 }
 
 // IsWorker indicates if this child is a worker
-func (cs ChildSpec) IsWorker() bool {
-	return cs.tag == Worker
+func (chSpec ChildSpec) IsWorker() bool {
+	return chSpec.Tag == Worker
 }
 
 // GetRestart returns the Restart setting for this ChildSpec
-func (cs ChildSpec) GetRestart() Restart {
-	return cs.restart
+func (chSpec ChildSpec) GetRestart() Restart {
+	return chSpec.Restart
 }
 
-// Child is the runtime representation of a Spec
-type Child struct {
-	runtimeName  string
-	spec         ChildSpec
-	restartCount uint32
-	createdAt    time.Time
-	cancel       func()
-	wait         func(Shutdown) error
-}
-
-// RuntimeName returns the name of this child (once started). It will have a
-// prefix with the supervisor name
-func (c Child) RuntimeName() string {
-	return c.runtimeName
-}
-
-// Name returns the name of the `ChildSpec` of this child
-func (c Child) Name() string {
-	return c.spec.name
-}
-
-// Spec returns the `ChildSpec` of this child
-func (c Child) Spec() ChildSpec {
-	return c.spec
-}
-
-// IsWorker indicates if this child is a worker
-func (c Child) IsWorker() bool {
-	return c.spec.IsWorker()
-}
-
-// Tag returns the ChildTag of this ChildSpec
-func (c Child) Tag() ChildTag {
-	return c.spec.tag
-}
-
-// ChildNotification reports when a child has terminated; if it terminated with
-// an error, it is set in the err field, otherwise, err will be nil.
-type ChildNotification struct {
-	name        string
-	tag         ChildTag
-	runtimeName string
-	err         error
-}
-
-// Name returns the spec name of the child that emitted this notification
-func (ce ChildNotification) Name() string {
-	return ce.name
-}
-
-// RuntimeName returns the runtime name of the child that emitted this
-// notification
-func (ce ChildNotification) RuntimeName() string {
-	return ce.runtimeName
-}
-
-// Unwrap returns the error reported by ChildNotification, if any.
-func (ce ChildNotification) Unwrap() error {
-	return ce.err
-}
-
-// ErrorToleranceReached is an error that gets reported when a supervisor has
-// restarted a child so many times over a period of time that it does not make
-// sense to keep restarting.
-type ErrorToleranceReached struct {
-	failedChildName        string
-	failedChildErrCount    uint32
-	failedChildErrDuration time.Duration
-	err                    error
-}
-
-func (err *ErrorToleranceReached) String() string {
-	return fmt.Sprintf("Child failures surpassed error tolerance")
-}
-
-func (err *ErrorToleranceReached) Error() string {
-	return err.String()
-}
-
-// Unwrap returns the last error that caused the creation of an
-// ErrorToleranceReached error
-func (err *ErrorToleranceReached) Unwrap() error {
-	return err.err
+// WithTag sets the given c.ChildTag on a c.ChildSpec
+func WithTag(t ChildTag) Opt {
+	return func(spec *ChildSpec) {
+		spec.Tag = t
+	}
 }
