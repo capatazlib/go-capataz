@@ -1,5 +1,5 @@
 fixes:
   # Remove path prefix from CI/CD
-  - "/home/vsts/work/1/s/gopath/src/github.com/capatazlib/go-capataz/::"
+  - ".*?/go-capataz/::"
 ignore:
   - "^.*?/pkg/mod/.*$"
