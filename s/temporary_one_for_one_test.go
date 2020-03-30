@@ -12,8 +12,8 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/capatazlib/go-capataz/c"
+	. "github.com/capatazlib/go-capataz/internal/stest"
 	"github.com/capatazlib/go-capataz/s"
-	. "github.com/capatazlib/go-capataz/stest"
 )
 
 func TestTemporaryOneForOneSingleFailingChildDoesNotRecover(t *testing.T) {

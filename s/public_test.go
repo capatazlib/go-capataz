@@ -13,8 +13,8 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/capatazlib/go-capataz/c"
+	. "github.com/capatazlib/go-capataz/internal/stest"
 	"github.com/capatazlib/go-capataz/s"
-	. "github.com/capatazlib/go-capataz/stest"
 )
 
 // ExampleNew showcases an example on how to define a supervision tree system.
