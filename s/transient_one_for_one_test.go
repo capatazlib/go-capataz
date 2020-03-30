@@ -238,7 +238,6 @@ func TestTransientOneForOneSingleFailingChildReachThreshold(t *testing.T) {
 
 			// 3rd err
 			WorkerFailed("root/child1"),
-			WorkerFailed("root/child1"),
 			// ^^^ Error that indicates treshold has been met
 
 			WorkerStopped("root/child2"),
@@ -316,7 +315,6 @@ func TestTransientOneForOneNestedFailingChildReachThreshold(t *testing.T) {
 			// ^^^ Wait failChild1 restarts (2nd)
 
 			// 3rd err
-			WorkerFailed("root/subtree1/child1"),
 			WorkerFailed("root/subtree1/child1"),
 			// ^^^ Error that indicates treshold has been met
 

@@ -35,12 +35,6 @@ func oneForOneRestart(
 	newChild, restartErr := prevChild.Restart(supRuntimeName, supNotifyCh)
 
 	if restartErr != nil {
-		// Given this error ocurred after supervisor bootstrap, it is treated as the
-		// child failed on supervision time, _not_ start time; return the error so that
-		// the supervisor does the restarting
-		if prevChild.Tag() == c.Worker {
-			eventNotifier.WorkerFailed(prevChild.RuntimeName(), restartErr)
-		}
 		return c.Child{}, restartErr
 	}
 
