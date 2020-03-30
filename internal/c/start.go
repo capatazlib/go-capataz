@@ -106,7 +106,7 @@ func (chSpec ChildSpec) DoStart(
 		//
 		// 2) If the supervisor is shutting down, it won't be reading the
 		// `supNotifyCh`, but instead is going to be executing the `stopChildren`
-		// function, which calls the `child.Stop` method for each of the supervised
+		// function, which calls the `child.Terminate` method for each of the supervised
 		// internally, this function reads the `terminateCh`.
 		//
 		select {

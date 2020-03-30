@@ -50,7 +50,7 @@ func TestTemporaryOneForOneSingleFailingChildDoesNotRecover(t *testing.T) {
 			// ^^^ 1) failChild1 starts executing here
 			WorkerFailed("root/child1"),
 			// ^^^ 2) We see the failure, and then nothing else of this child
-			SupervisorStopped("root"),
+			SupervisorTerminated("root"),
 		},
 	)
 }
@@ -89,8 +89,8 @@ func TestTemporaryOneForOneNestedFailingChildDoesNotRecover(t *testing.T) {
 			// ^^^ 1) Wait till root starts
 			WorkerFailed("root/subtree1/child1"),
 			// ^^^ 2) We see the failure, and then nothing else of this child
-			SupervisorStopped("root/subtree1"),
-			SupervisorStopped("root"),
+			SupervisorTerminated("root/subtree1"),
+			SupervisorTerminated("root"),
 		},
 	)
 }
@@ -129,7 +129,7 @@ func TestTemporaryOneForOneSingleCompleteChildDoesNotRestart(t *testing.T) {
 			// ^^^ 1) completeChild1 starts executing here
 			WorkerCompleted("root/child1"),
 			// ^^^ 2) We see completion, and then nothing else of this child
-			SupervisorStopped("root"),
+			SupervisorTerminated("root"),
 		},
 	)
 }
@@ -168,8 +168,8 @@ func TestTemporaryOneForOneNestedCompleteChildDoesNotRestart(t *testing.T) {
 			// ^^^ 1) completeChild1 starts executing here
 			WorkerCompleted("root/subtree1/child1"),
 			// ^^^ 2) We see completion, and then nothing else of this child
-			SupervisorStopped("root/subtree1"),
-			SupervisorStopped("root"),
+			SupervisorTerminated("root/subtree1"),
+			SupervisorTerminated("root"),
 		},
 	)
 }

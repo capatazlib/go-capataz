@@ -16,9 +16,9 @@ const (
 	eventNoop EventTag = iota
 	// ProcessStarted is an Event that indicates a process started
 	ProcessStarted
-	// ProcessStopped is an Event that indicates a process was stopped by a parent
+	// ProcessTerminated is an Event that indicates a process was stopped by a parent
 	// supervisor
-	ProcessStopped
+	ProcessTerminated
 	// ProcessStartFailed is an Event that indicates a process failed to start
 	ProcessStartFailed
 	// ProcessFailed is an Event that indicates a process reported an error
@@ -32,8 +32,8 @@ func (tag EventTag) String() string {
 	switch tag {
 	case ProcessStarted:
 		return "ProcessStarted"
-	case ProcessStopped:
-		return "ProcessStopped"
+	case ProcessTerminated:
+		return "ProcessTerminated"
 	case ProcessStartFailed:
 		return "ProcessStartFailed"
 	case ProcessFailed:
@@ -101,8 +101,8 @@ func (e Event) String() string {
 // the supervision system
 type EventNotifier func(Event)
 
-// ProcessStopped reports an event with an EventTag of ProcessStopped
-func (en EventNotifier) ProcessStopped(
+// ProcessTerminated reports an event with an EventTag of ProcessTerminated
+func (en EventNotifier) ProcessTerminated(
 	childTag c.ChildTag,
 	name string,
 	stopTime time.Time,
@@ -111,7 +111,7 @@ func (en EventNotifier) ProcessStopped(
 	stopDuration := createdTime.Sub(stopTime)
 
 	en(Event{
-		tag:                ProcessStopped,
+		tag:                ProcessTerminated,
 		childTag:           childTag,
 		processRuntimeName: name,
 		created:            createdTime,
@@ -119,9 +119,9 @@ func (en EventNotifier) ProcessStopped(
 	})
 }
 
-// SupervisorStopped reports an event with an EventTag of ProcessStopped
-func (en EventNotifier) SupervisorStopped(name string, stopTime time.Time) {
-	en.ProcessStopped(c.Supervisor, name, stopTime)
+// SupervisorTerminated reports an event with an EventTag of ProcessTerminated
+func (en EventNotifier) SupervisorTerminated(name string, stopTime time.Time) {
+	en.ProcessTerminated(c.Supervisor, name, stopTime)
 }
 
 // WorkerCompleted reports an event with an EventTag of ProcessCompleted

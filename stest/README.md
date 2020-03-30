@@ -16,7 +16,7 @@ The different known children builders are:
 * `WaitDoneChild`
 * `FailStartChild`
 * `FailOnSignalChild`
-* `NeverStopChild`
+* `NeverTerminateChild`
 
 All of them always return a `ChildSpec` with some expected behavior. In some
 cases a child builder returns a second value that allows you to control when the
@@ -66,8 +66,8 @@ Some of the predicate methods are:
 * `WorkerStartFailed`
 * `SupervisorFailed`
 * `WorkerFailed`
-* `SupervisorStopped`
-* `WorkerStopped`
+* `SupervisorTerminated`
+* `WorkerTerminated`
 
 Check the test implementation to see how they are used.
 

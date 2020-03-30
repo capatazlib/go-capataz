@@ -53,8 +53,8 @@ func TestTransientOneForOneSingleFailingChildRecovers(t *testing.T) {
 			// ^^^ 2) And then we see a new (re)start of it
 			WorkerStarted("root/child1"),
 			// ^^^ 3) After 1st (re)start we stop
-			WorkerStopped("root/child1"),
-			SupervisorStopped("root"),
+			WorkerTerminated("root/child1"),
+			SupervisorTerminated("root"),
 		},
 	)
 }
@@ -95,9 +95,9 @@ func TestTransientOneForOneNestedFailingChildRecovers(t *testing.T) {
 			// ^^^ 2) We see the failChild1 causing the error
 			WorkerStarted("root/subtree1/child1"),
 			// ^^^ 3) After 1st (re)start we stop
-			WorkerStopped("root/subtree1/child1"),
-			SupervisorStopped("root/subtree1"),
-			SupervisorStopped("root"),
+			WorkerTerminated("root/subtree1/child1"),
+			SupervisorTerminated("root/subtree1"),
+			SupervisorTerminated("root"),
 		},
 	)
 }
@@ -135,7 +135,7 @@ func TestTransientOneForOneSingleCompleteChild(t *testing.T) {
 			SupervisorStarted("root"),
 			// ^^^ completeChild1 starts executing here
 			WorkerCompleted("root/child1"),
-			SupervisorStopped("root"),
+			SupervisorTerminated("root"),
 		},
 	)
 }
@@ -174,8 +174,8 @@ func TestTransientOneForOneNestedCompleteChild(t *testing.T) {
 			// ^^^ 1) Wait till root starts
 			WorkerCompleted("root/subtree1/child1"),
 			// ^^^ 2) We see the completeChild1 causing the completion
-			SupervisorStopped("root/subtree1"),
-			SupervisorStopped("root"),
+			SupervisorTerminated("root/subtree1"),
+			SupervisorTerminated("root"),
 		},
 	)
 }
@@ -240,8 +240,8 @@ func TestTransientOneForOneSingleFailingChildReachThreshold(t *testing.T) {
 			WorkerFailed("root/child1"),
 			// ^^^ Error that indicates treshold has been met
 
-			WorkerStopped("root/child2"),
-			// ^^^ Stopping all other workers because supervisor failed
+			WorkerTerminated("root/child2"),
+			// ^^^ Terminating all other workers because supervisor failed
 
 			SupervisorFailed("root"),
 			// ^^^ Finish with SupervisorFailed because no parent supervisor will
@@ -318,7 +318,7 @@ func TestTransientOneForOneNestedFailingChildReachThreshold(t *testing.T) {
 			WorkerFailed("root/subtree1/child1"),
 			// ^^^ Error that indicates treshold has been met
 
-			WorkerStopped("root/subtree1/child2"),
+			WorkerTerminated("root/subtree1/child2"),
 			// ^^^ IMPORTANT: Supervisor failure stops other children
 			SupervisorFailed("root/subtree1"),
 			// ^^^ Supervisor child surpassed error
@@ -329,10 +329,10 @@ func TestTransientOneForOneNestedFailingChildReachThreshold(t *testing.T) {
 			SupervisorStarted("root/subtree1"),
 			// ^^^ Supervisor restarted again
 
-			WorkerStopped("root/subtree1/child2"),
-			WorkerStopped("root/subtree1/child1"),
-			SupervisorStopped("root/subtree1"),
-			SupervisorStopped("root"),
+			WorkerTerminated("root/subtree1/child2"),
+			WorkerTerminated("root/subtree1/child1"),
+			SupervisorTerminated("root/subtree1"),
+			SupervisorTerminated("root"),
 		},
 	)
 

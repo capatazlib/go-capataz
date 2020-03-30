@@ -20,7 +20,7 @@ func stopOnSignal(sup s.Supervisor) {
 	done := make(chan os.Signal, 1)
 	signal.Notify(done, syscall.SIGTERM)
 	<-done
-	err := sup.Stop()
+	err := sup.Terminate()
 	fmt.Println(err)
 }
 

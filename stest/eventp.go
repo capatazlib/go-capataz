@@ -138,24 +138,24 @@ func WorkerCompleted(name string) EventP {
 	}
 }
 
-// SupervisorStopped is a predicate to assert an event represents a process that
+// SupervisorTerminated is a predicate to assert an event represents a process that
 // got stopped by its parent supervisor
-func SupervisorStopped(name string) EventP {
+func SupervisorTerminated(name string) EventP {
 	return AndP{
 		preds: []EventP{
-			EventTagP{tag: s.ProcessStopped},
+			EventTagP{tag: s.ProcessTerminated},
 			ProcessNameP{name: name},
 			ProcessChildTagP{childTag: c.Supervisor},
 		},
 	}
 }
 
-// WorkerStopped is a predicate to assert an event represents a process that
+// WorkerTerminated is a predicate to assert an event represents a process that
 // got stopped by its parent supervisor
-func WorkerStopped(name string) EventP {
+func WorkerTerminated(name string) EventP {
 	return AndP{
 		preds: []EventP{
-			EventTagP{tag: s.ProcessStopped},
+			EventTagP{tag: s.ProcessTerminated},
 			ProcessNameP{name: name},
 			ProcessChildTagP{childTag: c.Worker},
 		},

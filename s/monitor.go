@@ -159,7 +159,7 @@ func stopChild(
 ) map[string]error {
 	chSpec := ch.GetSpec()
 	stoppingTime := time.Now()
-	terminationErr := ch.Stop()
+	terminationErr := ch.Terminate()
 
 	if terminationErr != nil {
 		// if a child fails to stop (either because of a legit failure or a
@@ -171,7 +171,7 @@ func stopChild(
 		eventNotifier.ProcessFailed(chSpec.GetTag(), ch.GetRuntimeName(), terminationErr)
 	} else {
 		// we need to notify that the process stopped
-		eventNotifier.ProcessStopped(chSpec.GetTag(), ch.GetRuntimeName(), stoppingTime)
+		eventNotifier.ProcessTerminated(chSpec.GetTag(), ch.GetRuntimeName(), stoppingTime)
 	}
 
 	return supChildErrMap
@@ -190,7 +190,7 @@ func stopChildren(
 	starting bool,
 ) map[string]error {
 	eventNotifier := spec.eventNotifier
-	childrenSpecs := spec.order.SortStop(spec.children)
+	childrenSpecs := spec.order.SortTermination(spec.children)
 	supChildErrMap := make(map[string]error)
 
 	for _, chSpec := range childrenSpecs {

@@ -70,9 +70,9 @@ func (spec SupervisorSpec) GetName() string {
 	return spec.name
 }
 
-// Stop is a synchronous procedure that halts the execution of the whole
+// Terminate is a synchronous procedure that halts the execution of the whole
 // supervision tree.
-func (sup Supervisor) Stop() error {
+func (sup Supervisor) Terminate() error {
 	stopingTime := time.Now()
 	sup.cancel()
 	err := sup.wait(stopingTime, nil /* no startErr */)

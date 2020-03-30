@@ -158,9 +158,9 @@ func FailStartChild(name string) c.ChildSpec {
 	return cspec
 }
 
-// NeverStopChild creates a `c.ChildSpec` that runs a goroutine that never stops
+// NeverTerminateChild creates a `c.ChildSpec` that runs a goroutine that never stops
 // when asked to, causing the goroutine to leak in the runtime
-func NeverStopChild(name string) c.ChildSpec {
+func NeverTerminateChild(name string) c.ChildSpec {
 	// For the sake of making the test go fast, lets reduce the amount of time we
 	// wait for the child to terminate
 	waitTime := 10 * time.Millisecond
@@ -268,7 +268,7 @@ func ObserveSupervisor(
 	callback(evManager)
 
 	// once tests are done, we stop the supervisor
-	err = sup.Stop()
+	err = sup.Terminate()
 
 	// We wait till all the events have been reported (event from root must be the
 	// last event)

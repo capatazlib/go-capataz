@@ -36,8 +36,8 @@ func (o Order) SortStart(input0 []c.ChildSpec) []c.ChildSpec {
 	}
 }
 
-// SortStop returns children sorted for the supervisor stop
-func (o Order) SortStop(input0 []c.ChildSpec) []c.ChildSpec {
+// SortTermination returns children sorted for the supervisor stop
+func (o Order) SortTermination(input0 []c.ChildSpec) []c.ChildSpec {
 	input := append(input0[:0:0], input0...)
 	switch o {
 	case LeftToRight:

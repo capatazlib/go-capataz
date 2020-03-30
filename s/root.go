@@ -47,7 +47,7 @@ func (spec SupervisorSpec) rootStart(
 	parentCtx context.Context,
 	parentName string,
 ) (Supervisor, error) {
-	// cancelFn is used when Stop is requested
+	// cancelFn is used when Terminate is requested
 	ctx, cancelFn := context.WithCancel(parentCtx)
 
 	// notifyCh is used to keep track of errors from children
@@ -91,13 +91,13 @@ func (spec SupervisorSpec) rootStart(
 			}
 
 			// stopingTime is only relevant when we call the internal wait function
-			// from the Stop() public API; if we just called from Wait(), we don't
+			// from the Terminate() public API; if we just called from Wait(), we don't
 			// need to keep track of the stop duration
 			if stopingTime == (time.Time{}) {
 				stopingTime = time.Now()
 			}
 
-			eventNotifier.SupervisorStopped(supRuntimeName, stopingTime)
+			eventNotifier.SupervisorTerminated(supRuntimeName, stopingTime)
 			return nil
 		},
 	}
