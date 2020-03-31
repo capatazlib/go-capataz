@@ -130,7 +130,7 @@ func TestStartSingleChild(t *testing.T) {
 
 // Test a supervision tree with three children start and stop in the default
 // order (LeftToRight)
-func TestStartMutlipleChildren(t *testing.T) {
+func TestStartMutlipleChildrenLeftToRight(t *testing.T) {
 	events, err := ObserveSupervisor(
 		context.TODO(),
 		"root",
@@ -155,6 +155,39 @@ func TestStartMutlipleChildren(t *testing.T) {
 				WorkerTerminated("root/child2"),
 				WorkerTerminated("root/child1"),
 				WorkerTerminated("root/child0"),
+				SupervisorTerminated("root"),
+			})
+	})
+}
+
+// Test a supervision tree with three children start and stop in the default
+// order (LeftToRight)
+func TestStartMutlipleChildrenRightToLeft(t *testing.T) {
+	events, err := ObserveSupervisor(
+		context.TODO(),
+		"root",
+		[]s.Opt{
+			s.WithChildren(
+				WaitDoneChild("child0"),
+				WaitDoneChild("child1"),
+				WaitDoneChild("child2"),
+			),
+			s.WithOrder(s.RightToLeft),
+		},
+		func(EventManager) {},
+	)
+
+	assert.NoError(t, err)
+	t.Run("starts and stops routines in the correct order", func(t *testing.T) {
+		AssertExactMatch(t, events,
+			[]EventP{
+				WorkerStarted("root/child2"),
+				WorkerStarted("root/child1"),
+				WorkerStarted("root/child0"),
+				SupervisorStarted("root"),
+				WorkerTerminated("root/child0"),
+				WorkerTerminated("root/child1"),
+				WorkerTerminated("root/child2"),
 				SupervisorTerminated("root"),
 			})
 	})

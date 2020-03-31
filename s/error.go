@@ -40,8 +40,8 @@ func (se *SupervisorTerminationError) GetRuntimeName() string {
 }
 
 // ChildFailCount returns the number of children that failed to terminate
-// correctly. Note if a child fails to terminate because of a shutdown timeout,
-// the failed goroutines may leak at runtime. This happens because go doesn't
+// correctly. Note if a goroutine fails to terminate because of a shutdown
+// timeout, the failed goroutines may leak. This happens because go doesn't
 // offer any true way to _kill_ a goroutine.
 func (se *SupervisorTerminationError) ChildFailCount() int {
 	return len(se.childErrMap)
