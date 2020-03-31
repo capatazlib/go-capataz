@@ -184,7 +184,11 @@ func NeverTerminateChild(name string) c.ChildSpec {
 // least the given number of times as soon as the returned start signal is
 // called. Once this number of times has been reached, it waits until the given
 // `context.Done` channel indicates a supervisor termination.
-func FailOnSignalChild(totalErrCount int32, name string, opts ...c.Opt) (c.ChildSpec, func(bool)) {
+func FailOnSignalChild(
+	totalErrCount int32,
+	name string,
+	opts ...c.Opt,
+) (c.ChildSpec, func(bool)) {
 	currentFailCount := int32(0)
 	startCh := make(chan struct{})
 	startSignal := func(done bool) {
@@ -211,13 +215,26 @@ func FailOnSignalChild(totalErrCount int32, name string, opts ...c.Opt) (c.Child
 
 // CompleteOnSignalChild creates a `c.ChildSpec` that runs a goroutine that will complete at
 // at as soon as the returned start signal is called.
-func CompleteOnSignalChild(name string, opts ...c.Opt) (c.ChildSpec, func()) {
+func CompleteOnSignalChild(
+	totalCompleteCount int32,
+	name string,
+	opts ...c.Opt,
+) (c.ChildSpec, func()) {
+	currentCompleteCount := int32(0)
 	startCh := make(chan struct{})
-	startSignal := func() { close(startCh) }
+	startSignal := func() {
+		startCh <- struct{}{}
+	}
 	return c.New(
 		name,
 		func(ctx context.Context) error {
 			<-startCh
+			if currentCompleteCount < totalCompleteCount {
+				atomic.AddInt32(&currentCompleteCount, 1)
+				return nil
+			}
+			close(startCh)
+			<-ctx.Done()
 			return nil
 		},
 		opts...,

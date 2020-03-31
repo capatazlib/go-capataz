@@ -23,19 +23,29 @@ func (ch Child) assertErrorTolerance() (uint32, *ErrorToleranceReached) {
 func (ch Child) Restart(
 	supParentName string,
 	supNotifyCh chan<- ChildNotification,
+	wasComplete bool,
 ) (Child, error) {
-
-	restartCount, toleranceErr := ch.assertErrorTolerance()
-	if toleranceErr != nil {
-		return Child{}, toleranceErr
-	}
-
 	chSpec := ch.GetSpec()
-	newChild, startErr := chSpec.DoStart(supParentName, supNotifyCh)
-	if startErr != nil {
-		return Child{}, startErr
+
+	var newCh Child
+	var startErr error
+
+	if wasComplete {
+		newCh, startErr = chSpec.DoStart(supParentName, supNotifyCh)
+		if startErr != nil {
+			return Child{}, startErr
+		}
+	} else {
+		restartCount, toleranceErr := ch.assertErrorTolerance()
+		if toleranceErr != nil {
+			return Child{}, toleranceErr
+		}
+		newCh, startErr = chSpec.DoStart(supParentName, supNotifyCh)
+		if startErr != nil {
+			return Child{}, startErr
+		}
+		newCh.restartCount = restartCount
 	}
 
-	newChild.restartCount = restartCount
-	return newChild, nil
+	return newCh, nil
 }

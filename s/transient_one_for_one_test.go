@@ -105,7 +105,7 @@ func TestTransientOneForOneNestedFailingChildRecovers(t *testing.T) {
 func TestTransientOneForOneSingleCompleteChild(t *testing.T) {
 	parentName := "root"
 	// Fail only one time
-	child1, completeChild1 := CompleteOnSignalChild("child1", c.WithRestart(c.Transient))
+	child1, completeChild1 := CompleteOnSignalChild(1, "child1", c.WithRestart(c.Transient))
 
 	events, err := ObserveSupervisor(
 		context.TODO(),
@@ -143,7 +143,7 @@ func TestTransientOneForOneSingleCompleteChild(t *testing.T) {
 func TestTransientOneForOneNestedCompleteChild(t *testing.T) {
 	parentName := "root"
 	// Fail only one time
-	child1, completeChild1 := CompleteOnSignalChild("child1", c.WithRestart(c.Transient))
+	child1, completeChild1 := CompleteOnSignalChild(1, "child1", c.WithRestart(c.Transient))
 	tree1 := s.New("subtree1", s.WithChildren(child1))
 
 	events, err := ObserveSupervisor(

@@ -69,6 +69,8 @@ func (err *SupervisorRestartError) String() string {
 		)
 	} else if err.childErr != nil {
 		return fmt.Sprintf("Supervisor child surpassed error tolerance")
+	} else if err.terminateErr != nil {
+		return fmt.Sprintf("Supervisor children failed to terminate")
 	}
 	// NOTE: this case never happens, an invariant condition of this type is that
 	// it only hold values with a childErr. If we are here, it means we manually

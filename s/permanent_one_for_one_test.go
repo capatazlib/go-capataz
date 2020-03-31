@@ -17,6 +17,63 @@ import (
 	"github.com/capatazlib/go-capataz/s"
 )
 
+func TestPermanentOneForOneSingleCompleteChild(t *testing.T) {
+	parentName := "root"
+	child1, completeChild1 := CompleteOnSignalChild(3, "child1", c.WithRestart(c.Permanent))
+
+	events, err := ObserveSupervisor(
+		context.TODO(),
+		parentName,
+		[]s.Opt{
+			s.WithChildren(child1),
+		},
+		func(em EventManager) {
+			// NOTE: we won't stop the supervisor until the child has failed at least
+			// once
+			evIt := em.Iterator()
+			// 1) Wait till all the tree is up
+			evIt.SkipTill(SupervisorStarted("root"))
+			// 2) Start the failing behavior of child1
+
+			completeChild1()
+			evIt.SkipTill(WorkerStarted("root/child1"))
+			// ^^^ Wait till 1st restart
+
+			completeChild1()
+			evIt.SkipTill(WorkerStarted("root/child1"))
+			// ^^^ Wait till 2nd restart
+
+			completeChild1()
+			evIt.SkipTill(WorkerStarted("root/child1"))
+			// ^^^ Wait till 3rd restart
+
+			completeChild1()
+		},
+	)
+
+	assert.NoError(t, err)
+
+	AssertExactMatch(t, events,
+		[]EventP{
+			// start children from left to right
+			WorkerStarted("root/child1"),
+			SupervisorStarted("root"),
+			// ^^^ 1) completeChild1 starts executing here
+			WorkerCompleted("root/child1"),
+			WorkerStarted("root/child1"),
+			// ^^^ 1st restart
+			WorkerCompleted("root/child1"),
+			WorkerStarted("root/child1"),
+			// ^^^ 2nd restart
+			WorkerCompleted("root/child1"),
+			WorkerStarted("root/child1"),
+			// ^^^ 3rd restart
+			WorkerTerminated("root/child1"),
+			SupervisorTerminated("root"),
+		},
+	)
+}
+
 func TestPermanentOneForOneSingleFailingChildRecovers(t *testing.T) {
 	parentName := "root"
 	// Fail only one time

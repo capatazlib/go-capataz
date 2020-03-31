@@ -12,16 +12,17 @@ func oneForOneRestart(
 	supRuntimeName string,
 	supChildren map[string]c.Child,
 	supNotifyCh chan<- c.ChildNotification,
-	prevChild c.Child,
+	wasComplete bool,
+	prevCh c.Child,
 ) (c.Child, error) {
-	chSpec := prevChild.GetSpec()
+	chSpec := prevCh.GetSpec()
 	chName := chSpec.GetName()
 
 	startTime := time.Now()
-	newCh, restartErr := prevChild.Restart(supRuntimeName, supNotifyCh)
+	newCh, chRestartErr := prevCh.Restart(supRuntimeName, supNotifyCh, wasComplete)
 
-	if restartErr != nil {
-		return c.Child{}, restartErr
+	if chRestartErr != nil {
+		return c.Child{}, chRestartErr
 	}
 
 	// We want to keep track of the updated restartCount which is in the newCh
@@ -39,7 +40,8 @@ func oneForOneRestartLoop(
 	supRuntimeName string,
 	supChildren map[string]c.Child,
 	supNotifyCh chan<- c.ChildNotification,
-	prevChild c.Child,
+	wasComplete bool,
+	prevCh c.Child,
 ) *c.ErrorToleranceReached {
 	for {
 		newCh, restartErr := oneForOneRestart(
@@ -47,7 +49,8 @@ func oneForOneRestartLoop(
 			supRuntimeName,
 			supChildren,
 			supNotifyCh,
-			prevChild,
+			wasComplete,
+			prevCh,
 		)
 		// if we don't get start errors, break the loop
 		if restartErr == nil {
@@ -61,11 +64,11 @@ func oneForOneRestartLoop(
 		var toleranceErr *c.ErrorToleranceReached
 		if errors.As(restartErr, &toleranceErr) {
 			// Remove children from runtime child map to skip terminate procedure
-			delete(supChildren, prevChild.GetName())
+			delete(supChildren, prevCh.GetName())
 			return toleranceErr
 		}
 
 		// otherwise, repeat until error threshold is met
-		prevChild = newCh
+		prevCh = newCh
 	}
 }

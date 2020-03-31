@@ -130,6 +130,7 @@ func (en EventNotifier) WorkerCompleted(name string) {
 		tag:                ProcessCompleted,
 		childTag:           c.Worker,
 		processRuntimeName: name,
+		created:            time.Now(),
 	})
 }
 

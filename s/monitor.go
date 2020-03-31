@@ -36,6 +36,7 @@ func handleChildError(
 			supRuntimeName,
 			supChildren,
 			supNotifyCh,
+			false, /* was complete */
 			prevCh,
 		)
 
@@ -74,6 +75,7 @@ func handleChildCompletion(
 			supRuntimeName,
 			supChildren,
 			supNotifyCh,
+			true, /* was complete */
 			prevCh,
 		)
 	}

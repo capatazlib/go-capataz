@@ -98,7 +98,7 @@ func TestTemporaryOneForOneNestedFailingChildDoesNotRecover(t *testing.T) {
 func TestTemporaryOneForOneSingleCompleteChildDoesNotRestart(t *testing.T) {
 	parentName := "root"
 	// Fail only one time
-	child1, completeChild1 := CompleteOnSignalChild("child1", c.WithRestart(c.Temporary))
+	child1, completeChild1 := CompleteOnSignalChild(1, "child1", c.WithRestart(c.Temporary))
 
 	events, err := ObserveSupervisor(
 		context.TODO(),
@@ -137,7 +137,7 @@ func TestTemporaryOneForOneSingleCompleteChildDoesNotRestart(t *testing.T) {
 func TestTemporaryOneForOneNestedCompleteChildDoesNotRestart(t *testing.T) {
 	parentName := "root"
 	// Fail only one time
-	child1, completeChild1 := CompleteOnSignalChild("child1", c.WithRestart(c.Temporary))
+	child1, completeChild1 := CompleteOnSignalChild(1, "child1", c.WithRestart(c.Temporary))
 	tree1 := s.New("subtree1", s.WithChildren(child1))
 
 	events, err := ObserveSupervisor(
