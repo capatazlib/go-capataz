@@ -2,13 +2,16 @@ package s
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/capatazlib/go-capataz/internal/c"
 )
+
+// childSepToken is the token use to separate sub-trees and child names in the
+// supervision tree
+const childSepToken = "/"
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -117,7 +120,7 @@ func handleChildNotification(
 // started children so far will be stopped in the reverse order.
 func startChildren(
 	spec SupervisorSpec,
-	runtimeName string,
+	supRuntimeName string,
 	notifyCh chan c.ChildNotification,
 ) (map[string]c.Child, error) {
 	eventNotifier := spec.getEventNotifier()
@@ -126,19 +129,22 @@ func startChildren(
 	// Start children
 	for _, chSpec := range spec.order.SortStart(spec.children) {
 		startedTime := time.Now()
-		ch, startErr := chSpec.DoStart(runtimeName, notifyCh)
+		ch, chStartErr := chSpec.DoStart(supRuntimeName, notifyCh)
 
 		// NOTE: The error handling code bellow gets executed when the children
 		// fails at start time
-		if startErr != nil {
-			cRuntimeName := strings.Join([]string{runtimeName, chSpec.GetName()}, childSepToken)
-			eventNotifier.ProcessStartFailed(chSpec.GetTag(), cRuntimeName, startErr)
-			childErrMap := stopChildren(spec, children, true /* starting? */)
+		if chStartErr != nil {
+			cRuntimeName := strings.Join(
+				[]string{supRuntimeName, chSpec.GetName()},
+				childSepToken,
+			)
+			eventNotifier.ProcessStartFailed(chSpec.GetTag(), cRuntimeName, chStartErr)
+			childErrMap := terminateChildren(spec, children)
 			// Is important we stop the children before we finish the supervisor
-			return nil, SupervisorError{
-				err:         startErr,
-				runtimeName: runtimeName,
-				childErrMap: childErrMap,
+			return nil, &SupervisorTerminationError{
+				supRuntimeName: supRuntimeName,
+				childErr:       chStartErr,
+				childErrMap:    childErrMap,
 			}
 		}
 
@@ -152,7 +158,10 @@ func startChildren(
 	return children, nil
 }
 
-func stopChild(
+// terminateChild executes the Terminate procedure on the given child, in case
+// there is an error on termination it notifies the event system and appends a
+// new entry to the given error map.
+func terminateChild(
 	eventNotifier EventNotifier,
 	supChildErrMap map[string]error,
 	ch c.Child,
@@ -177,17 +186,11 @@ func stopChild(
 	return supChildErrMap
 }
 
-// stopChildren is used on the shutdown of the supervisor tree, it stops
-// children in the desired order. The starting argument indicates if the
-// supervision tree is starting, if that is the case, it is more permisive
-// around spec children not matching one to one with it's corresponding runtime
-// children, this may happen because we had a start error in the middle of
-// supervision tree initialization, and we never got to initialize all children
-// at this supervision level.
-func stopChildren(
+// terminateChildren is used on the shutdown of the supervisor tree, it stops
+// children in the desired order.
+func terminateChildren(
 	spec SupervisorSpec,
 	supChildren map[string]c.Child,
-	starting bool,
 ) map[string]error {
 	eventNotifier := spec.eventNotifier
 	childrenSpecs := spec.order.SortTermination(spec.children)
@@ -205,12 +208,14 @@ func stopChildren(
 		// * On stop, there may be a Transient child that completed, or a Temporary child
 		// that completed or failed.
 		if ok {
-			supChildErrMap = stopChild(eventNotifier, supChildErrMap, ch)
+			supChildErrMap = terminateChild(eventNotifier, supChildErrMap, ch)
 		}
 	}
 	return supChildErrMap
 }
 
+// terminateSupervisor stops all children an signal any errors to the
+// given onTerminate callback
 func terminateSupervisor(
 	supSpec SupervisorSpec,
 	supRuntimeName string,
@@ -218,8 +223,8 @@ func terminateSupervisor(
 	onTerminate func(error),
 	restartErr *c.ErrorToleranceReached,
 ) error {
-	var stopErr error
-	supChildErrMap := stopChildren(supSpec, supChildren, false /* starting? */)
+	var terminateErr *SupervisorTerminationError
+	supChildErrMap := terminateChildren(supSpec, supChildren)
 
 	// If any of the children fails to stop, we should report that as an
 	// error
@@ -227,19 +232,18 @@ func terminateSupervisor(
 
 		// On async strategy, we notify that the spawner terminated with an
 		// error
-		stopErr = SupervisorError{
-			err:         errors.New("Supervisor stop error"),
-			runtimeName: supRuntimeName,
-			childErrMap: supChildErrMap,
+		terminateErr = &SupervisorTerminationError{
+			supRuntimeName: supRuntimeName,
+			childErrMap:    supChildErrMap,
 		}
 	}
 
-	// If we have a stopErr or a restartErr, we should report that back to the
+	// If we have a terminateErr or a restartErr, we should report that back to the
 	// parent
-	if restartErr != nil || stopErr != nil {
-		supErr := supervisionError{
+	if restartErr != nil || terminateErr != nil {
+		supErr := &SupervisorRestartError{
 			supRuntimeName: supRuntimeName,
-			terminateErr:   stopErr,
+			terminateErr:   terminateErr,
 			childErr:       restartErr,
 		}
 		onTerminate(supErr)

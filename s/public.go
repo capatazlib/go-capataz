@@ -10,6 +10,19 @@ import (
 	"github.com/capatazlib/go-capataz/internal/c"
 )
 
+// Supervisor represents the root of a tree of goroutines. A Supervisor may have
+// leaf or sub-tree children, where each of the nodes in the tree represent a
+// goroutine that gets automatic restart abilities as soon as the parent
+// supervisor detects an error has occured. A Supervisor will always be
+// generated from a SupervisorSpec
+type Supervisor struct {
+	runtimeName string
+	spec        SupervisorSpec
+	children    map[string]c.Child
+	cancel      func()
+	wait        func(time.Time, startError) error
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Public API
 
@@ -37,25 +50,24 @@ func New(name string, opts ...Opt) SupervisorSpec {
 }
 
 // Start creates a Supervisor from the SupervisorSpec. A Supervisor is a tree of
-// Child records where each Child handles a goroutine. The Start algorithm
-// begins with the spawning of the leaf children goroutines first. Depending on
-// the SupervisorSpec's order, it will do an initialization in pre-order
-// (LeftToRight) or post-order (RightToLeft).
+// goroutines. The Start algorithm begins with the spawning the leaf worker
+// goroutines first. Depending on the SupervisorSpec's order, it will do an
+// initialization in pre-order (LeftToRight) or post-order (RightToLeft).
 //
 // ### Initialization of the tree
 //
-// Once all the children are initialized and running, the supervisor will
-// execute it's supervision logic (listening to failures on its children).
-// Invoking this method will block the thread until all the children and its
-// sub-tree's childrens have been started.
+// Once all the children leafs are initialized and running, the supervisor will
+// execute it's supervision monitor logic (listening to failures on its
+// children). Invoking this method will block the thread until all the children
+// and its sub-tree's childrens have been started.
 //
 // ### Failure on child initialization
 //
-// In case one of the children fails to start, the Supervisor is going to retry
-// a number of times before giving up and returning an error. In case this
+// In case one of the tree children fails to start, the Supervisor is going to
+// retry a number of times before giving up and returning an error. In case this
 // supervisor is a sub-tree, it's parent supervisor will retry the
-// initialization until the failure treshold is reached; eventually, the errors
-// will reach the root supervisor and the program will get a hard failure.
+// initialization until the error tolerance is surpassed; eventually, the errors
+// will reach the root supervisor and the program will return a hard error.
 //
 func (spec SupervisorSpec) Start(parentCtx context.Context) (Supervisor, error) {
 	sup, err := spec.rootStart(parentCtx, rootSupervisorName)

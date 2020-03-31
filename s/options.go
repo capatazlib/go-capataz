@@ -6,6 +6,9 @@ import (
 	"github.com/capatazlib/go-capataz/c"
 )
 
+// Opt is used to configure a supervisor's specification
+type Opt func(*SupervisorSpec)
+
 // WithOrder specifies the start/stop order of a supervisor's children
 func WithOrder(o Order) Opt {
 	return func(spec *SupervisorSpec) {
