@@ -90,12 +90,12 @@ func Worker(chSpec c.ChildSpec) Node {
 	}
 }
 
-// CleanupResources is a function that cleans up resources that were initialized
+// CleanupResourcesFn is a function that cleans up resources that were initialized
 // in a BuildNodesFn function.
-type CleanupResources = func()
+type CleanupResourcesFn = func() error
 
 // BuildNodesFn is a function that returns a list of nodes
-type BuildNodesFn = func() ([]Node, CleanupResources)
+type BuildNodesFn = func() ([]Node, CleanupResourcesFn)
 
 // SupervisorSpec represents the specification of a Supervisor; it serves as a
 // template for the construction of supervision trees. In the SupervisorSpec you
@@ -119,7 +119,7 @@ type SupervisorSpec struct {
 
 // buildChildren constructs the childSpec records that the Supervisor is going
 // to monitor at runtime.
-func (spec SupervisorSpec) buildChildrenSpecs() ([]c.ChildSpec, CleanupResources) {
+func (spec SupervisorSpec) buildChildrenSpecs() ([]c.ChildSpec, CleanupResourcesFn) {
 	nodes, cleanup := spec.buildNodes()
 	children := make([]c.ChildSpec, 0, len(nodes))
 	for _, buildChildSpec := range nodes {

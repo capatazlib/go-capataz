@@ -48,8 +48,8 @@ func WithNotifier(en EventNotifier) Opt {
 // records passed to this function are going to be supervised by the Supervisor
 // created from the SupervisorSpec
 func WithChildren(nodes ...Node) BuildNodesFn {
-	emptyCleanupResources := func() {}
-	return func() ([]Node, CleanupResources) {
+	emptyCleanupResources := func() error { return nil }
+	return func() ([]Node, CleanupResourcesFn) {
 		return nodes, emptyCleanupResources
 	}
 }
