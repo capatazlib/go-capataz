@@ -13,9 +13,66 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/capatazlib/go-capataz/c"
+	. "github.com/capatazlib/go-capataz/internal/stest"
 	"github.com/capatazlib/go-capataz/s"
-	. "github.com/capatazlib/go-capataz/stest"
 )
+
+func TestPermanentOneForOneSingleCompleteChild(t *testing.T) {
+	parentName := "root"
+	child1, completeChild1 := CompleteOnSignalChild(3, "child1", c.WithRestart(c.Permanent))
+
+	events, err := ObserveSupervisor(
+		context.TODO(),
+		parentName,
+		[]s.Opt{
+			s.WithChildren(child1),
+		},
+		func(em EventManager) {
+			// NOTE: we won't stop the supervisor until the child has failed at least
+			// once
+			evIt := em.Iterator()
+			// 1) Wait till all the tree is up
+			evIt.SkipTill(SupervisorStarted("root"))
+			// 2) Start the failing behavior of child1
+
+			completeChild1()
+			evIt.SkipTill(WorkerStarted("root/child1"))
+			// ^^^ Wait till 1st restart
+
+			completeChild1()
+			evIt.SkipTill(WorkerStarted("root/child1"))
+			// ^^^ Wait till 2nd restart
+
+			completeChild1()
+			evIt.SkipTill(WorkerStarted("root/child1"))
+			// ^^^ Wait till 3rd restart
+
+			completeChild1()
+		},
+	)
+
+	assert.NoError(t, err)
+
+	AssertExactMatch(t, events,
+		[]EventP{
+			// start children from left to right
+			WorkerStarted("root/child1"),
+			SupervisorStarted("root"),
+			// ^^^ 1) completeChild1 starts executing here
+			WorkerCompleted("root/child1"),
+			WorkerStarted("root/child1"),
+			// ^^^ 1st restart
+			WorkerCompleted("root/child1"),
+			WorkerStarted("root/child1"),
+			// ^^^ 2nd restart
+			WorkerCompleted("root/child1"),
+			WorkerStarted("root/child1"),
+			// ^^^ 3rd restart
+			WorkerTerminated("root/child1"),
+			SupervisorTerminated("root"),
+		},
+	)
+}
 
 func TestPermanentOneForOneSingleFailingChildRecovers(t *testing.T) {
 	parentName := "root"
@@ -53,8 +110,8 @@ func TestPermanentOneForOneSingleFailingChildRecovers(t *testing.T) {
 			// ^^^ 2) And then we see a new (re)start of it
 			WorkerStarted("root/child1"),
 			// ^^^ 3) After 1st (re)start we stop
-			WorkerStopped("root/child1"),
-			SupervisorStopped("root"),
+			WorkerTerminated("root/child1"),
+			SupervisorTerminated("root"),
 		},
 	)
 }
@@ -95,9 +152,9 @@ func TestPermanentOneForOneNestedFailingChildRecovers(t *testing.T) {
 			// ^^^ 2) We see the failChild1 causing the error
 			WorkerStarted("root/subtree1/child1"),
 			// ^^^ 3) After 1st (re)start we stop
-			WorkerStopped("root/subtree1/child1"),
-			SupervisorStopped("root/subtree1"),
-			SupervisorStopped("root"),
+			WorkerTerminated("root/subtree1/child1"),
+			SupervisorTerminated("root/subtree1"),
+			SupervisorTerminated("root"),
 		},
 	)
 }
@@ -162,8 +219,8 @@ func TestPermanentOneForOneSingleFailingChildReachThreshold(t *testing.T) {
 			WorkerFailed("root/child1"),
 			// ^^^ Error that indicates treshold has been met
 
-			WorkerStopped("root/child2"),
-			// ^^^ Stopping all other workers because supervisor failed
+			WorkerTerminated("root/child2"),
+			// ^^^ Terminating all other workers because supervisor failed
 
 			SupervisorFailed("root"),
 			// ^^^ Finish with SupervisorFailed because no parent supervisor will
@@ -240,7 +297,7 @@ func TestPermanentOneForOneNestedFailingChildReachThreshold(t *testing.T) {
 			WorkerFailed("root/subtree1/child1"),
 			// ^^^ Error that indicates treshold has been met
 
-			WorkerStopped("root/subtree1/child2"),
+			WorkerTerminated("root/subtree1/child2"),
 			// ^^^ IMPORTANT: Supervisor failure stops other children
 			SupervisorFailed("root/subtree1"),
 			// ^^^ Supervisor child surpassed error
@@ -251,10 +308,10 @@ func TestPermanentOneForOneNestedFailingChildReachThreshold(t *testing.T) {
 			SupervisorStarted("root/subtree1"),
 			// ^^^ Supervisor restarted again
 
-			WorkerStopped("root/subtree1/child2"),
-			WorkerStopped("root/subtree1/child1"),
-			SupervisorStopped("root/subtree1"),
-			SupervisorStopped("root"),
+			WorkerTerminated("root/subtree1/child2"),
+			WorkerTerminated("root/subtree1/child1"),
+			SupervisorTerminated("root/subtree1"),
+			SupervisorTerminated("root"),
 		},
 	)
 }
@@ -316,10 +373,10 @@ func TestPermanentOneForOneNestedFailingChildErrorCountResets(t *testing.T) {
 			WorkerStarted("root/subtree1/child1"),
 			// ^^^ Wait failChild1 restarts (2nd)
 
-			WorkerStopped("root/subtree1/child2"),
-			WorkerStopped("root/subtree1/child1"),
-			SupervisorStopped("root/subtree1"),
-			SupervisorStopped("root"),
+			WorkerTerminated("root/subtree1/child2"),
+			WorkerTerminated("root/subtree1/child1"),
+			SupervisorTerminated("root/subtree1"),
+			SupervisorTerminated("root"),
 		},
 	)
 }

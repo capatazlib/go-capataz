@@ -21,8 +21,8 @@ func newLogEventNotifier() (*logrus.Entry, s.EventNotifier) {
 			ll = log.WithError(ev.Err())
 		}
 		ll.WithFields(logrus.Fields{
-			"process_runtime_name": ev.ProcessRuntimeName(),
-			"created_at":           ev.Created(),
-		}).Debug(ev.Tag().String())
+			"process_runtime_name": ev.GetProcessRuntimeName(),
+			"created_at":           ev.GetCreated(),
+		}).Debug(ev.GetTag().String())
 	}
 }

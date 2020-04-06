@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/capatazlib/go-capataz/c"
+	"github.com/capatazlib/go-capataz/internal/c"
 	"github.com/capatazlib/go-capataz/s"
 )
 
@@ -30,7 +30,7 @@ type EventTagP struct {
 
 // Call will execute predicate that checks tag name of event
 func (p EventTagP) Call(ev s.Event) bool {
-	return ev.Tag() == p.tag
+	return ev.GetTag() == p.tag
 }
 
 func (p EventTagP) String() string {
@@ -46,7 +46,7 @@ type ProcessNameP struct {
 // Call will execute predicate that checks the name of the process that
 // triggered the event
 func (p ProcessNameP) Call(ev s.Event) bool {
-	return ev.ProcessRuntimeName() == p.name
+	return ev.GetProcessRuntimeName() == p.name
 }
 
 func (p ProcessNameP) String() string {
@@ -62,7 +62,7 @@ type ProcessChildTagP struct {
 // Call will execute predicate that checks the ChildTag of the process that
 // triggered the event matches the expected ChildTag
 func (p ProcessChildTagP) Call(ev s.Event) bool {
-	return ev.ChildTag() == p.childTag
+	return ev.GetChildTag() == p.childTag
 }
 
 func (p ProcessChildTagP) String() string {
@@ -138,24 +138,24 @@ func WorkerCompleted(name string) EventP {
 	}
 }
 
-// SupervisorStopped is a predicate to assert an event represents a process that
+// SupervisorTerminated is a predicate to assert an event represents a process that
 // got stopped by its parent supervisor
-func SupervisorStopped(name string) EventP {
+func SupervisorTerminated(name string) EventP {
 	return AndP{
 		preds: []EventP{
-			EventTagP{tag: s.ProcessStopped},
+			EventTagP{tag: s.ProcessTerminated},
 			ProcessNameP{name: name},
 			ProcessChildTagP{childTag: c.Supervisor},
 		},
 	}
 }
 
-// WorkerStopped is a predicate to assert an event represents a process that
+// WorkerTerminated is a predicate to assert an event represents a process that
 // got stopped by its parent supervisor
-func WorkerStopped(name string) EventP {
+func WorkerTerminated(name string) EventP {
 	return AndP{
 		preds: []EventP{
-			EventTagP{tag: s.ProcessStopped},
+			EventTagP{tag: s.ProcessTerminated},
 			ProcessNameP{name: name},
 			ProcessChildTagP{childTag: c.Worker},
 		},

@@ -25,8 +25,8 @@ var (
 
 // This is an s.EventNotifier that registers capataz' Events to prometheus
 func promEventNotifier(ev s.Event) {
-	gauge := eventGauge.WithLabelValues(ev.Tag().String(), ev.ProcessRuntimeName())
-	if ev.Tag() == s.ProcessStarted {
+	gauge := eventGauge.WithLabelValues(ev.GetTag().String(), ev.GetProcessRuntimeName())
+	if ev.GetTag() == s.ProcessStarted {
 		gauge.Inc()
 	} else {
 		gauge.Dec()
