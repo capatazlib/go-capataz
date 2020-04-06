@@ -67,7 +67,7 @@ func (r Restart) String() string {
 type ShutdownTag uint32
 
 const (
-	infinityT ShutdownTag = iota
+	indefinitelyT ShutdownTag = iota
 	timeoutT
 )
 
@@ -78,9 +78,9 @@ type Shutdown struct {
 	duration time.Duration
 }
 
-// Inf specifies the parent supervisor must wait until Infinity for child
+// Indefinitely specifies the parent supervisor must wait indefinitely for child
 // goroutine to stop executing
-var Inf = Shutdown{tag: infinityT}
+var Indefinitely = Shutdown{tag: indefinitelyT}
 
 // Timeout specifies a duration of time the parent supervisor will wait for the
 // child goroutine to stop executing

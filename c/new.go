@@ -44,9 +44,9 @@ type ChildSpec = c.ChildSpec
 //
 // ### The `startFn` argument
 //
-// The `startFn` function attribute of a `ChildSpec` is going to be used to
-// spawn a new supervised goroutine; in this function is where your business
-// logic should be located.
+// The `startFn` function where your business logic should be located. This
+// attribute of a `ChildSpec` is going to be used to spawn a new supervised
+// goroutine.
 //
 // The `startFn` function will receive a `context.Context` record that _must_ be
 // used inside your business logic to accept stop signals from it's parent

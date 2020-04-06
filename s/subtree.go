@@ -80,7 +80,7 @@ func (spec SupervisorSpec) subtree(
 	// http://erlang.org/doc/design_principles/sup_princ.html#child-specification
 	copts := append(
 		copts0,
-		c.WithShutdown(ic.Inf),
+		c.WithShutdown(ic.Indefinitely),
 		c.WithTag(ic.Supervisor),
 		c.WithTolerance(1, 5*time.Second),
 	)

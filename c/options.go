@@ -9,8 +9,8 @@ import (
 // Restart specifies when a goroutine gets restarted
 type Restart = c.Restart
 
-// Permanent specifies that the goroutine should be restarted any time there is
-// an error. If the goroutine is finished without errors, it is restarted again.
+// Permanent specifies that the goroutine should be restarted whether or not
+// there are errors.
 var Permanent = c.Permanent
 
 // Transient specifies that the goroutine should be restarted if and only if the
@@ -18,17 +18,17 @@ var Permanent = c.Permanent
 // is not restarted again.
 var Transient = c.Transient
 
-// Temporary specifies that the goroutine should not be restarted, not even when
-// the goroutine fails
+// Temporary specifies that the goroutine should not be restarted under any
+// circumstances
 var Temporary = c.Temporary
 
 // Shutdown indicates how the parent supervisor will handle the stoppping of the
 // child goroutine.
 type Shutdown = c.Shutdown
 
-// Inf specifies the parent supervisor must wait until Infinity for child
+// Indefinitely specifies the parent supervisor must wait indefinitely for child
 // goroutine to stop executing
-var Inf = c.Inf
+var Indefinitely = c.Indefinitely
 
 // ChildTag specifies the type of Child that is running, this is a closed
 // set given we only will support workers and supervisors
@@ -45,12 +45,13 @@ var Supervisor = c.Supervisor
 //
 // ### WARNING:
 //
-// A point worth bringing up is that golang *does not* provide a hard kill
+// Is important to emphasize that golang *does not* provide a hard kill
 // mechanism for goroutines. There is no known way to kill a goroutine via a
-// signal other than using `context.Done` and the goroutine respecting this
-// mechanism. If the timeout is reached and the goroutine does not stop, the
-// supervisor will continue with the shutdown procedure, possibly leaving the
-// goroutine running in memory (e.g. memory leak).
+// signal other than using `context.Done` which the supervised goroutine must
+// observe and respect. If the timeout is reached and the goroutine does not
+// stop, the supervisor will continue with the shutdown procedure (reporting a
+// shutdown error), possibly leaving the goroutine running in memory (e.g.
+// memory leak).
 var Timeout = c.Timeout
 
 // Opt is used to configure a child's specification
@@ -65,7 +66,7 @@ func WithRestart(r Restart) Opt {
 }
 
 // WithShutdown specifies how the shutdown of the child is going to be handled.
-// Read `Inf` and `Timeout` Shutdown values documentation for details.
+// Read `Indefinitely` and `Timeout` Shutdown values documentation for details.
 func WithShutdown(s Shutdown) Opt {
 	return func(spec *c.ChildSpec) {
 		spec.Shutdown = s
