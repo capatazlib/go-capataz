@@ -14,7 +14,7 @@ func waitTimeout(
 ) func(Shutdown) error {
 	return func(shutdown Shutdown) error {
 		switch shutdown.tag {
-		case infinityT:
+		case indefinitelyT:
 			// We wait forever for the result
 			childNotification, ok := <-terminateCh
 			if !ok {
