@@ -20,6 +20,7 @@ type terminateError = error
 // on other siblings
 type SupervisorTerminationError struct {
 	supRuntimeName string
+	rscCleanupErr  error
 	childErr       error
 	childErrMap    map[string]error
 }
@@ -49,7 +50,22 @@ func (se *SupervisorTerminationError) ChildFailCount() int {
 
 // Error returns an error message
 func (se *SupervisorTerminationError) Error() string {
-	return "Supervisor termination failure"
+	if (se.childErr != nil || len(se.childErrMap) > 0) && se.rscCleanupErr != nil {
+		return fmt.Sprintf(
+			"supervisor children failed to terminate " +
+				"(and resource cleanup failed as well)",
+		)
+	} else if se.childErr != nil {
+		return fmt.Sprintf("supervisor child failed to terminate")
+	} else if se.rscCleanupErr != nil {
+		return fmt.Sprintf("supervisor failed to cleanup resources")
+	}
+	// NOTE: this case never happens, an invariant condition of this type has not
+	// been respected. If we are here, it means we manually created a wrong
+	// SupervisorTerminationError value (implementation error).
+	panic(
+		errors.New("invalid SupervisorTerminationError was created"),
+	)
 }
 
 // SupervisorRestartError wraps an error tolerance surpassed error from a
@@ -61,16 +77,16 @@ type SupervisorRestartError struct {
 	terminateErr   *SupervisorTerminationError
 }
 
-func (err *SupervisorRestartError) String() string {
+func (err *SupervisorRestartError) Error() string {
 	if err.childErr != nil && err.terminateErr != nil {
 		return fmt.Sprintf(
-			"Supervisor child surpassed error threshold, " +
+			"supervisor child surpassed error threshold, " +
 				"(and other children failed to terminate as well)",
 		)
 	} else if err.childErr != nil {
-		return fmt.Sprintf("Supervisor child surpassed error tolerance")
+		return fmt.Sprintf("supervisor child surpassed error tolerance")
 	} else if err.terminateErr != nil {
-		return fmt.Sprintf("Supervisor children failed to terminate")
+		return fmt.Sprintf("supervisor children failed to terminate")
 	}
 	// NOTE: this case never happens, an invariant condition of this type is that
 	// it only hold values with a childErr. If we are here, it means we manually
@@ -78,10 +94,6 @@ func (err *SupervisorRestartError) String() string {
 	panic(
 		errors.New("invalid SupervisorRestartError was created"),
 	)
-}
-
-func (err *SupervisorRestartError) Error() string {
-	return err.String()
 }
 
 // Unwrap returns a child error or a termination error

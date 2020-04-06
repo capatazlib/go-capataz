@@ -224,28 +224,31 @@ func terminateSupervisor(
 	supSpec SupervisorSpec,
 	supChildrenSpecs []c.ChildSpec,
 	supRuntimeName string,
+	supRscCleanup CleanupResourcesFn,
 	supChildren map[string]c.Child,
 	onTerminate func(error),
 	restartErr *c.ErrorToleranceReached,
 ) error {
 	var terminateErr *SupervisorTerminationError
 	supChildErrMap := terminateChildren(supSpec, supChildrenSpecs, supChildren)
+	supRscCleanupErr := supRscCleanup()
 
 	// If any of the children fails to stop, we should report that as an
 	// error
-	if len(supChildErrMap) > 0 {
+	if len(supChildErrMap) > 0 || supRscCleanupErr != nil {
 
 		// On async strategy, we notify that the spawner terminated with an
 		// error
 		terminateErr = &SupervisorTerminationError{
 			supRuntimeName: supRuntimeName,
 			childErrMap:    supChildErrMap,
+			rscCleanupErr:  supRscCleanupErr,
 		}
 	}
 
 	// If we have a terminateErr or a restartErr, we should report that back to the
 	// parent
-	if restartErr != nil || terminateErr != nil {
+	if restartErr != nil && terminateErr != nil {
 		supErr := &SupervisorRestartError{
 			supRuntimeName: supRuntimeName,
 			terminateErr:   terminateErr,
@@ -253,6 +256,22 @@ func terminateSupervisor(
 		}
 		onTerminate(supErr)
 		return supErr
+	}
+
+	// If we have a restartErr only, report the restart error only
+	if restartErr != nil {
+		supErr := &SupervisorRestartError{
+			supRuntimeName: supRuntimeName,
+			childErr:       restartErr,
+		}
+		onTerminate(supErr)
+		return supErr
+	}
+
+	// If we have a terminateErr only, report the termination error only
+	if terminateErr != nil {
+		onTerminate(terminateErr)
+		return terminateErr
 	}
 
 	onTerminate(nil)
@@ -279,6 +298,7 @@ func runMonitorLoop(
 	supSpec SupervisorSpec,
 	supChildrenSpecs []c.ChildSpec,
 	supRuntimeName string,
+	supRscCleanup CleanupResourcesFn,
 	supNotifyCh chan c.ChildNotification,
 	supStartTime time.Time,
 	onStart c.NotifyStartFn,
@@ -321,6 +341,7 @@ func runMonitorLoop(
 				supSpec,
 				supChildrenSpecs,
 				supRuntimeName,
+				supRscCleanup,
 				supChildren,
 				onTerminate,
 				nil, /* restart error */
@@ -355,6 +376,7 @@ func runMonitorLoop(
 					supSpec,
 					supChildrenSpecs,
 					supRuntimeName,
+					supRscCleanup,
 					supChildren,
 					onTerminate,
 					restartErr,

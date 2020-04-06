@@ -32,11 +32,11 @@ func waitTimeout(
 				// A child may have terminated with an error
 				return childNotification.Unwrap()
 			case <-time.After(shutdown.duration):
-				return errors.New("Child shutdown timeout")
+				return errors.New("child shutdown timeout")
 			}
 		default:
 			// This should never happen if we use the already defined Shutdown types
-			panic("Invalid shutdown value received")
+			panic("invalid shutdown value received")
 		}
 	}
 }

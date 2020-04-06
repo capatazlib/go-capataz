@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	. "github.com/capatazlib/go-capataz/internal/stest"
+
 	"github.com/capatazlib/go-capataz/s"
 )
 
