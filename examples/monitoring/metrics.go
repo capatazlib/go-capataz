@@ -71,8 +71,8 @@ func httpServerTree(name string, server *http.Server) s.SupervisorSpec {
 			//
 			// DISCLAIMER: The caution above _is not_ a capataz requirement, but a
 			// requirement of net/https' API
-			listenAndServeHTTPWorker(server),
-			waitUntilDoneHTTPWorker(server),
+			s.Worker(listenAndServeHTTPWorker(server)),
+			s.Worker(waitUntilDoneHTTPWorker(server)),
 		),
 	)
 }

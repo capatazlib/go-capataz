@@ -12,8 +12,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/capatazlib/go-capataz/c"
 	. "github.com/capatazlib/go-capataz/internal/stest"
+
+	"github.com/capatazlib/go-capataz/c"
 	"github.com/capatazlib/go-capataz/s"
 )
 
@@ -25,9 +26,8 @@ func TestTransientOneForOneSingleFailingChildRecovers(t *testing.T) {
 	events, err := ObserveSupervisor(
 		context.TODO(),
 		parentName,
-		[]s.Opt{
-			s.WithChildren(child1),
-		},
+		s.WithChildren(s.Worker(child1)),
+		[]s.Opt{},
 		func(em EventManager) {
 			// NOTE: we won't stop the supervisor until the child has failed at least
 			// once
@@ -63,12 +63,13 @@ func TestTransientOneForOneNestedFailingChildRecovers(t *testing.T) {
 	parentName := "root"
 	// Fail only one time
 	child1, failChild1 := FailOnSignalChild(1, "child1", c.WithRestart(c.Transient))
-	tree1 := s.New("subtree1", s.WithChildren(child1))
+	tree1 := s.New("subtree1", s.WithChildren(s.Worker(child1)))
 
 	events, err := ObserveSupervisor(
 		context.TODO(),
 		parentName,
-		[]s.Opt{s.WithSubtree(tree1)},
+		s.WithChildren(s.Subtree(tree1)),
+		[]s.Opt{},
 		func(em EventManager) {
 			// NOTE: we won't stop the supervisor until the child has failed at least
 			// once
@@ -110,9 +111,8 @@ func TestTransientOneForOneSingleCompleteChild(t *testing.T) {
 	events, err := ObserveSupervisor(
 		context.TODO(),
 		parentName,
-		[]s.Opt{
-			s.WithChildren(child1),
-		},
+		s.WithChildren(s.Worker(child1)),
+		[]s.Opt{},
 		func(em EventManager) {
 			// NOTE: we won't stop the supervisor until the child has failed at least
 			// once
@@ -144,12 +144,13 @@ func TestTransientOneForOneNestedCompleteChild(t *testing.T) {
 	parentName := "root"
 	// Fail only one time
 	child1, completeChild1 := CompleteOnSignalChild(1, "child1", c.WithRestart(c.Transient))
-	tree1 := s.New("subtree1", s.WithChildren(child1))
+	tree1 := s.New("subtree1", s.WithChildren(s.Worker(child1)))
 
 	events, err := ObserveSupervisor(
 		context.TODO(),
 		parentName,
-		[]s.Opt{s.WithSubtree(tree1)},
+		s.WithChildren(s.Subtree(tree1)),
+		[]s.Opt{},
 		func(em EventManager) {
 			// NOTE: we won't stop the supervisor until the child has failed at least
 			// once
@@ -193,9 +194,8 @@ func TestTransientOneForOneSingleFailingChildReachThreshold(t *testing.T) {
 	events, err := ObserveSupervisor(
 		context.TODO(),
 		parentName,
-		[]s.Opt{
-			s.WithChildren(child1, child2),
-		},
+		s.WithChildren(s.Worker(child1), s.Worker(child2)),
+		[]s.Opt{},
 		func(em EventManager) {
 			evIt := em.Iterator()
 
@@ -259,12 +259,13 @@ func TestTransientOneForOneNestedFailingChildReachThreshold(t *testing.T) {
 		c.WithTolerance(2, 10*time.Second),
 	)
 	child2 := WaitDoneChild("child2")
-	tree1 := s.New("subtree1", s.WithChildren(child1, child2))
+	tree1 := s.New("subtree1", s.WithChildren(s.Worker(child1), s.Worker(child2)))
 
 	events, err := ObserveSupervisor(
 		context.TODO(),
 		parentName,
-		[]s.Opt{s.WithSubtree(tree1)},
+		s.WithChildren(s.Subtree(tree1)),
+		[]s.Opt{},
 		func(em EventManager) {
 			// NOTE: we won't stop the supervisor until the child has failed at least
 			// once
@@ -335,5 +336,4 @@ func TestTransientOneForOneNestedFailingChildReachThreshold(t *testing.T) {
 			SupervisorTerminated("root"),
 		},
 	)
-
 }

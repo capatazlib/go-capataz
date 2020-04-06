@@ -11,7 +11,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/capatazlib/go-capataz/c"
 	. "github.com/capatazlib/go-capataz/internal/stest"
 	"github.com/capatazlib/go-capataz/s"
 )
@@ -20,9 +19,8 @@ func TestStartSingleChild(t *testing.T) {
 	events, err := ObserveSupervisor(
 		context.TODO(),
 		"root",
-		[]s.Opt{
-			s.WithChildren(WaitDoneChild("one")),
-		},
+		s.WithChildren(s.Worker(WaitDoneChild("one"))),
+		[]s.Opt{},
 		func(EventManager) {},
 	)
 
@@ -42,13 +40,12 @@ func TestStartMutlipleChildrenLeftToRight(t *testing.T) {
 	events, err := ObserveSupervisor(
 		context.TODO(),
 		"root",
-		[]s.Opt{
-			s.WithChildren(
-				WaitDoneChild("child0"),
-				WaitDoneChild("child1"),
-				WaitDoneChild("child2"),
-			),
-		},
+		s.WithChildren(
+			s.Worker(WaitDoneChild("child0")),
+			s.Worker(WaitDoneChild("child1")),
+			s.Worker(WaitDoneChild("child2")),
+		),
+		[]s.Opt{},
 		func(EventManager) {},
 	)
 
@@ -74,12 +71,12 @@ func TestStartMutlipleChildrenRightToLeft(t *testing.T) {
 	events, err := ObserveSupervisor(
 		context.TODO(),
 		"root",
+		s.WithChildren(
+			s.Worker(WaitDoneChild("child0")),
+			s.Worker(WaitDoneChild("child1")),
+			s.Worker(WaitDoneChild("child2")),
+		),
 		[]s.Opt{
-			s.WithChildren(
-				WaitDoneChild("child0"),
-				WaitDoneChild("child1"),
-				WaitDoneChild("child2"),
-			),
 			s.WithOrder(s.RightToLeft),
 		},
 		func(EventManager) {},
@@ -108,11 +105,11 @@ func TestStartNestedSupervisors(t *testing.T) {
 	b0n := "branch0"
 	b1n := "branch1"
 
-	cs := []c.ChildSpec{
-		WaitDoneChild("child0"),
-		WaitDoneChild("child1"),
-		WaitDoneChild("child2"),
-		WaitDoneChild("child3"),
+	cs := []s.Node{
+		s.Worker(WaitDoneChild("child0")),
+		s.Worker(WaitDoneChild("child1")),
+		s.Worker(WaitDoneChild("child2")),
+		s.Worker(WaitDoneChild("child3")),
 	}
 
 	b0 := s.New(b0n, s.WithChildren(cs[0], cs[1]))
@@ -121,10 +118,11 @@ func TestStartNestedSupervisors(t *testing.T) {
 	events, err := ObserveSupervisor(
 		context.TODO(),
 		parentName,
-		[]s.Opt{
-			s.WithSubtree(b0),
-			s.WithSubtree(b1),
-		},
+		s.WithChildren(
+			s.Subtree(b0),
+			s.Subtree(b1),
+		),
+		[]s.Opt{},
 		func(EventManager) {},
 	)
 
@@ -158,13 +156,13 @@ func TestStartFailedChild(t *testing.T) {
 	b0n := "branch0"
 	b1n := "branch1"
 
-	cs := []c.ChildSpec{
-		WaitDoneChild("child0"),
-		WaitDoneChild("child1"),
-		WaitDoneChild("child2"),
+	cs := []s.Node{
+		s.Worker(WaitDoneChild("child0")),
+		s.Worker(WaitDoneChild("child1")),
+		s.Worker(WaitDoneChild("child2")),
 		// NOTE: FailStartChild here
-		FailStartChild("child3"),
-		WaitDoneChild("child4"),
+		s.Worker(FailStartChild("child3")),
+		s.Worker(WaitDoneChild("child4")),
 	}
 
 	b0 := s.New(b0n, s.WithChildren(cs[0], cs[1]))
@@ -173,10 +171,11 @@ func TestStartFailedChild(t *testing.T) {
 	events, err := ObserveSupervisor(
 		context.TODO(),
 		parentName,
-		[]s.Opt{
-			s.WithSubtree(b0),
-			s.WithSubtree(b1),
-		},
+		s.WithChildren(
+			s.Subtree(b0),
+			s.Subtree(b1),
+		),
+		[]s.Opt{},
 		func(em EventManager) {},
 	)
 
@@ -218,12 +217,12 @@ func TestTerminateFailedChild(t *testing.T) {
 	b0n := "branch0"
 	b1n := "branch1"
 
-	cs := []c.ChildSpec{
-		WaitDoneChild("child0"),
-		WaitDoneChild("child1"),
+	cs := []s.Node{
+		s.Worker(WaitDoneChild("child0")),
+		s.Worker(WaitDoneChild("child1")),
 		// NOTE: There is a NeverTerminateChild here
-		NeverTerminateChild("child2"),
-		WaitDoneChild("child3"),
+		s.Worker(NeverTerminateChild("child2")),
+		s.Worker(WaitDoneChild("child3")),
 	}
 
 	b0 := s.New(b0n, s.WithChildren(cs[0], cs[1]))
@@ -232,10 +231,11 @@ func TestTerminateFailedChild(t *testing.T) {
 	events, err := ObserveSupervisor(
 		context.TODO(),
 		parentName,
-		[]s.Opt{
-			s.WithSubtree(b0),
-			s.WithSubtree(b1),
-		},
+		s.WithChildren(
+			s.Subtree(b0),
+			s.Subtree(b1),
+		),
+		[]s.Opt{},
 		func(em EventManager) {},
 	)
 

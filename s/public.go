@@ -28,9 +28,9 @@ type Supervisor struct {
 
 // New creates a SupervisorSpec. It requires the name of the supervisor (for
 // tracing purposes), all the other settings can be specified via Opt calls
-func New(name string, opts ...Opt) SupervisorSpec {
+func New(name string, buildNodes BuildNodesFn, opts ...Opt) SupervisorSpec {
 	spec := SupervisorSpec{
-		children:      make([]c.ChildSpec, 0, 10),
+		buildNodes:    buildNodes,
 		eventNotifier: emptyEventNotifier,
 	}
 

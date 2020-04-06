@@ -131,6 +131,7 @@ func AssertPartialMatch(t *testing.T, evs []s.Event, preds []EventP) {
 func ObserveSupervisor(
 	ctx context.Context,
 	rootName string,
+	buildNodes s.BuildNodesFn,
 	opts0 []s.Opt,
 	callback func(EventManager),
 ) ([]s.Event, error) {
@@ -144,7 +145,7 @@ func ObserveSupervisor(
 	opts := append([]s.Opt{
 		s.WithNotifier(evManager.EventCollector(ctx)),
 	}, opts0...)
-	supSpec := s.New(rootName, opts...)
+	supSpec := s.New(rootName, buildNodes, opts...)
 
 	// We always want to start the supervisor for test purposes, so this is
 	// embedded in the ObserveSupervisor call
