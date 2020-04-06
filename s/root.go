@@ -77,6 +77,7 @@ func (spec SupervisorSpec) rootStart(
 	// Do not even start the monitor loop if we find an error on the resource
 	// allocation logic
 	if rscAllocError != nil {
+		cancelFn()
 		eventNotifier.SupervisorStartFailed(supRuntimeName, rscAllocError)
 		return Supervisor{}, rscAllocError
 	}
