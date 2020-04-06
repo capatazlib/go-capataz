@@ -90,7 +90,7 @@ func newPrometheusSpec(name, addr string) s.SupervisorSpec {
 	return s.New(
 		name,
 		// this function builds an HTTP Server, this functionality requires more
-		func() ([]s.Node, s.CleanupResourcesFn) {
+		func() ([]s.Node, s.CleanupResourcesFn, error) {
 			server := buildPrometheusHTTPServer(addr)
 
 			// CAUTION: The order here matters, we need waitUntilDone to start last so
@@ -108,7 +108,7 @@ func newPrometheusSpec(name, addr string) s.SupervisorSpec {
 				return server.Close()
 			}
 
-			return nodes, cleanupServer
+			return nodes, cleanupServer, nil
 		},
 	)
 }
