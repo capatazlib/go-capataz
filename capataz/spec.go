@@ -119,7 +119,7 @@ func (spec SupervisorSpec) buildChildrenSpecs() ([]c.ChildSpec, CleanupResources
 	return children, cleanup, nil
 }
 
-// NewSupervisor creates a SupervisorSpec. It requires the name of the
+// NewSupervisorSpec creates a SupervisorSpec. It requires the name of the
 // supervisor (for tracing purposes) and some children nodes to supervise.
 //
 // ## How to provide a capataz.BuildNodesFn
@@ -129,12 +129,12 @@ func (spec SupervisorSpec) buildChildrenSpecs() ([]c.ChildSpec, CleanupResources
 // ### Monitoring children that do not share resources
 //
 // To specify a static group of children nodes, you need to use the
-// capataz.WithChildren utility function. This function may receive capataz.Subtree or
+// capataz.WithNodes utility function. This function may receive capataz.Subtree or
 // capataz.Worker nodes.
 //
 // #### Example:
 //
-// > capataz.NewSupervisor("root", capataz.WithChildren(
+// > capataz.NewSupervisorSpec("root", capataz.WithNodes(
 // >     capataz.Subtree(subtreeSupervisorSpec),
 // >     workerChildSpec,
 // >   ),
@@ -151,7 +151,7 @@ func (spec SupervisorSpec) buildChildrenSpecs() ([]c.ChildSpec, CleanupResources
 //
 // #### Example:
 //
-// > capataz.NewSupervisor("root",
+// > capataz.NewSupervisorSpec("root",
 // >   func() ([]capataz.Node, capataz.CleanupResourcesFn, error) {
 // >     buffer := make(chan MyType)
 // >     nodes := []capataz.Node{
@@ -188,7 +188,7 @@ func (spec SupervisorSpec) buildChildrenSpecs() ([]c.ChildSpec, CleanupResources
 // of the API to ensure a start timeouts and cleanup timeouts inside the
 // capataz.BuildNodesFn and capataz.CleanupResourcesFn respectively.
 //
-func NewSupervisor(name string, buildNodes BuildNodesFn, opts ...Opt) SupervisorSpec {
+func NewSupervisorSpec(name string, buildNodes BuildNodesFn, opts ...Opt) SupervisorSpec {
 	spec := SupervisorSpec{
 		buildNodes:      buildNodes,
 		shutdownTimeout: defaultSupShutdownTimeout,

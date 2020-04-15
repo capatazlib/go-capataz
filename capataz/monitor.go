@@ -115,7 +115,7 @@ func handleChildNotification(
 
 ////////////////////////////////////////////////////////////////////////////////
 
-// startChildren iterates over all the children (specified with `capataz.WithChildren`
+// startChildren iterates over all the children (specified with `capataz.WithNodes`
 // and `capataz.WithSubtree`) starting a goroutine for each. The children iteration
 // will be sorted as specified with the `capataz.WithOrder` option. In case any child
 // fails to start, the supervisor start operation will be aborted and all the
@@ -142,12 +142,12 @@ func startChildren(
 				childSepToken,
 			)
 			eventNotifier.ProcessStartFailed(chSpec.GetTag(), cRuntimeName, chStartErr)
-			childErrMap := terminateChildren(spec, supChildrenSpecs, children)
+			nodeErrMap := terminateChildren(spec, supChildrenSpecs, children)
 			// Is important we stop the children before we finish the supervisor
 			return nil, &SupervisorTerminationError{
 				supRuntimeName: supRuntimeName,
-				childErr:       chStartErr,
-				childErrMap:    childErrMap,
+				nodeErr:        chStartErr,
+				nodeErrMap:     nodeErrMap,
 			}
 		}
 
@@ -166,7 +166,7 @@ func startChildren(
 // new entry to the given error map.
 func terminateChild(
 	eventNotifier EventNotifier,
-	supChildErrMap map[string]error,
+	supNodeErrMap map[string]error,
 	ch c.Child,
 ) map[string]error {
 	chSpec := ch.GetSpec()
@@ -177,7 +177,7 @@ func terminateChild(
 		// if a child fails to stop (either because of a legit failure or a
 		// timeout), we store the terminationError so that we can report all of them
 		// later
-		supChildErrMap[chSpec.GetName()] = terminationErr
+		supNodeErrMap[chSpec.GetName()] = terminationErr
 
 		// we also notify that the process failed
 		eventNotifier.ProcessFailed(chSpec.GetTag(), ch.GetRuntimeName(), terminationErr)
@@ -186,7 +186,7 @@ func terminateChild(
 		eventNotifier.ProcessTerminated(chSpec.GetTag(), ch.GetRuntimeName(), stoppingTime)
 	}
 
-	return supChildErrMap
+	return supNodeErrMap
 }
 
 // terminateChildren is used on the shutdown of the supervisor tree, it stops
@@ -198,7 +198,7 @@ func terminateChildren(
 ) map[string]error {
 	eventNotifier := spec.eventNotifier
 	supChildrenSpecs := spec.order.SortTermination(supChildrenSpecs0)
-	supChildErrMap := make(map[string]error)
+	supNodeErrMap := make(map[string]error)
 
 	for _, chSpec := range supChildrenSpecs {
 		ch, ok := supChildren[chSpec.GetName()]
@@ -212,10 +212,10 @@ func terminateChildren(
 		// * On stop, there may be a Transient child that completed, or a Temporary child
 		// that completed or failed.
 		if ok {
-			supChildErrMap = terminateChild(eventNotifier, supChildErrMap, ch)
+			supNodeErrMap = terminateChild(eventNotifier, supNodeErrMap, ch)
 		}
 	}
-	return supChildErrMap
+	return supNodeErrMap
 }
 
 // terminateSupervisor stops all children an signal any errors to the
@@ -230,18 +230,18 @@ func terminateSupervisor(
 	restartErr *c.ErrorToleranceReached,
 ) error {
 	var terminateErr *SupervisorTerminationError
-	supChildErrMap := terminateChildren(supSpec, supChildrenSpecs, supChildren)
+	supNodeErrMap := terminateChildren(supSpec, supChildrenSpecs, supChildren)
 	supRscCleanupErr := supRscCleanup()
 
 	// If any of the children fails to stop, we should report that as an
 	// error
-	if len(supChildErrMap) > 0 || supRscCleanupErr != nil {
+	if len(supNodeErrMap) > 0 || supRscCleanupErr != nil {
 
 		// On async strategy, we notify that the spawner terminated with an
 		// error
 		terminateErr = &SupervisorTerminationError{
 			supRuntimeName: supRuntimeName,
-			childErrMap:    supChildErrMap,
+			nodeErrMap:     supNodeErrMap,
 			rscCleanupErr:  supRscCleanupErr,
 		}
 	}
@@ -252,7 +252,7 @@ func terminateSupervisor(
 		supErr := &SupervisorRestartError{
 			supRuntimeName: supRuntimeName,
 			terminateErr:   terminateErr,
-			childErr:       restartErr,
+			nodeErr:        restartErr,
 		}
 		onTerminate(supErr)
 		return supErr
@@ -262,7 +262,7 @@ func terminateSupervisor(
 	if restartErr != nil {
 		supErr := &SupervisorRestartError{
 			supRuntimeName: supRuntimeName,
-			childErr:       restartErr,
+			nodeErr:        restartErr,
 		}
 		onTerminate(supErr)
 		return supErr

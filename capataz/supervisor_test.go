@@ -19,7 +19,7 @@ func TestStartSingleChild(t *testing.T) {
 	events, err := ObserveSupervisor(
 		context.TODO(),
 		"root",
-		capataz.WithChildren(WaitDoneWorker("one")),
+		capataz.WithNodes(WaitDoneWorker("one")),
 		[]capataz.Opt{},
 		func(EventManager) {},
 	)
@@ -40,7 +40,7 @@ func TestStartMutlipleChildrenLeftToRight(t *testing.T) {
 	events, err := ObserveSupervisor(
 		context.TODO(),
 		"root",
-		capataz.WithChildren(
+		capataz.WithNodes(
 			WaitDoneWorker("child0"),
 			WaitDoneWorker("child1"),
 			WaitDoneWorker("child2"),
@@ -71,7 +71,7 @@ func TestStartMutlipleChildrenRightToLeft(t *testing.T) {
 	events, err := ObserveSupervisor(
 		context.TODO(),
 		"root",
-		capataz.WithChildren(
+		capataz.WithNodes(
 			WaitDoneWorker("child0"),
 			WaitDoneWorker("child1"),
 			WaitDoneWorker("child2"),
@@ -112,13 +112,13 @@ func TestStartNestedSupervisors(t *testing.T) {
 		WaitDoneWorker("child3"),
 	}
 
-	b0 := capataz.NewSupervisor(b0n, capataz.WithChildren(cs[0], cs[1]))
-	b1 := capataz.NewSupervisor(b1n, capataz.WithChildren(cs[2], cs[3]))
+	b0 := capataz.NewSupervisorSpec(b0n, capataz.WithNodes(cs[0], cs[1]))
+	b1 := capataz.NewSupervisorSpec(b1n, capataz.WithNodes(cs[2], cs[3]))
 
 	events, err := ObserveSupervisor(
 		context.TODO(),
 		parentName,
-		capataz.WithChildren(
+		capataz.WithNodes(
 			capataz.Subtree(b0),
 			capataz.Subtree(b1),
 		),
@@ -165,13 +165,13 @@ func TestStartFailedChild(t *testing.T) {
 		WaitDoneWorker("child4"),
 	}
 
-	b0 := capataz.NewSupervisor(b0n, capataz.WithChildren(cs[0], cs[1]))
-	b1 := capataz.NewSupervisor(b1n, capataz.WithChildren(cs[2], cs[3], cs[4]))
+	b0 := capataz.NewSupervisorSpec(b0n, capataz.WithNodes(cs[0], cs[1]))
+	b1 := capataz.NewSupervisorSpec(b1n, capataz.WithNodes(cs[2], cs[3], cs[4]))
 
 	events, err := ObserveSupervisor(
 		context.TODO(),
 		parentName,
-		capataz.WithChildren(
+		capataz.WithNodes(
 			capataz.Subtree(b0),
 			capataz.Subtree(b1),
 		),
@@ -225,13 +225,13 @@ func TestTerminateFailedChild(t *testing.T) {
 		WaitDoneWorker("child3"),
 	}
 
-	b0 := capataz.NewSupervisor(b0n, capataz.WithChildren(cs[0], cs[1]))
-	b1 := capataz.NewSupervisor(b1n, capataz.WithChildren(cs[2], cs[3]))
+	b0 := capataz.NewSupervisorSpec(b0n, capataz.WithNodes(cs[0], cs[1]))
+	b1 := capataz.NewSupervisorSpec(b1n, capataz.WithNodes(cs[2], cs[3]))
 
 	events, err := ObserveSupervisor(
 		context.TODO(),
 		parentName,
-		capataz.WithChildren(
+		capataz.WithNodes(
 			capataz.Subtree(b0),
 			capataz.Subtree(b1),
 		),

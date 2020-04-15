@@ -51,7 +51,7 @@ func main() {
 
 	// We _build_ the application structure, composing all the sub-components
 	// together
-	app := capataz.NewSupervisor(
+	app := capataz.NewSupervisorSpec(
 		// The name of the topmost supervisor in our application
 		"root",
 		// Setup the supervision system EventNotifier
@@ -66,7 +66,7 @@ func main() {
 		// system, in this particular `capataz.EventNotifer`, we log each event and send
 		// metrics to prometheus to check our application health
 		//
-		capataz.WithChildren(
+		capataz.WithNodes(
 			// When the "root" supervisor starts, it's going to start these two
 			// supervisors (sub-branches). Our root supervisor is not concerned
 			// about what these sub-systems do.

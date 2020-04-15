@@ -24,7 +24,7 @@ func TestTransientOneForOneSingleFailingWorkerRecovers(t *testing.T) {
 	events, err := ObserveSupervisor(
 		context.TODO(),
 		parentName,
-		capataz.WithChildren(worker1),
+		capataz.WithNodes(worker1),
 		[]capataz.Opt{},
 		func(em EventManager) {
 			// NOTE: we won't stop the supervisor until the child has failed at least
@@ -61,12 +61,12 @@ func TestTransientOneForOneNestedFailingWorkerRecovers(t *testing.T) {
 	parentName := "root"
 	// Fail only one time
 	worker1, failWorker1 := FailOnSignalWorker(1, "worker1", capataz.WithRestart(capataz.Transient))
-	tree1 := capataz.NewSupervisor("subtree1", capataz.WithChildren(worker1))
+	tree1 := capataz.NewSupervisorSpec("subtree1", capataz.WithNodes(worker1))
 
 	events, err := ObserveSupervisor(
 		context.TODO(),
 		parentName,
-		capataz.WithChildren(capataz.Subtree(tree1)),
+		capataz.WithNodes(capataz.Subtree(tree1)),
 		[]capataz.Opt{},
 		func(em EventManager) {
 			// NOTE: we won't stop the supervisor until the child has failed at least
@@ -109,7 +109,7 @@ func TestTransientOneForOneSingleCompleteWorker(t *testing.T) {
 	events, err := ObserveSupervisor(
 		context.TODO(),
 		parentName,
-		capataz.WithChildren(worker1),
+		capataz.WithNodes(worker1),
 		[]capataz.Opt{},
 		func(em EventManager) {
 			// NOTE: we won't stop the supervisor until the child has failed at least
@@ -142,12 +142,12 @@ func TestTransientOneForOneNestedCompleteWorker(t *testing.T) {
 	parentName := "root"
 	// Fail only one time
 	worker1, completeWrorker1 := CompleteOnSignalWorker(1, "worker1", capataz.WithRestart(capataz.Transient))
-	tree1 := capataz.NewSupervisor("subtree1", capataz.WithChildren(worker1))
+	tree1 := capataz.NewSupervisorSpec("subtree1", capataz.WithNodes(worker1))
 
 	events, err := ObserveSupervisor(
 		context.TODO(),
 		parentName,
-		capataz.WithChildren(capataz.Subtree(tree1)),
+		capataz.WithNodes(capataz.Subtree(tree1)),
 		[]capataz.Opt{},
 		func(em EventManager) {
 			// NOTE: we won't stop the supervisor until the child has failed at least
@@ -192,7 +192,7 @@ func TestTransientOneForOneSingleFailingWorkerReachThreshold(t *testing.T) {
 	events, err := ObserveSupervisor(
 		context.TODO(),
 		parentName,
-		capataz.WithChildren(worker1, worker2),
+		capataz.WithNodes(worker1, worker2),
 		[]capataz.Opt{},
 		func(em EventManager) {
 			evIt := em.Iterator()
@@ -257,12 +257,12 @@ func TestTransientOneForOneNestedFailingWorkerReachThreshold(t *testing.T) {
 		capataz.WithTolerance(2, 10*time.Second),
 	)
 	worker2 := WaitDoneWorker("worker2")
-	tree1 := capataz.NewSupervisor("subtree1", capataz.WithChildren(worker1, worker2))
+	tree1 := capataz.NewSupervisorSpec("subtree1", capataz.WithNodes(worker1, worker2))
 
 	events, err := ObserveSupervisor(
 		context.TODO(),
 		parentName,
-		capataz.WithChildren(capataz.Subtree(tree1)),
+		capataz.WithNodes(capataz.Subtree(tree1)),
 		[]capataz.Opt{},
 		func(em EventManager) {
 			// NOTE: we won't stop the supervisor until the child has failed at least

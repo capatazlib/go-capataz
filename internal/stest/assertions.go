@@ -145,7 +145,7 @@ func ObserveSupervisor(
 	opts := append([]capataz.Opt{
 		capataz.WithNotifier(evManager.EventCollector(ctx)),
 	}, opts0...)
-	supSpec := capataz.NewSupervisor(rootName, buildNodes, opts...)
+	supSpec := capataz.NewSupervisorSpec(rootName, buildNodes, opts...)
 
 	// We always want to start the supervisor for test purposes, so this is
 	// embedded in the ObserveSupervisor call

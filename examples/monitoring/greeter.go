@@ -39,5 +39,5 @@ func newGreeterTreeSpec(log *logrus.Entry, name string, specs ...greeterSpec) ca
 	for _, spec := range specs {
 		greeters = append(greeters, newGreeter(log, spec))
 	}
-	return capataz.NewSupervisor(name, capataz.WithChildren(greeters...))
+	return capataz.NewSupervisorSpec(name, capataz.WithNodes(greeters...))
 }

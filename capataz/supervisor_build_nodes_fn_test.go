@@ -36,18 +36,18 @@ func TestSupervisorWithErroredBuildNodesFn(t *testing.T) {
 			})
 	})
 	t.Run("on multi-level tree", func(t *testing.T) {
-		subtree1 := capataz.NewSupervisor("subtree1", capataz.WithChildren(WaitDoneWorker("worker1")))
+		subtree1 := capataz.NewSupervisorSpec("subtree1", capataz.WithNodes(WaitDoneWorker("worker1")))
 
-		failingSubtree2 := capataz.NewSupervisor("subtree2", func() ([]capataz.Node, capataz.CleanupResourcesFn, error) {
+		failingSubtree2 := capataz.NewSupervisorSpec("subtree2", func() ([]capataz.Node, capataz.CleanupResourcesFn, error) {
 			return []capataz.Node{}, nil, errors.New("resource alloc error")
 		})
 
-		subtree3 := capataz.NewSupervisor("subtree3", capataz.WithChildren(WaitDoneWorker("worker2")))
+		subtree3 := capataz.NewSupervisorSpec("subtree3", capataz.WithNodes(WaitDoneWorker("worker2")))
 
 		events, err := ObserveSupervisor(
 			context.TODO(),
 			"root",
-			capataz.WithChildren(
+			capataz.WithNodes(
 				capataz.Subtree(subtree1),
 				capataz.Subtree(failingSubtree2),
 				capataz.Subtree(subtree3),
@@ -99,9 +99,9 @@ func TestSupervisorWithErroredCleanupResourcesFn(t *testing.T) {
 			})
 	})
 	t.Run("on multi-level tree", func(t *testing.T) {
-		subtree1 := capataz.NewSupervisor("subtree1", capataz.WithChildren(WaitDoneWorker("worker1")))
+		subtree1 := capataz.NewSupervisorSpec("subtree1", capataz.WithNodes(WaitDoneWorker("worker1")))
 
-		failingSubtree2 := capataz.NewSupervisor("subtree2", func() ([]capataz.Node, capataz.CleanupResourcesFn, error) {
+		failingSubtree2 := capataz.NewSupervisorSpec("subtree2", func() ([]capataz.Node, capataz.CleanupResourcesFn, error) {
 			nodes := []capataz.Node{WaitDoneWorker("worker2")}
 			cleanup := func() error {
 				return errors.New("cleanup resources err")
@@ -109,12 +109,12 @@ func TestSupervisorWithErroredCleanupResourcesFn(t *testing.T) {
 			return nodes, cleanup, nil
 		})
 
-		subtree3 := capataz.NewSupervisor("subtree3", capataz.WithChildren(WaitDoneWorker("worker3")))
+		subtree3 := capataz.NewSupervisorSpec("subtree3", capataz.WithNodes(WaitDoneWorker("worker3")))
 
 		events, err := ObserveSupervisor(
 			context.TODO(),
 			"root",
-			capataz.WithChildren(
+			capataz.WithNodes(
 				capataz.Subtree(subtree1),
 				capataz.Subtree(failingSubtree2),
 				capataz.Subtree(subtree3),

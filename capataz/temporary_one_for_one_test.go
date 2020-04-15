@@ -23,7 +23,7 @@ func TestTemporaryOneForOneSingleFailingWorkerDoesNotRecover(t *testing.T) {
 	events, err := ObserveSupervisor(
 		context.TODO(),
 		parentName,
-		capataz.WithChildren(worker1),
+		capataz.WithNodes(worker1),
 		[]capataz.Opt{},
 		func(em EventManager) {
 			// NOTE: we won't stop the supervisor until the child has failed at least
@@ -57,12 +57,12 @@ func TestTemporaryOneForOneNestedFailingWorkerDoesNotRecover(t *testing.T) {
 	parentName := "root"
 	// Fail only one time
 	worker1, failWorker1 := FailOnSignalWorker(1, "worker1", capataz.WithRestart(capataz.Temporary))
-	tree1 := capataz.NewSupervisor("subtree1", capataz.WithChildren(worker1))
+	tree1 := capataz.NewSupervisorSpec("subtree1", capataz.WithNodes(worker1))
 
 	events, err := ObserveSupervisor(
 		context.TODO(),
 		parentName,
-		capataz.WithChildren(capataz.Subtree(tree1)),
+		capataz.WithNodes(capataz.Subtree(tree1)),
 		[]capataz.Opt{},
 		func(em EventManager) {
 			// NOTE: we won't stop the supervisor until the child has failed at least
@@ -102,7 +102,7 @@ func TestTemporaryOneForOneSingleCompleteWorkerDoesNotRestart(t *testing.T) {
 	events, err := ObserveSupervisor(
 		context.TODO(),
 		parentName,
-		capataz.WithChildren(worker1),
+		capataz.WithNodes(worker1),
 		[]capataz.Opt{},
 		func(em EventManager) {
 			// NOTE: we won't stop the supervisor until the child has failed at least
@@ -136,12 +136,12 @@ func TestTemporaryOneForOneNestedCompleteWorkerDoesNotRestart(t *testing.T) {
 	parentName := "root"
 	// Fail only one time
 	worker1, completeWorker1 := CompleteOnSignalWorker(1, "worker1", capataz.WithRestart(capataz.Temporary))
-	tree1 := capataz.NewSupervisor("subtree1", capataz.WithChildren(worker1))
+	tree1 := capataz.NewSupervisorSpec("subtree1", capataz.WithNodes(worker1))
 
 	events, err := ObserveSupervisor(
 		context.TODO(),
 		parentName,
-		capataz.WithChildren(capataz.Subtree(tree1)),
+		capataz.WithNodes(capataz.Subtree(tree1)),
 		[]capataz.Opt{},
 		func(em EventManager) {
 			// NOTE: we won't stop the supervisor until the child has failed at least

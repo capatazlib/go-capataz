@@ -85,7 +85,7 @@ func buildPrometheusHTTPServer(addr string) *http.Server {
 // * addr: The http address
 //
 func newPrometheusSpec(name, addr string) capataz.SupervisorSpec {
-	return capataz.NewSupervisor(
+	return capataz.NewSupervisorSpec(
 		name,
 		// this function builds an HTTP Server, this functionality requires more
 		// than a goroutine given the only way to stop a http server is to call the
