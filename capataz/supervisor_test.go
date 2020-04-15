@@ -1,4 +1,4 @@
-package s_test
+package capataz_test
 
 //
 // NOTE: If you feel it is counter-intuitive to have workers start before
@@ -11,17 +11,16 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/capatazlib/go-capataz/capataz"
 	. "github.com/capatazlib/go-capataz/internal/stest"
-
-	"github.com/capatazlib/go-capataz/s"
 )
 
 func TestStartSingleChild(t *testing.T) {
 	events, err := ObserveSupervisor(
 		context.TODO(),
 		"root",
-		s.WithChildren(WaitDoneWorker("one")),
-		[]s.Opt{},
+		capataz.WithChildren(WaitDoneWorker("one")),
+		[]capataz.Opt{},
 		func(EventManager) {},
 	)
 
@@ -41,12 +40,12 @@ func TestStartMutlipleChildrenLeftToRight(t *testing.T) {
 	events, err := ObserveSupervisor(
 		context.TODO(),
 		"root",
-		s.WithChildren(
+		capataz.WithChildren(
 			WaitDoneWorker("child0"),
 			WaitDoneWorker("child1"),
 			WaitDoneWorker("child2"),
 		),
-		[]s.Opt{},
+		[]capataz.Opt{},
 		func(EventManager) {},
 	)
 
@@ -72,13 +71,13 @@ func TestStartMutlipleChildrenRightToLeft(t *testing.T) {
 	events, err := ObserveSupervisor(
 		context.TODO(),
 		"root",
-		s.WithChildren(
+		capataz.WithChildren(
 			WaitDoneWorker("child0"),
 			WaitDoneWorker("child1"),
 			WaitDoneWorker("child2"),
 		),
-		[]s.Opt{
-			s.WithOrder(s.RightToLeft),
+		[]capataz.Opt{
+			capataz.WithOrder(capataz.RightToLeft),
 		},
 		func(EventManager) {},
 	)
@@ -106,24 +105,24 @@ func TestStartNestedSupervisors(t *testing.T) {
 	b0n := "branch0"
 	b1n := "branch1"
 
-	cs := []s.Node{
+	cs := []capataz.Node{
 		WaitDoneWorker("child0"),
 		WaitDoneWorker("child1"),
 		WaitDoneWorker("child2"),
 		WaitDoneWorker("child3"),
 	}
 
-	b0 := s.New(b0n, s.WithChildren(cs[0], cs[1]))
-	b1 := s.New(b1n, s.WithChildren(cs[2], cs[3]))
+	b0 := capataz.NewSupervisor(b0n, capataz.WithChildren(cs[0], cs[1]))
+	b1 := capataz.NewSupervisor(b1n, capataz.WithChildren(cs[2], cs[3]))
 
 	events, err := ObserveSupervisor(
 		context.TODO(),
 		parentName,
-		s.WithChildren(
-			s.Subtree(b0),
-			s.Subtree(b1),
+		capataz.WithChildren(
+			capataz.Subtree(b0),
+			capataz.Subtree(b1),
 		),
-		[]s.Opt{},
+		[]capataz.Opt{},
 		func(EventManager) {},
 	)
 
@@ -157,7 +156,7 @@ func TestStartFailedChild(t *testing.T) {
 	b0n := "branch0"
 	b1n := "branch1"
 
-	cs := []s.Node{
+	cs := []capataz.Node{
 		WaitDoneWorker("child0"),
 		WaitDoneWorker("child1"),
 		WaitDoneWorker("child2"),
@@ -166,17 +165,17 @@ func TestStartFailedChild(t *testing.T) {
 		WaitDoneWorker("child4"),
 	}
 
-	b0 := s.New(b0n, s.WithChildren(cs[0], cs[1]))
-	b1 := s.New(b1n, s.WithChildren(cs[2], cs[3], cs[4]))
+	b0 := capataz.NewSupervisor(b0n, capataz.WithChildren(cs[0], cs[1]))
+	b1 := capataz.NewSupervisor(b1n, capataz.WithChildren(cs[2], cs[3], cs[4]))
 
 	events, err := ObserveSupervisor(
 		context.TODO(),
 		parentName,
-		s.WithChildren(
-			s.Subtree(b0),
-			s.Subtree(b1),
+		capataz.WithChildren(
+			capataz.Subtree(b0),
+			capataz.Subtree(b1),
 		),
-		[]s.Opt{},
+		[]capataz.Opt{},
 		func(em EventManager) {},
 	)
 
@@ -218,7 +217,7 @@ func TestTerminateFailedChild(t *testing.T) {
 	b0n := "branch0"
 	b1n := "branch1"
 
-	cs := []s.Node{
+	cs := []capataz.Node{
 		WaitDoneWorker("child0"),
 		WaitDoneWorker("child1"),
 		// NOTE: There is a NeverTerminateWorker here
@@ -226,17 +225,17 @@ func TestTerminateFailedChild(t *testing.T) {
 		WaitDoneWorker("child3"),
 	}
 
-	b0 := s.New(b0n, s.WithChildren(cs[0], cs[1]))
-	b1 := s.New(b1n, s.WithChildren(cs[2], cs[3]))
+	b0 := capataz.NewSupervisor(b0n, capataz.WithChildren(cs[0], cs[1]))
+	b1 := capataz.NewSupervisor(b1n, capataz.WithChildren(cs[2], cs[3]))
 
 	events, err := ObserveSupervisor(
 		context.TODO(),
 		parentName,
-		s.WithChildren(
-			s.Subtree(b0),
-			s.Subtree(b1),
+		capataz.WithChildren(
+			capataz.Subtree(b0),
+			capataz.Subtree(b1),
 		),
-		[]s.Opt{},
+		[]capataz.Opt{},
 		func(em EventManager) {},
 	)
 

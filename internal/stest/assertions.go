@@ -6,10 +6,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/capatazlib/go-capataz/s"
+	"github.com/capatazlib/go-capataz/capataz"
 )
 
-func renderEvents(evs []s.Event) string {
+func renderEvents(evs []capataz.Event) string {
 	var builder strings.Builder
 	for i, ev := range evs {
 		builder.WriteString(fmt.Sprintf("  %3d: %+v\n", i, ev))
@@ -19,7 +19,7 @@ func renderEvents(evs []s.Event) string {
 
 // verifyExactMatch is an utility function that checks the input slice of EventP
 // predicate match 1 to 1 with a given list of supervision system events.
-func verifyExactMatch(preds []EventP, given []s.Event) error {
+func verifyExactMatch(preds []EventP, given []capataz.Event) error {
 	if len(preds) != len(given) {
 		return fmt.Errorf(
 			"Expecting exact match, but length is not the same:\nwant: %d\ngiven: %d\nevents:\n%s",
@@ -44,7 +44,7 @@ func verifyExactMatch(preds []EventP, given []s.Event) error {
 
 // AssertExactMatch is an assertion that checks the input slice of EventP
 // predicate match 1 to 1 with a given list of supervision system events.
-func AssertExactMatch(t *testing.T, evs []s.Event, preds []EventP) {
+func AssertExactMatch(t *testing.T, evs []capataz.Event, preds []EventP) {
 	t.Helper()
 	err := verifyExactMatch(preds, evs)
 	if err != nil {
@@ -67,7 +67,7 @@ func AssertExactMatch(t *testing.T, evs []s.Event, preds []EventP) {
 // This function returns all predicates that didn't match (in order) the given
 // input events. If the returned slice is empty, it means there was a succesful
 // match.
-func verifyPartialMatch(preds []EventP, given []s.Event) []EventP {
+func verifyPartialMatch(preds []EventP, given []capataz.Event) []EventP {
 	for len(preds) > 0 {
 		// if we went through all the given events, we did not partially match
 		if len(given) == 0 {
@@ -100,7 +100,7 @@ func verifyPartialMatch(preds []EventP, given []s.Event) []EventP {
 // This function is useful when we want to test that some events are present in
 // the expected order. This is useful in test-cases where a supervision system
 // emits an overwhelming number of events.
-func AssertPartialMatch(t *testing.T, evs []s.Event, preds []EventP) {
+func AssertPartialMatch(t *testing.T, evs []capataz.Event, preds []EventP) {
 	t.Helper()
 	pendingPreds := verifyPartialMatch(preds, evs)
 
@@ -131,10 +131,10 @@ func AssertPartialMatch(t *testing.T, evs []s.Event, preds []EventP) {
 func ObserveSupervisor(
 	ctx context.Context,
 	rootName string,
-	buildNodes s.BuildNodesFn,
-	opts0 []s.Opt,
+	buildNodes capataz.BuildNodesFn,
+	opts0 []capataz.Opt,
 	callback func(EventManager),
-) ([]s.Event, error) {
+) ([]capataz.Event, error) {
 	evManager := NewEventManager()
 	// Accumulate the events as they happen
 	evManager.StartCollector(ctx)
@@ -142,10 +142,10 @@ func ObserveSupervisor(
 	// Create a new Supervisor Opts that adds the EventManager's Notifier at the
 	// very beginning of the system setup, the order here is important as it
 	// propagates to sub-trees specified in this options
-	opts := append([]s.Opt{
-		s.WithNotifier(evManager.EventCollector(ctx)),
+	opts := append([]capataz.Opt{
+		capataz.WithNotifier(evManager.EventCollector(ctx)),
 	}, opts0...)
-	supSpec := s.New(rootName, buildNodes, opts...)
+	supSpec := capataz.NewSupervisor(rootName, buildNodes, opts...)
 
 	// We always want to start the supervisor for test purposes, so this is
 	// embedded in the ObserveSupervisor call

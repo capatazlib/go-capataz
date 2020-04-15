@@ -1,4 +1,4 @@
-package s
+package capataz
 
 // This file contains logic on supervision sub-trees
 
@@ -101,4 +101,14 @@ func (spec SupervisorSpec) subtree(
 		subtreeMain(spec.name, subtreeSpec),
 		copts...,
 	)
+}
+
+// Subtree transforms SupervisorSpec into a Node.
+//
+// Note the subtree SupervisorSpec is going to inherit the event notifier from
+// its parent supervisor.
+func Subtree(subtreeSpec SupervisorSpec, opts ...WorkerOpt) Node {
+	return func(supSpec SupervisorSpec) c.ChildSpec {
+		return supSpec.subtree(subtreeSpec, opts...)
+	}
 }

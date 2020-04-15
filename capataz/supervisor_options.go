@@ -1,4 +1,4 @@
-package s
+package capataz
 
 // This file all the constructor options for a SupervisorSpec
 
@@ -31,7 +31,7 @@ func WithNotifier(en EventNotifier) Opt {
 // records passed to this function are going to be supervised by the Supervisor
 // created from a SupervisorSpec.
 //
-// NOTE: This function only makes sense when used in conjunction with s.New
+// NOTE: This function only makes sense when used in conjunction with capataz.New
 func WithChildren(nodes ...Node) BuildNodesFn {
 	emptyCleanupResources := func() error { return nil }
 	return func() ([]Node, CleanupResourcesFn, error) {

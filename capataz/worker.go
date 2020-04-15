@@ -1,4 +1,4 @@
-package s
+package capataz
 
 import (
 	"context"
@@ -6,21 +6,15 @@ import (
 	"github.com/capatazlib/go-capataz/internal/c"
 )
 
-type NotifyStartFn = c.NotifyStartFn
-
-// Node represents a tree node in a supervision tree, it could either be a
-// Subtree or a Worker
-type Node func(SupervisorSpec) c.ChildSpec
-
-// Subtree transforms SupervisorSpec into a Node.
+// NotifyStartFn is a function given to supervisor workers to notify the
+// supervisor that the worker has started.
 //
-// Note the subtree SupervisorSpec is going to inherit the event notifier from
-// its parent supervisor.
-func Subtree(subtreeSpec SupervisorSpec, copts ...c.Opt) Node {
-	return func(supSpec SupervisorSpec) c.ChildSpec {
-		return supSpec.subtree(subtreeSpec, copts...)
-	}
-}
+// ### Notify worker's start failure
+//
+// In case the worker cannot get started it should call this function with an
+// error value different than nil.
+//
+type NotifyStartFn = c.NotifyStartFn
 
 // childToNode transforms a c.ChildSpec into a Node.
 func childToNode(chSpec c.ChildSpec) Node {

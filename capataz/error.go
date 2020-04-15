@@ -1,4 +1,4 @@
-package s
+package capataz
 
 import (
 	"errors"
@@ -7,12 +7,12 @@ import (
 	"github.com/capatazlib/go-capataz/internal/c"
 )
 
-// startError is the error reported back to a Supervisor when
-// the start of a Child fails
+// startError is the error reported back to a Supervisor when the start of a
+// Child fails
 type startError = error
 
-// terminateError is the error reported back to a Supervisor when
-// the termination of a Child fails
+// terminateError is the error reported back to a Supervisor when the
+// termination of a Child fails
 type terminateError = error
 
 // SupervisorTerminationError wraps a termination error from a supervised
@@ -70,11 +70,11 @@ func (se *SupervisorTerminationError) Error() string {
 	// rely on structured logging via KVs
 	if (se.childErr != nil || len(se.childErrMap) > 0) && se.rscCleanupErr != nil {
 		return fmt.Sprintf(
-			"supervisor children failed to terminate " +
+			"worker failed to terminate " +
 				"(and resource cleanup failed as well)",
 		)
 	} else if se.childErr != nil {
-		return fmt.Sprintf("supervisor child failed to terminate")
+		return fmt.Sprintf("worker failed to terminate")
 	} else if se.rscCleanupErr != nil {
 		return fmt.Sprintf("supervisor failed to cleanup resources")
 	}
@@ -117,13 +117,13 @@ func (se *SupervisorRestartError) Error() string {
 	// rely on structured logging via KVs
 	if se.childErr != nil && se.terminateErr != nil {
 		return fmt.Sprintf(
-			"supervisor child surpassed error threshold, " +
-				"(and other children failed to terminate as well)",
+			"worker surpassed error threshold, " +
+				"(and other nodes failed to terminate as well)",
 		)
 	} else if se.childErr != nil {
-		return fmt.Sprintf("supervisor child surpassed error tolerance")
+		return fmt.Sprintf("worker surpassed error tolerance")
 	} else if se.terminateErr != nil {
-		return fmt.Sprintf("supervisor children failed to terminate")
+		return fmt.Sprintf("supervisor nodes failed to terminate")
 	}
 	// NOTE: this case never happens, an invariant condition of this type is that
 	// it only hold values with a childErr. If we are here, it means we manually

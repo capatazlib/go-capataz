@@ -4,7 +4,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/capatazlib/go-capataz/s"
+	"github.com/capatazlib/go-capataz/capataz"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -12,10 +12,10 @@ import (
 // EventManager provides an API that allows to block a goroutine for particular
 // events in a test system
 type EventManager struct {
-	evCh         chan s.Event
+	evCh         chan capataz.Event
 	evDone       bool
 	evBufferCond *sync.Cond
-	evBuffer     *[]s.Event
+	evBuffer     *[]capataz.Event
 }
 
 // EventIterator represents a single iteration over the list of events that have
@@ -27,7 +27,7 @@ type EventIterator struct {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-func (em *EventManager) storeEvent(ev s.Event) {
+func (em *EventManager) storeEvent(ev capataz.Event) {
 	em.evBufferCond.L.Lock()
 	defer em.evBufferCond.L.Unlock()
 	*em.evBuffer = append(*em.evBuffer, ev)
@@ -36,7 +36,7 @@ func (em *EventManager) storeEvent(ev s.Event) {
 
 // Snapshot returns all the events that this EventManager has collected from the
 // supervision system
-func (em EventManager) Snapshot() []s.Event {
+func (em EventManager) Snapshot() []capataz.Event {
 	em.evBufferCond.L.Lock()
 	defer em.evBufferCond.L.Unlock()
 	return append((*em.evBuffer)[:0:0], *em.evBuffer...)
@@ -64,8 +64,8 @@ func (em EventManager) StartCollector(ctx context.Context) {
 }
 
 // EventCollector is used as an event notifier of a supervision system
-func (em EventManager) EventCollector(ctx context.Context) func(ev s.Event) {
-	return func(ev s.Event) {
+func (em EventManager) EventCollector(ctx context.Context) func(ev capataz.Event) {
+	return func(ev capataz.Event) {
 		// NOTE: DO NOT REMOVE LINE BELLOW (debug tool)
 		// fmt.Printf("%+v\n", ev)
 		select {
@@ -80,7 +80,7 @@ func (em EventManager) EventCollector(ctx context.Context) func(ev s.Event) {
 //
 func (ei *EventIterator) foldl(
 	zero interface{},
-	stepFn func(interface{}, s.Event) (bool, interface{}),
+	stepFn func(interface{}, capataz.Event) (bool, interface{}),
 ) interface{} {
 	var shouldContinue bool
 	acc := zero
@@ -107,7 +107,7 @@ func (ei *EventIterator) foldl(
 // SkipTill blocks until an event from the supervision system returns true for
 // the given predicate
 func (ei *EventIterator) SkipTill(pred EventP) {
-	_ = ei.foldl(nil, func(_ interface{}, ev s.Event) (bool, interface{}) {
+	_ = ei.foldl(nil, func(_ interface{}, ev capataz.Event) (bool, interface{}) {
 		if pred.Call(ev) {
 			return false, nil
 		}
@@ -117,17 +117,17 @@ func (ei *EventIterator) SkipTill(pred EventP) {
 
 // TakeTill takes all the events that have been collected since the current
 // index until the given predicate returns true
-func (ei *EventIterator) TakeTill(pred EventP) []s.Event {
-	zero := make([]s.Event, 0, 100)
-	iresult := ei.foldl(zero, func(iacc interface{}, ev s.Event) (bool, interface{}) {
-		acc, _ := iacc.([]s.Event)
+func (ei *EventIterator) TakeTill(pred EventP) []capataz.Event {
+	zero := make([]capataz.Event, 0, 100)
+	iresult := ei.foldl(zero, func(iacc interface{}, ev capataz.Event) (bool, interface{}) {
+		acc, _ := iacc.([]capataz.Event)
 		if pred.Call(ev) {
 			return false, acc
 		}
 		acc = append(acc, ev)
 		return true, acc
 	})
-	result, _ := iresult.([]s.Event)
+	result, _ := iresult.([]capataz.Event)
 	return result
 }
 
@@ -142,7 +142,7 @@ func (em EventManager) Iterator() EventIterator {
 // the given index is greater than the event buffer length, this function will
 // wait until that index is reached. If the index is never reached, the second
 // return value will be false.
-func (em EventManager) GetEventIx(evIx int) (s.Event, bool) {
+func (em EventManager) GetEventIx(evIx int) (capataz.Event, bool) {
 	defer em.evBufferCond.L.Unlock()
 
 	for {
@@ -165,7 +165,7 @@ func (em EventManager) GetEventIx(evIx int) (s.Event, bool) {
 	// if the events are done, it means we did not reach the input evIx so we
 	// should return an ok false
 	if em.evDone {
-		return s.Event{}, false
+		return capataz.Event{}, false
 	}
 	return (*em.evBuffer)[evIx], true
 }
@@ -174,8 +174,8 @@ func (em EventManager) GetEventIx(evIx int) (s.Event, bool) {
 // events to happen on the observed supervision system
 func NewEventManager() EventManager {
 	var evBufferMux sync.Mutex
-	evCh := make(chan s.Event)
-	evBuffer := make([]s.Event, 0, 1000)
+	evCh := make(chan capataz.Event)
+	evBuffer := make([]capataz.Event, 0, 1000)
 	em := EventManager{
 		evCh:         evCh,
 		evBufferCond: sync.NewCond(&evBufferMux),

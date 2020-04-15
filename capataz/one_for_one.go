@@ -1,4 +1,4 @@
-package s
+package capataz
 
 import (
 	"errors"

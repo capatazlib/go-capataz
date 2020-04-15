@@ -1,4 +1,4 @@
-package s
+package capataz
 
 import (
 	"github.com/capatazlib/go-capataz/internal/c"
