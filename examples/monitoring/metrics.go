@@ -8,7 +8,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
-	"github.com/capatazlib/go-capataz/c"
 	"github.com/capatazlib/go-capataz/s"
 )
 
@@ -37,8 +36,8 @@ func promEventNotifier(ev s.Event) {
 
 // listenAndServeHTTPWorker blocks on this server until another goroutine cals
 // the shutdown method
-func listenAndServeHTTPWorker(server *http.Server) c.ChildSpec {
-	return c.New("listen-and-serve", func(ctx context.Context) error {
+func listenAndServeHTTPWorker(server *http.Server) s.Node {
+	return s.NewWorker("listen-and-serve", func(ctx context.Context) error {
 		// NOTE: we ignore the given context because we cannot use it on go's HTTP
 		// API to stop the server. When we call the server.Shutdown method (which is
 		// done in waitUntilDoneHTTPWorker) the following line is going to return.
@@ -51,8 +50,8 @@ func listenAndServeHTTPWorker(server *http.Server) c.ChildSpec {
 
 // waitUntilDoneHTTPWorker waits for a supervisor tree signal to shutdown the
 // given server
-func waitUntilDoneHTTPWorker(server *http.Server) c.ChildSpec {
-	return c.New("wait-server", func(ctx context.Context) error {
+func waitUntilDoneHTTPWorker(server *http.Server) s.Node {
+	return s.NewWorker("wait-server", func(ctx context.Context) error {
 		<-ctx.Done()
 		return server.Shutdown(ctx)
 	})
@@ -102,8 +101,8 @@ func newPrometheusSpec(name, addr string) s.SupervisorSpec {
 			// DISCLAIMER: The caution above _is not_ a capataz requirement, but a
 			// requirement of net/https' API
 			nodes := []s.Node{
-				s.Worker(listenAndServeHTTPWorker(server)),
-				s.Worker(waitUntilDoneHTTPWorker(server)),
+				listenAndServeHTTPWorker(server),
+				waitUntilDoneHTTPWorker(server),
 			}
 
 			cleanupServer := func() error {

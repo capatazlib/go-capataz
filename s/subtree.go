@@ -6,8 +6,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/capatazlib/go-capataz/c"
-	ic "github.com/capatazlib/go-capataz/internal/c"
+	"github.com/capatazlib/go-capataz/internal/c"
 )
 
 // run performs the main logic of a Supervisor. This function:
@@ -35,7 +34,7 @@ func (spec SupervisorSpec) run(
 	}
 
 	// notifyCh is used to keep track of errors from children
-	notifyCh := make(chan ic.ChildNotification)
+	notifyCh := make(chan c.ChildNotification)
 
 	// ctrlCh is used to keep track of request from client APIs (e.g. spawn child)
 	// ctrlCh := make(chan ControlMsg)

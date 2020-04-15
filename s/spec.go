@@ -3,7 +3,7 @@ package s
 import (
 	"time"
 
-	"github.com/capatazlib/go-capataz/c"
+	"github.com/capatazlib/go-capataz/internal/c"
 )
 
 // Order specifies the order in which a supervision tree is going to start and
@@ -69,27 +69,6 @@ func (spec SupervisorSpec) getEventNotifier() EventNotifier {
 		return emptyEventNotifier
 	}
 	return spec.eventNotifier
-}
-
-// Node represents a tree node in a supervision tree, it could either be a
-// Subtree or a Worker
-type Node func(SupervisorSpec) c.ChildSpec
-
-// Subtree transforms SupervisorSpec into a Node.
-//
-// Note the subtree SupervisorSpec is going to inherit the event notifier from
-// its parent supervisor.
-func Subtree(subtreeSpec SupervisorSpec, copts ...c.Opt) Node {
-	return func(supSpec SupervisorSpec) c.ChildSpec {
-		return supSpec.subtree(subtreeSpec, copts...)
-	}
-}
-
-// Worker transforms a c.ChildSpec into a Node.
-func Worker(chSpec c.ChildSpec) Node {
-	return func(_ SupervisorSpec) c.ChildSpec {
-		return chSpec
-	}
 }
 
 // CleanupResourcesFn is a function that cleans up resources that were initialized

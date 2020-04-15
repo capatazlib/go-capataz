@@ -6,7 +6,6 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/capatazlib/go-capataz/c"
 	"github.com/capatazlib/go-capataz/s"
 )
 
@@ -17,12 +16,12 @@ type greeterSpec struct {
 
 // newGreeter returns a worker goroutine that prints the given name every delay
 // duration of time
-func newGreeter(log *logrus.Entry, spec greeterSpec) c.ChildSpec {
+func newGreeter(log *logrus.Entry, spec greeterSpec) s.Node {
 	ticker := time.NewTicker(spec.delay)
-	// NOTE: When the supervisor stops or restarts this Child, it's going to
+	// NOTE: When the supervisor stops or restarts this worker, it's going to
 	// cancel the given `context.Context`. It is _essential_ you keep track of the
 	// `ctx.Done()` value so that the application runtime doesn't hang.
-	return c.New(spec.name, func(ctx context.Context) error {
+	return s.NewWorker(spec.name, func(ctx context.Context) error {
 		for {
 			log.Infof("Hello %s", spec.name)
 			select {
@@ -39,7 +38,7 @@ func newGreeter(log *logrus.Entry, spec greeterSpec) c.ChildSpec {
 func newGreeterTreeSpec(log *logrus.Entry, name string, specs ...greeterSpec) s.SupervisorSpec {
 	greeters := make([]s.Node, 0, len(specs))
 	for _, spec := range specs {
-		greeters = append(greeters, s.Worker(newGreeter(log, spec)))
+		greeters = append(greeters, newGreeter(log, spec))
 	}
 	return s.New(name, s.WithChildren(greeters...))
 }

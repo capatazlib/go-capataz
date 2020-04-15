@@ -14,19 +14,18 @@ import (
 
 	. "github.com/capatazlib/go-capataz/internal/stest"
 
-	"github.com/capatazlib/go-capataz/c"
 	"github.com/capatazlib/go-capataz/s"
 )
 
-func TestTransientOneForOneSingleFailingChildRecovers(t *testing.T) {
+func TestTransientOneForOneSingleFailingWorkerRecovers(t *testing.T) {
 	parentName := "root"
 	// Fail only one time
-	child1, failChild1 := FailOnSignalChild(1, "child1", c.WithRestart(c.Transient))
+	worker1, failWorker1 := FailOnSignalWorker(1, "worker1", s.WithRestart(s.Transient))
 
 	events, err := ObserveSupervisor(
 		context.TODO(),
 		parentName,
-		s.WithChildren(s.Worker(child1)),
+		s.WithChildren(worker1),
 		[]s.Opt{},
 		func(em EventManager) {
 			// NOTE: we won't stop the supervisor until the child has failed at least
@@ -34,10 +33,10 @@ func TestTransientOneForOneSingleFailingChildRecovers(t *testing.T) {
 			evIt := em.Iterator()
 			// 1) Wait till all the tree is up
 			evIt.SkipTill(SupervisorStarted("root"))
-			// 2) Start the failing behavior of child1
-			failChild1(true /* done */)
+			// 2) Start the failing behavior of worker1
+			failWorker1(true /* done */)
 			// 3) Wait till first restart
-			evIt.SkipTill(WorkerStarted("root/child1"))
+			evIt.SkipTill(WorkerStarted("root/worker1"))
 		},
 	)
 
@@ -46,24 +45,24 @@ func TestTransientOneForOneSingleFailingChildRecovers(t *testing.T) {
 	AssertExactMatch(t, events,
 		[]EventP{
 			// start children from left to right
-			WorkerStarted("root/child1"),
+			WorkerStarted("root/worker1"),
 			SupervisorStarted("root"),
-			// ^^^ 1) failChild1 starts executing here
-			WorkerFailed("root/child1"),
+			// ^^^ 1) failWorker1 starts executing here
+			WorkerFailed("root/worker1"),
 			// ^^^ 2) And then we see a new (re)start of it
-			WorkerStarted("root/child1"),
+			WorkerStarted("root/worker1"),
 			// ^^^ 3) After 1st (re)start we stop
-			WorkerTerminated("root/child1"),
+			WorkerTerminated("root/worker1"),
 			SupervisorTerminated("root"),
 		},
 	)
 }
 
-func TestTransientOneForOneNestedFailingChildRecovers(t *testing.T) {
+func TestTransientOneForOneNestedFailingWorkerRecovers(t *testing.T) {
 	parentName := "root"
 	// Fail only one time
-	child1, failChild1 := FailOnSignalChild(1, "child1", c.WithRestart(c.Transient))
-	tree1 := s.New("subtree1", s.WithChildren(s.Worker(child1)))
+	worker1, failWorker1 := FailOnSignalWorker(1, "worker1", s.WithRestart(s.Transient))
+	tree1 := s.New("subtree1", s.WithChildren(worker1))
 
 	events, err := ObserveSupervisor(
 		context.TODO(),
@@ -76,10 +75,10 @@ func TestTransientOneForOneNestedFailingChildRecovers(t *testing.T) {
 			evIt := em.Iterator()
 			// 1) Wait till all the tree is up
 			evIt.SkipTill(SupervisorStarted("root"))
-			// 2) Start the failing behavior of child1
-			failChild1(true /* done */)
+			// 2) Start the failing behavior of worker1
+			failWorker1(true /* done */)
 			// 3) Wait till first restart
-			evIt.SkipTill(WorkerStarted("root/subtree1/child1"))
+			evIt.SkipTill(WorkerStarted("root/subtree1/worker1"))
 		},
 	)
 
@@ -88,30 +87,30 @@ func TestTransientOneForOneNestedFailingChildRecovers(t *testing.T) {
 	AssertExactMatch(t, events,
 		[]EventP{
 			// start children from left to right
-			WorkerStarted("root/subtree1/child1"),
+			WorkerStarted("root/subtree1/worker1"),
 			SupervisorStarted("root/subtree1"),
 			SupervisorStarted("root"),
 			// ^^^ 1) Wait till root starts
-			WorkerFailed("root/subtree1/child1"),
-			// ^^^ 2) We see the failChild1 causing the error
-			WorkerStarted("root/subtree1/child1"),
+			WorkerFailed("root/subtree1/worker1"),
+			// ^^^ 2) We see the failWorker1 causing the error
+			WorkerStarted("root/subtree1/worker1"),
 			// ^^^ 3) After 1st (re)start we stop
-			WorkerTerminated("root/subtree1/child1"),
+			WorkerTerminated("root/subtree1/worker1"),
 			SupervisorTerminated("root/subtree1"),
 			SupervisorTerminated("root"),
 		},
 	)
 }
 
-func TestTransientOneForOneSingleCompleteChild(t *testing.T) {
+func TestTransientOneForOneSingleCompleteWorker(t *testing.T) {
 	parentName := "root"
 	// Fail only one time
-	child1, completeChild1 := CompleteOnSignalChild(1, "child1", c.WithRestart(c.Transient))
+	worker1, completeWrorker1 := CompleteOnSignalWorker(1, "worker1", s.WithRestart(s.Transient))
 
 	events, err := ObserveSupervisor(
 		context.TODO(),
 		parentName,
-		s.WithChildren(s.Worker(child1)),
+		s.WithChildren(worker1),
 		[]s.Opt{},
 		func(em EventManager) {
 			// NOTE: we won't stop the supervisor until the child has failed at least
@@ -119,10 +118,10 @@ func TestTransientOneForOneSingleCompleteChild(t *testing.T) {
 			evIt := em.Iterator()
 			// 1) Wait till all the tree is up
 			evIt.SkipTill(SupervisorStarted("root"))
-			// 2) Start the complete behavior of child1
-			completeChild1()
+			// 2) Start the complete behavior of worker1
+			completeWrorker1()
 			// 3) Wait till first restart
-			evIt.SkipTill(WorkerCompleted("root/child1"))
+			evIt.SkipTill(WorkerCompleted("root/worker1"))
 		},
 	)
 
@@ -131,20 +130,20 @@ func TestTransientOneForOneSingleCompleteChild(t *testing.T) {
 	AssertExactMatch(t, events,
 		[]EventP{
 			// start children from left to right
-			WorkerStarted("root/child1"),
+			WorkerStarted("root/worker1"),
 			SupervisorStarted("root"),
-			// ^^^ completeChild1 starts executing here
-			WorkerCompleted("root/child1"),
+			// ^^^ completeWrorker1 starts executing here
+			WorkerCompleted("root/worker1"),
 			SupervisorTerminated("root"),
 		},
 	)
 }
 
-func TestTransientOneForOneNestedCompleteChild(t *testing.T) {
+func TestTransientOneForOneNestedCompleteWorker(t *testing.T) {
 	parentName := "root"
 	// Fail only one time
-	child1, completeChild1 := CompleteOnSignalChild(1, "child1", c.WithRestart(c.Transient))
-	tree1 := s.New("subtree1", s.WithChildren(s.Worker(child1)))
+	worker1, completeWrorker1 := CompleteOnSignalWorker(1, "worker1", s.WithRestart(s.Transient))
+	tree1 := s.New("subtree1", s.WithChildren(worker1))
 
 	events, err := ObserveSupervisor(
 		context.TODO(),
@@ -157,10 +156,10 @@ func TestTransientOneForOneNestedCompleteChild(t *testing.T) {
 			evIt := em.Iterator()
 			// 1) Wait till all the tree is up
 			evIt.SkipTill(SupervisorStarted("root"))
-			// 2) Start the failing behavior of child1
-			completeChild1()
+			// 2) Start the failing behavior of worker1
+			completeWrorker1()
 			// 3) Wait till first restart
-			evIt.SkipTill(WorkerCompleted("root/subtree1/child1"))
+			evIt.SkipTill(WorkerCompleted("root/subtree1/worker1"))
 		},
 	)
 
@@ -169,32 +168,32 @@ func TestTransientOneForOneNestedCompleteChild(t *testing.T) {
 	AssertExactMatch(t, events,
 		[]EventP{
 			// start children from left to right
-			WorkerStarted("root/subtree1/child1"),
+			WorkerStarted("root/subtree1/worker1"),
 			SupervisorStarted("root/subtree1"),
 			SupervisorStarted("root"),
 			// ^^^ 1) Wait till root starts
-			WorkerCompleted("root/subtree1/child1"),
-			// ^^^ 2) We see the completeChild1 causing the completion
+			WorkerCompleted("root/subtree1/worker1"),
+			// ^^^ 2) We see the completeWrorker1 causing the completion
 			SupervisorTerminated("root/subtree1"),
 			SupervisorTerminated("root"),
 		},
 	)
 }
 
-func TestTransientOneForOneSingleFailingChildReachThreshold(t *testing.T) {
+func TestTransientOneForOneSingleFailingWorkerReachThreshold(t *testing.T) {
 	parentName := "root"
-	child1, failChild1 := FailOnSignalChild(
+	worker1, failWorker1 := FailOnSignalWorker(
 		3,
-		"child1",
-		c.WithRestart(c.Transient),
-		c.WithTolerance(2, 10*time.Second),
+		"worker1",
+		s.WithRestart(s.Transient),
+		s.WithTolerance(2, 10*time.Second),
 	)
-	child2 := WaitDoneChild("child2")
+	worker2 := WaitDoneWorker("worker2")
 
 	events, err := ObserveSupervisor(
 		context.TODO(),
 		parentName,
-		s.WithChildren(s.Worker(child1), s.Worker(child2)),
+		s.WithChildren(worker1, worker2),
 		[]s.Opt{},
 		func(em EventManager) {
 			evIt := em.Iterator()
@@ -202,16 +201,16 @@ func TestTransientOneForOneSingleFailingChildReachThreshold(t *testing.T) {
 			evIt.SkipTill(SupervisorStarted("root"))
 			// ^^^ Wait till all the tree is up
 
-			failChild1(false /* done */)
-			evIt.SkipTill(WorkerStarted("root/child1"))
+			failWorker1(false /* done */)
+			evIt.SkipTill(WorkerStarted("root/worker1"))
 			// ^^^ Wait till first restart
 
-			failChild1(false /* done */)
-			evIt.SkipTill(WorkerStarted("root/child1"))
+			failWorker1(false /* done */)
+			evIt.SkipTill(WorkerStarted("root/worker1"))
 			// ^^^ Wait till second restart
 
-			failChild1(true /* done */)
-			evIt.SkipTill(WorkerFailed("root/child1"))
+			failWorker1(true /* done */)
+			evIt.SkipTill(WorkerFailed("root/worker1"))
 			// ^^^ Wait till third failure
 		},
 	)
@@ -223,24 +222,24 @@ func TestTransientOneForOneSingleFailingChildReachThreshold(t *testing.T) {
 	AssertExactMatch(t, events,
 		[]EventP{
 			// start children from left to right
-			WorkerStarted("root/child1"),
-			WorkerStarted("root/child2"),
+			WorkerStarted("root/worker1"),
+			WorkerStarted("root/worker2"),
 			SupervisorStarted("root"),
-			// ^^^ failChild1 starts executing here
+			// ^^^ failWorker1 starts executing here
 
-			WorkerFailed("root/child1"),
-			WorkerStarted("root/child1"),
+			WorkerFailed("root/worker1"),
+			WorkerStarted("root/worker1"),
 			// ^^^ first restart
 
-			WorkerFailed("root/child1"),
-			WorkerStarted("root/child1"),
+			WorkerFailed("root/worker1"),
+			WorkerStarted("root/worker1"),
 			// ^^^ second restart
 
 			// 3rd err
-			WorkerFailed("root/child1"),
+			WorkerFailed("root/worker1"),
 			// ^^^ Error that indicates treshold has been met
 
-			WorkerTerminated("root/child2"),
+			WorkerTerminated("root/worker2"),
 			// ^^^ Terminating all other workers because supervisor failed
 
 			SupervisorFailed("root"),
@@ -250,16 +249,16 @@ func TestTransientOneForOneSingleFailingChildReachThreshold(t *testing.T) {
 	)
 }
 
-func TestTransientOneForOneNestedFailingChildReachThreshold(t *testing.T) {
+func TestTransientOneForOneNestedFailingWorkerReachThreshold(t *testing.T) {
 	parentName := "root"
-	child1, failChild1 := FailOnSignalChild(
+	worker1, failWorker1 := FailOnSignalWorker(
 		3, // 3 errors, 2 tolerance
-		"child1",
-		c.WithRestart(c.Transient),
-		c.WithTolerance(2, 10*time.Second),
+		"worker1",
+		s.WithRestart(s.Transient),
+		s.WithTolerance(2, 10*time.Second),
 	)
-	child2 := WaitDoneChild("child2")
-	tree1 := s.New("subtree1", s.WithChildren(s.Worker(child1), s.Worker(child2)))
+	worker2 := WaitDoneWorker("worker2")
+	tree1 := s.New("subtree1", s.WithChildren(worker1, worker2))
 
 	events, err := ObserveSupervisor(
 		context.TODO(),
@@ -273,16 +272,16 @@ func TestTransientOneForOneNestedFailingChildReachThreshold(t *testing.T) {
 			evIt.SkipTill(SupervisorStarted("root"))
 			// ^^^ Wait till all the tree is up
 
-			failChild1(false /* done */)
-			evIt.SkipTill(WorkerStarted("root/subtree1/child1"))
+			failWorker1(false /* done */)
+			evIt.SkipTill(WorkerStarted("root/subtree1/worker1"))
 			// ^^^ Wait till first restart
 
-			failChild1(false /* done */)
-			evIt.SkipTill(WorkerStarted("root/subtree1/child1"))
+			failWorker1(false /* done */)
+			evIt.SkipTill(WorkerStarted("root/subtree1/worker1"))
 			// ^^^ Wait till second restart
 
-			failChild1(true /* done */) // 3 failures
-			evIt.SkipTill(WorkerFailed("root/subtree1/child1"))
+			failWorker1(true /* done */) // 3 failures
+			evIt.SkipTill(WorkerFailed("root/subtree1/worker1"))
 			// ^^^ Wait till worker failure
 
 			evIt.SkipTill(SupervisorFailed("root/subtree1"))
@@ -297,41 +296,41 @@ func TestTransientOneForOneNestedFailingChildReachThreshold(t *testing.T) {
 	AssertExactMatch(t, events,
 		[]EventP{
 			// start children from left to right
-			WorkerStarted("root/subtree1/child1"),
-			WorkerStarted("root/subtree1/child2"),
+			WorkerStarted("root/subtree1/worker1"),
+			WorkerStarted("root/subtree1/worker2"),
 			SupervisorStarted("root/subtree1"),
 			SupervisorStarted("root"),
 			// ^^^ Wait till root starts
 
 			// 1st err
-			WorkerFailed("root/subtree1/child1"),
-			// ^^^ We see failChild1 causing the error
-			WorkerStarted("root/subtree1/child1"),
-			// ^^^ Wait failChild1 restarts
+			WorkerFailed("root/subtree1/worker1"),
+			// ^^^ We see failWorker1 causing the error
+			WorkerStarted("root/subtree1/worker1"),
+			// ^^^ Wait failWorker1 restarts
 
 			// 2nd err
-			WorkerFailed("root/subtree1/child1"),
+			WorkerFailed("root/subtree1/worker1"),
 			// ^^^ After 1st (re)start we stop
-			WorkerStarted("root/subtree1/child1"),
-			// ^^^ Wait failChild1 restarts (2nd)
+			WorkerStarted("root/subtree1/worker1"),
+			// ^^^ Wait failWorker1 restarts (2nd)
 
 			// 3rd err
-			WorkerFailed("root/subtree1/child1"),
+			WorkerFailed("root/subtree1/worker1"),
 			// ^^^ Error that indicates treshold has been met
 
-			WorkerTerminated("root/subtree1/child2"),
+			WorkerTerminated("root/subtree1/worker2"),
 			// ^^^ IMPORTANT: Supervisor failure stops other children
 			SupervisorFailed("root/subtree1"),
 			// ^^^ Supervisor child surpassed error
 
-			WorkerStarted("root/subtree1/child1"),
-			WorkerStarted("root/subtree1/child2"),
+			WorkerStarted("root/subtree1/worker1"),
+			WorkerStarted("root/subtree1/worker2"),
 			// ^^^ IMPORTANT: Restarted Supervisor signals restart of child first
 			SupervisorStarted("root/subtree1"),
 			// ^^^ Supervisor restarted again
 
-			WorkerTerminated("root/subtree1/child2"),
-			WorkerTerminated("root/subtree1/child1"),
+			WorkerTerminated("root/subtree1/worker2"),
+			WorkerTerminated("root/subtree1/worker1"),
 			SupervisorTerminated("root/subtree1"),
 			SupervisorTerminated("root"),
 		},

@@ -20,7 +20,7 @@ func TestStartSingleChild(t *testing.T) {
 	events, err := ObserveSupervisor(
 		context.TODO(),
 		"root",
-		s.WithChildren(s.Worker(WaitDoneChild("one"))),
+		s.WithChildren(WaitDoneWorker("one")),
 		[]s.Opt{},
 		func(EventManager) {},
 	)
@@ -42,9 +42,9 @@ func TestStartMutlipleChildrenLeftToRight(t *testing.T) {
 		context.TODO(),
 		"root",
 		s.WithChildren(
-			s.Worker(WaitDoneChild("child0")),
-			s.Worker(WaitDoneChild("child1")),
-			s.Worker(WaitDoneChild("child2")),
+			WaitDoneWorker("child0"),
+			WaitDoneWorker("child1"),
+			WaitDoneWorker("child2"),
 		),
 		[]s.Opt{},
 		func(EventManager) {},
@@ -73,9 +73,9 @@ func TestStartMutlipleChildrenRightToLeft(t *testing.T) {
 		context.TODO(),
 		"root",
 		s.WithChildren(
-			s.Worker(WaitDoneChild("child0")),
-			s.Worker(WaitDoneChild("child1")),
-			s.Worker(WaitDoneChild("child2")),
+			WaitDoneWorker("child0"),
+			WaitDoneWorker("child1"),
+			WaitDoneWorker("child2"),
 		),
 		[]s.Opt{
 			s.WithOrder(s.RightToLeft),
@@ -107,10 +107,10 @@ func TestStartNestedSupervisors(t *testing.T) {
 	b1n := "branch1"
 
 	cs := []s.Node{
-		s.Worker(WaitDoneChild("child0")),
-		s.Worker(WaitDoneChild("child1")),
-		s.Worker(WaitDoneChild("child2")),
-		s.Worker(WaitDoneChild("child3")),
+		WaitDoneWorker("child0"),
+		WaitDoneWorker("child1"),
+		WaitDoneWorker("child2"),
+		WaitDoneWorker("child3"),
 	}
 
 	b0 := s.New(b0n, s.WithChildren(cs[0], cs[1]))
@@ -158,12 +158,12 @@ func TestStartFailedChild(t *testing.T) {
 	b1n := "branch1"
 
 	cs := []s.Node{
-		s.Worker(WaitDoneChild("child0")),
-		s.Worker(WaitDoneChild("child1")),
-		s.Worker(WaitDoneChild("child2")),
-		// NOTE: FailStartChild here
-		s.Worker(FailStartChild("child3")),
-		s.Worker(WaitDoneChild("child4")),
+		WaitDoneWorker("child0"),
+		WaitDoneWorker("child1"),
+		WaitDoneWorker("child2"),
+		// NOTE: FailStartWorker here
+		FailStartWorker("child3"),
+		WaitDoneWorker("child4"),
 	}
 
 	b0 := s.New(b0n, s.WithChildren(cs[0], cs[1]))
@@ -219,11 +219,11 @@ func TestTerminateFailedChild(t *testing.T) {
 	b1n := "branch1"
 
 	cs := []s.Node{
-		s.Worker(WaitDoneChild("child0")),
-		s.Worker(WaitDoneChild("child1")),
-		// NOTE: There is a NeverTerminateChild here
-		s.Worker(NeverTerminateChild("child2")),
-		s.Worker(WaitDoneChild("child3")),
+		WaitDoneWorker("child0"),
+		WaitDoneWorker("child1"),
+		// NOTE: There is a NeverTerminateWorker here
+		NeverTerminateWorker("child2"),
+		WaitDoneWorker("child3"),
 	}
 
 	b0 := s.New(b0n, s.WithChildren(cs[0], cs[1]))
