@@ -90,6 +90,8 @@ func newPrometheusSpec(name, addr string) s.SupervisorSpec {
 	return s.New(
 		name,
 		// this function builds an HTTP Server, this functionality requires more
+		// than a goroutine given the only way to stop a http server is to call the
+		// http.Shutdown function on a seperate goroutine
 		func() ([]s.Node, s.CleanupResourcesFn, error) {
 			server := buildPrometheusHTTPServer(addr)
 
