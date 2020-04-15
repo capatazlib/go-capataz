@@ -15,12 +15,18 @@ type ErrorToleranceReached struct {
 	err                    error
 }
 
-func (err *ErrorToleranceReached) String() string {
-	return fmt.Sprintf("Child failures surpassed error tolerance")
+// KVs returns a data bag map that may be used in structured logging
+func (err *ErrorToleranceReached) KVs() map[string]interface{} {
+	kvs := make(map[string]interface{})
+	kvs["child.name"] = err.failedChildName
+	kvs["child.error"] = err.err.Error()
+	kvs["child.error.count"] = err.failedChildErrCount
+	kvs["child.error.duration"] = err.failedChildErrDuration
+	return kvs
 }
 
 func (err *ErrorToleranceReached) Error() string {
-	return err.String()
+	return fmt.Sprintf("Child failures surpassed error tolerance")
 }
 
 // Unwrap returns the last error that caused the creation of an

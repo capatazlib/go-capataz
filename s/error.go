@@ -48,8 +48,26 @@ func (se *SupervisorTerminationError) ChildFailCount() int {
 	return len(se.childErrMap)
 }
 
+// KVs returns a data bag map that may be used in structured logging
+func (se *SupervisorTerminationError) KVs() map[string]interface{} {
+	kvs := make(map[string]interface{})
+	kvs["supervisor.name"] = se.supRuntimeName
+	for chKey, chErr := range se.childErrMap {
+		kvs[fmt.Sprintf("supervisor.child.%v.stop.error", chKey)] = chErr.Error()
+	}
+	if se.childErr != nil {
+		kvs["supervisor.termination.error"] = se.childErr.Error()
+	}
+	if se.rscCleanupErr != nil {
+		kvs["supervisor.cleanup.error"] = se.rscCleanupErr.Error()
+	}
+	return kvs
+}
+
 // Error returns an error message
 func (se *SupervisorTerminationError) Error() string {
+	// NOTE: We are not reporting error details on the string given we want to
+	// rely on structured logging via KVs
 	if (se.childErr != nil || len(se.childErrMap) > 0) && se.rscCleanupErr != nil {
 		return fmt.Sprintf(
 			"supervisor children failed to terminate " +
@@ -77,7 +95,26 @@ type SupervisorRestartError struct {
 	terminateErr   *SupervisorTerminationError
 }
 
+// KVs returns a data bag map that may be used in structured logging
+func (se *SupervisorRestartError) KVs() map[string]interface{} {
+	kvs := make(map[string]interface{})
+	terminateKvs := se.terminateErr.KVs()
+	childErrKvs := se.childErr.KVs()
+
+	for k, v := range terminateKvs {
+		kvs[k] = v
+	}
+
+	for k, v := range childErrKvs {
+		kvs[k] = v
+	}
+
+	return kvs
+}
+
 func (err *SupervisorRestartError) Error() string {
+	// NOTE: We are not reporting error details on the string given we want to
+	// rely on structured logging via KVs
 	if err.childErr != nil && err.terminateErr != nil {
 		return fmt.Sprintf(
 			"supervisor child surpassed error threshold, " +
