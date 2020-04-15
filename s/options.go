@@ -29,7 +29,9 @@ func WithNotifier(en EventNotifier) Opt {
 
 // WithChildren allows the registration of child nodes in a SupervisorSpec. Node
 // records passed to this function are going to be supervised by the Supervisor
-// created from the SupervisorSpec
+// created from a SupervisorSpec.
+//
+// NOTE: This function only makes sense when used in conjunction with s.New
 func WithChildren(nodes ...Node) BuildNodesFn {
 	emptyCleanupResources := func() error { return nil }
 	return func() ([]Node, CleanupResourcesFn, error) {
