@@ -112,17 +112,17 @@ func (se *SupervisorRestartError) KVs() map[string]interface{} {
 	return kvs
 }
 
-func (err *SupervisorRestartError) Error() string {
+func (se *SupervisorRestartError) Error() string {
 	// NOTE: We are not reporting error details on the string given we want to
 	// rely on structured logging via KVs
-	if err.childErr != nil && err.terminateErr != nil {
+	if se.childErr != nil && se.terminateErr != nil {
 		return fmt.Sprintf(
 			"supervisor child surpassed error threshold, " +
 				"(and other children failed to terminate as well)",
 		)
-	} else if err.childErr != nil {
+	} else if se.childErr != nil {
 		return fmt.Sprintf("supervisor child surpassed error tolerance")
-	} else if err.terminateErr != nil {
+	} else if se.terminateErr != nil {
 		return fmt.Sprintf("supervisor children failed to terminate")
 	}
 	// NOTE: this case never happens, an invariant condition of this type is that
@@ -134,25 +134,25 @@ func (err *SupervisorRestartError) Error() string {
 }
 
 // Unwrap returns a child error or a termination error
-func (err *SupervisorRestartError) Unwrap() error {
+func (se *SupervisorRestartError) Unwrap() error {
 	// it should never be nil
-	if err.childErr != nil {
-		return err.childErr.Unwrap()
+	if se.childErr != nil {
+		return se.childErr.Unwrap()
 	}
-	if err.terminateErr != nil {
-		return err.terminateErr
+	if se.terminateErr != nil {
+		return se.terminateErr
 	}
 	return nil
 }
 
 // Cause returns a child error or a termination error
-func (err *SupervisorRestartError) Cause() error {
+func (se *SupervisorRestartError) Cause() error {
 	// it should never be nil
-	if err.childErr != nil {
-		return err.childErr.Unwrap()
+	if se.childErr != nil {
+		return se.childErr.Unwrap()
 	}
-	if err.terminateErr != nil {
-		return err.terminateErr
+	if se.terminateErr != nil {
+		return se.terminateErr
 	}
 	return nil
 }
