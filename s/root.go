@@ -36,7 +36,8 @@ func buildRuntimeName(spec SupervisorSpec, parentName string) string {
 	return runtimeName
 }
 
-// start is routine that contains the main logic of a Supervisor. This function:
+// rootStart is routine that contains the main logic of a Supervisor. This
+// function:
 //
 // 1) spawns a new goroutine for the supervisor loop
 //
@@ -68,13 +69,25 @@ func (spec SupervisorSpec) rootStart(
 
 	supRuntimeName := buildRuntimeName(spec, parentName)
 
+	eventNotifier := spec.getEventNotifier()
+
+	// Build childrenSpec and resource cleanup
+	childrenSpecs, supRscCleanup, rscAllocError := spec.buildChildrenSpecs()
+
+	// Do not even start the monitor loop if we find an error on the resource
+	// allocation logic
+	if rscAllocError != nil {
+		cancelFn()
+		eventNotifier.SupervisorStartFailed(supRuntimeName, rscAllocError)
+		return Supervisor{}, rscAllocError
+	}
+
 	sup := Supervisor{
 		runtimeName: supRuntimeName,
 		spec:        spec,
-		children:    make(map[string]c.Child, len(spec.children)),
+		children:    make(map[string]c.Child, len(childrenSpecs)),
 		cancel:      cancelFn,
 		wait: func(stopingTime time.Time, startErr error) error {
-			eventNotifier := spec.getEventNotifier()
 
 			// We check if there was an start error reported, if this is the case, we
 			// notify that the supervisor start failed
@@ -128,7 +141,9 @@ func (spec SupervisorSpec) rootStart(
 		_ = runMonitorLoop(
 			ctx,
 			spec,
+			childrenSpecs,
 			supRuntimeName,
+			supRscCleanup,
 			notifyCh,
 			// ctrlCh,
 			startTime,

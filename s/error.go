@@ -20,6 +20,7 @@ type terminateError = error
 // on other siblings
 type SupervisorTerminationError struct {
 	supRuntimeName string
+	rscCleanupErr  error
 	childErr       error
 	childErrMap    map[string]error
 }
@@ -47,9 +48,42 @@ func (se *SupervisorTerminationError) ChildFailCount() int {
 	return len(se.childErrMap)
 }
 
+// KVs returns a data bag map that may be used in structured logging
+func (se *SupervisorTerminationError) KVs() map[string]interface{} {
+	kvs := make(map[string]interface{})
+	kvs["supervisor.name"] = se.supRuntimeName
+	for chKey, chErr := range se.childErrMap {
+		kvs[fmt.Sprintf("supervisor.child.%v.stop.error", chKey)] = chErr.Error()
+	}
+	if se.childErr != nil {
+		kvs["supervisor.termination.error"] = se.childErr.Error()
+	}
+	if se.rscCleanupErr != nil {
+		kvs["supervisor.cleanup.error"] = se.rscCleanupErr.Error()
+	}
+	return kvs
+}
+
 // Error returns an error message
 func (se *SupervisorTerminationError) Error() string {
-	return "Supervisor termination failure"
+	// NOTE: We are not reporting error details on the string given we want to
+	// rely on structured logging via KVs
+	if (se.childErr != nil || len(se.childErrMap) > 0) && se.rscCleanupErr != nil {
+		return fmt.Sprintf(
+			"supervisor children failed to terminate " +
+				"(and resource cleanup failed as well)",
+		)
+	} else if se.childErr != nil {
+		return fmt.Sprintf("supervisor child failed to terminate")
+	} else if se.rscCleanupErr != nil {
+		return fmt.Sprintf("supervisor failed to cleanup resources")
+	}
+	// NOTE: this case never happens, an invariant condition of this type has not
+	// been respected. If we are here, it means we manually created a wrong
+	// SupervisorTerminationError value (implementation error).
+	panic(
+		errors.New("invalid SupervisorTerminationError was created"),
+	)
 }
 
 // SupervisorRestartError wraps an error tolerance surpassed error from a
@@ -61,16 +95,35 @@ type SupervisorRestartError struct {
 	terminateErr   *SupervisorTerminationError
 }
 
-func (err *SupervisorRestartError) String() string {
-	if err.childErr != nil && err.terminateErr != nil {
+// KVs returns a data bag map that may be used in structured logging
+func (se *SupervisorRestartError) KVs() map[string]interface{} {
+	kvs := make(map[string]interface{})
+	terminateKvs := se.terminateErr.KVs()
+	childErrKvs := se.childErr.KVs()
+
+	for k, v := range terminateKvs {
+		kvs[k] = v
+	}
+
+	for k, v := range childErrKvs {
+		kvs[k] = v
+	}
+
+	return kvs
+}
+
+func (se *SupervisorRestartError) Error() string {
+	// NOTE: We are not reporting error details on the string given we want to
+	// rely on structured logging via KVs
+	if se.childErr != nil && se.terminateErr != nil {
 		return fmt.Sprintf(
-			"Supervisor child surpassed error threshold, " +
+			"supervisor child surpassed error threshold, " +
 				"(and other children failed to terminate as well)",
 		)
-	} else if err.childErr != nil {
-		return fmt.Sprintf("Supervisor child surpassed error tolerance")
-	} else if err.terminateErr != nil {
-		return fmt.Sprintf("Supervisor children failed to terminate")
+	} else if se.childErr != nil {
+		return fmt.Sprintf("supervisor child surpassed error tolerance")
+	} else if se.terminateErr != nil {
+		return fmt.Sprintf("supervisor children failed to terminate")
 	}
 	// NOTE: this case never happens, an invariant condition of this type is that
 	// it only hold values with a childErr. If we are here, it means we manually
@@ -80,30 +133,26 @@ func (err *SupervisorRestartError) String() string {
 	)
 }
 
-func (err *SupervisorRestartError) Error() string {
-	return err.String()
-}
-
 // Unwrap returns a child error or a termination error
-func (err *SupervisorRestartError) Unwrap() error {
+func (se *SupervisorRestartError) Unwrap() error {
 	// it should never be nil
-	if err.childErr != nil {
-		return err.childErr.Unwrap()
+	if se.childErr != nil {
+		return se.childErr.Unwrap()
 	}
-	if err.terminateErr != nil {
-		return err.terminateErr
+	if se.terminateErr != nil {
+		return se.terminateErr
 	}
 	return nil
 }
 
 // Cause returns a child error or a termination error
-func (err *SupervisorRestartError) Cause() error {
+func (se *SupervisorRestartError) Cause() error {
 	// it should never be nil
-	if err.childErr != nil {
-		return err.childErr.Unwrap()
+	if se.childErr != nil {
+		return se.childErr.Unwrap()
 	}
-	if err.terminateErr != nil {
-		return err.terminateErr
+	if se.terminateErr != nil {
+		return se.terminateErr
 	}
 	return nil
 }

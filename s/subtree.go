@@ -24,13 +24,23 @@ func (spec SupervisorSpec) run(
 	parentName string,
 	onStart c.NotifyStartFn,
 ) error {
+	// Build childrenSpec and resource cleanup
+	supChildrenSpecs, supRscCleanup, rscAllocError := spec.buildChildrenSpecs()
+
+	// Do not even start the monitor loop if we find an error on the resource
+	// allocation logic
+	if rscAllocError != nil {
+		onStart(rscAllocError)
+		return rscAllocError
+	}
+
 	// notifyCh is used to keep track of errors from children
 	notifyCh := make(chan ic.ChildNotification)
 
 	// ctrlCh is used to keep track of request from client APIs (e.g. spawn child)
 	// ctrlCh := make(chan ControlMsg)
 
-	runtimeName := buildRuntimeName(spec, parentName)
+	supRuntimeName := buildRuntimeName(spec, parentName)
 
 	onTerminate := func(err terminateError) {}
 
@@ -39,7 +49,9 @@ func (spec SupervisorSpec) run(
 	return runMonitorLoop(
 		ctx,
 		spec,
-		runtimeName,
+		supChildrenSpecs,
+		supRuntimeName,
+		supRscCleanup,
 		notifyCh,
 		// ctrlCh,
 		startTime,
@@ -80,8 +92,8 @@ func (spec SupervisorSpec) subtree(
 	// http://erlang.org/doc/design_principles/sup_princ.html#child-specification
 	copts := append(
 		copts0,
-		c.WithShutdown(ic.Indefinitely),
-		c.WithTag(ic.Supervisor),
+		c.WithShutdown(c.Indefinitely),
+		c.WithTag(c.Supervisor),
 		c.WithTolerance(1, 5*time.Second),
 	)
 

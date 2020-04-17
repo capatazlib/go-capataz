@@ -26,12 +26,82 @@ type Supervisor struct {
 ////////////////////////////////////////////////////////////////////////////////
 // Public API
 
+const defaultSupShutdownTimeout = 5 * time.Second
+
 // New creates a SupervisorSpec. It requires the name of the supervisor (for
-// tracing purposes), all the other settings can be specified via Opt calls
-func New(name string, opts ...Opt) SupervisorSpec {
+// tracing purposes) and some children nodes to supervise.
+//
+// ## How to provide a s.BuildNodesFn
+//
+// There are two possible use cases:
+//
+// ### Monitoring children that do not share resources
+//
+// To specify a static group of children nodes, you need to use the
+// s.WithChildren utility function. This function may receive s.Subtree or
+// s.Worker nodes.
+//
+// #### Example:
+//
+// > s.New("root", s.WithChildren(
+// >     s.Subtree(subtreeSupervisorSpec),
+// >     s.Worker(workerChildSpec),
+// >   ),
+// >   s.WithOrder(s.RightToLeft),
+// > )
+//
+//
+// ### Monitoring children that share resources
+//
+// Sometimes, you want a tree of workers interacting between each other, and
+// these children share a resource that only the child workers should know about
+// (for example, a gochan, a db datapool, etc). You are able to specify a
+// function that allocates and releases these kind of resources.
+//
+// #### Example:
+//
+// > s.New("root",
+// >   func() ([]s.Node, s.CleanupResourcesFn, error) {
+// >     buffer := make(chan MyType)
+// >     nodes := []s.Node{
+// >       s.Worker(producerWorker(buffer)),
+// >       s.Worker(consumerWorker(buffer)),
+// >     }
+// >     cleanup := func() {
+// >       close(buffer)
+// >     }
+// >     return nodes, cleanup, nil
+// >   },
+// >   s.WithOrder(s.RightToLeft),
+// > )
+//
+// #### Dealing with errors
+//
+// Given resources can involve IO allocations, using this functionality opens
+// the door to a few error scenarios:
+//
+// 1) Resource allocation returns an error
+//
+// On this scenario, the supervision start procedure will fail and it will
+// follow the regular shutdown procedure, the already started nodes will be
+// terminated and an error will be returned immediately.
+//
+// 2) Resource cleanup returns an error
+//
+// On this scenario, the termination procedure will collect the error and report
+// it in the returned SupervisorTerminationError.
+//
+// 3) Resource allocation/cleanup hangs
+//
+// This library does not handle this scenario. Is the responsibility of the user
+// of the API to ensure a start timeouts and cleanup timeouts inside the
+// s.BuildNodesFn and s.CleanupResourcesFn respectively.
+//
+func New(name string, buildNodes BuildNodesFn, opts ...Opt) SupervisorSpec {
 	spec := SupervisorSpec{
-		children:      make([]c.ChildSpec, 0, 10),
-		eventNotifier: emptyEventNotifier,
+		buildNodes:      buildNodes,
+		shutdownTimeout: defaultSupShutdownTimeout,
+		eventNotifier:   emptyEventNotifier,
 	}
 
 	// Check name cannot be empty

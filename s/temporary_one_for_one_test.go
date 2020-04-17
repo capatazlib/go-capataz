@@ -11,8 +11,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/capatazlib/go-capataz/c"
 	. "github.com/capatazlib/go-capataz/internal/stest"
+
+	"github.com/capatazlib/go-capataz/c"
 	"github.com/capatazlib/go-capataz/s"
 )
 
@@ -24,9 +25,8 @@ func TestTemporaryOneForOneSingleFailingChildDoesNotRecover(t *testing.T) {
 	events, err := ObserveSupervisor(
 		context.TODO(),
 		parentName,
-		[]s.Opt{
-			s.WithChildren(child1),
-		},
+		s.WithChildren(s.Worker(child1)),
+		[]s.Opt{},
 		func(em EventManager) {
 			// NOTE: we won't stop the supervisor until the child has failed at least
 			// once
@@ -59,12 +59,13 @@ func TestTemporaryOneForOneNestedFailingChildDoesNotRecover(t *testing.T) {
 	parentName := "root"
 	// Fail only one time
 	child1, failChild1 := FailOnSignalChild(1, "child1", c.WithRestart(c.Temporary))
-	tree1 := s.New("subtree1", s.WithChildren(child1))
+	tree1 := s.New("subtree1", s.WithChildren(s.Worker(child1)))
 
 	events, err := ObserveSupervisor(
 		context.TODO(),
 		parentName,
-		[]s.Opt{s.WithSubtree(tree1)},
+		s.WithChildren(s.Subtree(tree1)),
+		[]s.Opt{},
 		func(em EventManager) {
 			// NOTE: we won't stop the supervisor until the child has failed at least
 			// once
@@ -103,9 +104,8 @@ func TestTemporaryOneForOneSingleCompleteChildDoesNotRestart(t *testing.T) {
 	events, err := ObserveSupervisor(
 		context.TODO(),
 		parentName,
-		[]s.Opt{
-			s.WithChildren(child1),
-		},
+		s.WithChildren(s.Worker(child1)),
+		[]s.Opt{},
 		func(em EventManager) {
 			// NOTE: we won't stop the supervisor until the child has failed at least
 			// once
@@ -138,12 +138,13 @@ func TestTemporaryOneForOneNestedCompleteChildDoesNotRestart(t *testing.T) {
 	parentName := "root"
 	// Fail only one time
 	child1, completeChild1 := CompleteOnSignalChild(1, "child1", c.WithRestart(c.Temporary))
-	tree1 := s.New("subtree1", s.WithChildren(child1))
+	tree1 := s.New("subtree1", s.WithChildren(s.Worker(child1)))
 
 	events, err := ObserveSupervisor(
 		context.TODO(),
 		parentName,
-		[]s.Opt{s.WithSubtree(tree1)},
+		s.WithChildren(s.Subtree(tree1)),
+		[]s.Opt{},
 		func(em EventManager) {
 			// NOTE: we won't stop the supervisor until the child has failed at least
 			// once

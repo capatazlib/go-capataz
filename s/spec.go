@@ -1,6 +1,10 @@
 package s
 
-import "github.com/capatazlib/go-capataz/internal/c"
+import (
+	"time"
+
+	"github.com/capatazlib/go-capataz/c"
+)
 
 // Order specifies the order in which a supervision tree is going to start and
 // stop its children. The stop ordering is always the reverse of the start
@@ -67,21 +71,66 @@ func (spec SupervisorSpec) getEventNotifier() EventNotifier {
 	return spec.eventNotifier
 }
 
+// Node represents a tree node in a supervision tree, it could either be a
+// Subtree or a Worker
+type Node func(SupervisorSpec) c.ChildSpec
+
+// Subtree transforms SupervisorSpec into a Node.
+//
+// Note the subtree SupervisorSpec is going to inherit the event notifier from
+// its parent supervisor.
+func Subtree(subtreeSpec SupervisorSpec, copts ...c.Opt) Node {
+	return func(supSpec SupervisorSpec) c.ChildSpec {
+		return supSpec.subtree(subtreeSpec, copts...)
+	}
+}
+
+// Worker transforms a c.ChildSpec into a Node.
+func Worker(chSpec c.ChildSpec) Node {
+	return func(_ SupervisorSpec) c.ChildSpec {
+		return chSpec
+	}
+}
+
+// CleanupResourcesFn is a function that cleans up resources that were initialized
+// in a BuildNodesFn function.
+type CleanupResourcesFn = func() error
+
+// BuildNodesFn is a function that returns a list of nodes
+type BuildNodesFn = func() ([]Node, CleanupResourcesFn, error)
+
 // SupervisorSpec represents the specification of a Supervisor; it serves as a
-// template for the construction of supervision trees. In the SupervisorSpec
-// you can specify settings like:
+// template for the construction of supervision trees. In the SupervisorSpec you
+// can specify settings like:
 //
 // - The children (workers or sub-trees) you want spawned in your system when it
 // gets started
 //
 // - The order in which the supervised children get started
 //
-// - When a failure occurs, if the supervisor restarts the failing child, or all it's children
+// - When a failure occurs, if the supervisor restarts the failing child, or all
+// its children
 //
 type SupervisorSpec struct {
-	name          string
-	order         Order
-	strategy      Strategy
-	children      []c.ChildSpec
-	eventNotifier EventNotifier
+	name            string
+	buildNodes      BuildNodesFn
+	order           Order
+	strategy        Strategy
+	shutdownTimeout time.Duration
+	eventNotifier   EventNotifier
+}
+
+// buildChildren constructs the childSpec records that the Supervisor is going
+// to monitor at runtime.
+func (spec SupervisorSpec) buildChildrenSpecs() ([]c.ChildSpec, CleanupResourcesFn, error) {
+	nodes, cleanup, err := spec.buildNodes()
+	if err != nil {
+		return []c.ChildSpec{}, cleanup, err
+	}
+
+	children := make([]c.ChildSpec, 0, len(nodes))
+	for _, buildChildSpec := range nodes {
+		children = append(children, buildChildSpec(spec))
+	}
+	return children, cleanup, nil
 }

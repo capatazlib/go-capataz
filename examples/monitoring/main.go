@@ -66,31 +66,33 @@ func main() {
 		// system, in this particular `s.EventNotifer`, we log each event and send
 		// metrics to prometheus to check our application health
 		//
+		s.WithChildren(
+			// When the "root" supervisor starts, it's going to start these two
+			// supervisors (sub-branches). Our root supervisor is not concerned
+			// about what these sub-systems do.
+			//
+			// In this particular example we have two sub-systems:
+			//
+			// * prometheusSpec: runs the prometheus infrastructure for our application
+			//
+			// * greetersSpec: runs a bunch of worker goroutines that greet over the
+			// terminal
+			//
+			// Given each of them is a sub-tree supervisor, if any of the leaf workers
+			// fail, they are going to get restarted by their direct supervisor. If
+			// the number of failures surpasses an error tolerance, then its going to
+			// report the error to the root supervisor, which can decide to restart
+			// the whole system, or just that particular sub-tree.
+			//
+			// In case the root supervisor failures surpassess the error tolerance,
+			// then the application will fail hard.
+			s.Subtree(prometheusSpec),
+			s.Subtree(greetersSpec),
+		),
 		s.WithNotifier(func(ev s.Event) {
 			logEventNotifier(ev)
 			promEventNotifier(ev)
 		}),
-		// When the "root" supervisor starts, it's going to start these two
-		// supervisors (sub-branches). Our root supervisor is not concerned
-		// about what these sub-systems do.
-		//
-		// In this particular example we have two sub-systems:
-		//
-		// * prometheusSpec: runs the prometheus infrastructure for our application
-		//
-		// * greetersSpec: runs a bunch of worker goroutines that greet over the
-		// terminal
-		//
-		// Given each of them is a sub-tree supervisor, if any of the leaf workers
-		// fail, they are going to get restarted by their direct supervisor. If the
-		// number of failures passes a treshold, then its going to report the error
-		// to the root supervisor, which can decide to restart the whole system, or
-		// just that particular sub-tree.
-		//
-		// In case the root supervisor error treshold is reached, then the
-		// application will fail hard.
-		s.WithSubtree(prometheusSpec),
-		s.WithSubtree(greetersSpec),
 	)
 
 	// Start the application, this will spawn the goroutines of the following supervision tree

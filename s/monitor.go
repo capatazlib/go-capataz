@@ -122,6 +122,7 @@ func handleChildNotification(
 // started children so far will be stopped in the reverse order.
 func startChildren(
 	spec SupervisorSpec,
+	supChildrenSpecs []c.ChildSpec,
 	supRuntimeName string,
 	notifyCh chan c.ChildNotification,
 ) (map[string]c.Child, error) {
@@ -129,7 +130,7 @@ func startChildren(
 	children := make(map[string]c.Child)
 
 	// Start children
-	for _, chSpec := range spec.order.SortStart(spec.children) {
+	for _, chSpec := range spec.order.SortStart(supChildrenSpecs) {
 		startedTime := time.Now()
 		ch, chStartErr := chSpec.DoStart(supRuntimeName, notifyCh)
 
@@ -141,7 +142,7 @@ func startChildren(
 				childSepToken,
 			)
 			eventNotifier.ProcessStartFailed(chSpec.GetTag(), cRuntimeName, chStartErr)
-			childErrMap := terminateChildren(spec, children)
+			childErrMap := terminateChildren(spec, supChildrenSpecs, children)
 			// Is important we stop the children before we finish the supervisor
 			return nil, &SupervisorTerminationError{
 				supRuntimeName: supRuntimeName,
@@ -192,13 +193,14 @@ func terminateChild(
 // children in the desired order.
 func terminateChildren(
 	spec SupervisorSpec,
+	supChildrenSpecs0 []c.ChildSpec,
 	supChildren map[string]c.Child,
 ) map[string]error {
 	eventNotifier := spec.eventNotifier
-	childrenSpecs := spec.order.SortTermination(spec.children)
+	supChildrenSpecs := spec.order.SortTermination(supChildrenSpecs0)
 	supChildErrMap := make(map[string]error)
 
-	for _, chSpec := range childrenSpecs {
+	for _, chSpec := range supChildrenSpecs {
 		ch, ok := supChildren[chSpec.GetName()]
 		// There are scenarios where is ok to ignore supChildren not having the
 		// entry:
@@ -220,29 +222,33 @@ func terminateChildren(
 // given onTerminate callback
 func terminateSupervisor(
 	supSpec SupervisorSpec,
+	supChildrenSpecs []c.ChildSpec,
 	supRuntimeName string,
+	supRscCleanup CleanupResourcesFn,
 	supChildren map[string]c.Child,
 	onTerminate func(error),
 	restartErr *c.ErrorToleranceReached,
 ) error {
 	var terminateErr *SupervisorTerminationError
-	supChildErrMap := terminateChildren(supSpec, supChildren)
+	supChildErrMap := terminateChildren(supSpec, supChildrenSpecs, supChildren)
+	supRscCleanupErr := supRscCleanup()
 
 	// If any of the children fails to stop, we should report that as an
 	// error
-	if len(supChildErrMap) > 0 {
+	if len(supChildErrMap) > 0 || supRscCleanupErr != nil {
 
 		// On async strategy, we notify that the spawner terminated with an
 		// error
 		terminateErr = &SupervisorTerminationError{
 			supRuntimeName: supRuntimeName,
 			childErrMap:    supChildErrMap,
+			rscCleanupErr:  supRscCleanupErr,
 		}
 	}
 
 	// If we have a terminateErr or a restartErr, we should report that back to the
 	// parent
-	if restartErr != nil || terminateErr != nil {
+	if restartErr != nil && terminateErr != nil {
 		supErr := &SupervisorRestartError{
 			supRuntimeName: supRuntimeName,
 			terminateErr:   terminateErr,
@@ -250,6 +256,22 @@ func terminateSupervisor(
 		}
 		onTerminate(supErr)
 		return supErr
+	}
+
+	// If we have a restartErr only, report the restart error only
+	if restartErr != nil {
+		supErr := &SupervisorRestartError{
+			supRuntimeName: supRuntimeName,
+			childErr:       restartErr,
+		}
+		onTerminate(supErr)
+		return supErr
+	}
+
+	// If we have a terminateErr only, report the termination error only
+	if terminateErr != nil {
+		onTerminate(terminateErr)
+		return terminateErr
 	}
 
 	onTerminate(nil)
@@ -274,14 +296,21 @@ func terminateSupervisor(
 func runMonitorLoop(
 	ctx context.Context,
 	supSpec SupervisorSpec,
+	supChildrenSpecs []c.ChildSpec,
 	supRuntimeName string,
+	supRscCleanup CleanupResourcesFn,
 	supNotifyCh chan c.ChildNotification,
 	supStartTime time.Time,
 	onStart c.NotifyStartFn,
 	onTerminate notifyTerminationFn,
 ) error {
 	// Start children
-	supChildren, restartErr := startChildren(supSpec, supRuntimeName, supNotifyCh)
+	supChildren, restartErr := startChildren(
+		supSpec,
+		supChildrenSpecs,
+		supRuntimeName,
+		supNotifyCh,
+	)
 	if restartErr != nil {
 		// in case we run in the async strategy we notify the spawner that we
 		// started with an error
@@ -310,7 +339,9 @@ func runMonitorLoop(
 		case <-ctx.Done():
 			return terminateSupervisor(
 				supSpec,
+				supChildrenSpecs,
 				supRuntimeName,
+				supRscCleanup,
 				supChildren,
 				onTerminate,
 				nil, /* restart error */
@@ -343,7 +374,9 @@ func runMonitorLoop(
 			if restartErr != nil {
 				return terminateSupervisor(
 					supSpec,
+					supChildrenSpecs,
 					supRuntimeName,
+					supRscCleanup,
 					supChildren,
 					onTerminate,
 					restartErr,

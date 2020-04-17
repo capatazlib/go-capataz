@@ -37,9 +37,9 @@ func newGreeter(log *logrus.Entry, spec greeterSpec) c.ChildSpec {
 // newGreeterTreeSpec allows you to run a group of greeter workers in the same
 // supervision tree
 func newGreeterTreeSpec(log *logrus.Entry, name string, specs ...greeterSpec) s.SupervisorSpec {
-	greeters := make([]c.ChildSpec, 0, len(specs))
+	greeters := make([]s.Node, 0, len(specs))
 	for _, spec := range specs {
-		greeters = append(greeters, newGreeter(log, spec))
+		greeters = append(greeters, s.Worker(newGreeter(log, spec)))
 	}
 	return s.New(name, s.WithChildren(greeters...))
 }

@@ -58,25 +58,6 @@ func waitUntilDoneHTTPWorker(server *http.Server) c.ChildSpec {
 	})
 }
 
-// httpServerTree returns a SupervisorSpec that runs an HTTP Server, this
-// functionality requires more than a goroutine given the only way to stop a
-// http server is to call the http.Shutdown function on a seperate goroutine
-func httpServerTree(name string, server *http.Server) s.SupervisorSpec {
-	return s.New(
-		name,
-		s.WithChildren(
-			// CAUTION: The order here matters, we need waitUntilDone to start last so
-			// that it can terminate first, if this is not the case the
-			// listenAndServeHTTPWorker child will never terminate.
-			//
-			// DISCLAIMER: The caution above _is not_ a capataz requirement, but a
-			// requirement of net/https' API
-			listenAndServeHTTPWorker(server),
-			waitUntilDoneHTTPWorker(server),
-		),
-	)
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 
 // buildPrometheusHTTPServer builds an HTTP Server that has a handler that spits
@@ -106,6 +87,30 @@ func buildPrometheusHTTPServer(addr string) *http.Server {
 // * addr: The http address
 //
 func newPrometheusSpec(name, addr string) s.SupervisorSpec {
-	server := buildPrometheusHTTPServer(addr)
-	return httpServerTree(name, server)
+	return s.New(
+		name,
+		// this function builds an HTTP Server, this functionality requires more
+		// than a goroutine given the only way to stop a http server is to call the
+		// http.Shutdown function on a seperate goroutine
+		func() ([]s.Node, s.CleanupResourcesFn, error) {
+			server := buildPrometheusHTTPServer(addr)
+
+			// CAUTION: The order here matters, we need waitUntilDone to start last so
+			// that it can terminate first, if this is not the case the
+			// listenAndServeHTTPWorker child will never terminate.
+			//
+			// DISCLAIMER: The caution above _is not_ a capataz requirement, but a
+			// requirement of net/https' API
+			nodes := []s.Node{
+				s.Worker(listenAndServeHTTPWorker(server)),
+				s.Worker(waitUntilDoneHTTPWorker(server)),
+			}
+
+			cleanupServer := func() error {
+				return server.Close()
+			}
+
+			return nodes, cleanupServer, nil
+		},
+	)
 }
