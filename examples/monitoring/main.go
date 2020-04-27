@@ -8,7 +8,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/capatazlib/go-capataz/capataz"
+	"github.com/capatazlib/go-capataz/cap"
 )
 
 // default port for prometheus metrics server
@@ -16,7 +16,7 @@ const metricsHTTPAddr = "0.0.0.0:8080"
 
 // stopOnSignal will wait for the program to receive a SIGTERM and stop the
 // given supervisor
-func stopOnSignal(sup capataz.Supervisor) {
+func stopOnSignal(sup cap.Supervisor) {
 	done := make(chan os.Signal, 1)
 	signal.Notify(done, syscall.SIGTERM)
 	<-done
@@ -51,7 +51,7 @@ func main() {
 
 	// We _build_ the application structure, composing all the sub-components
 	// together
-	app := capataz.NewSupervisorSpec(
+	app := cap.NewSupervisorSpec(
 		// The name of the topmost supervisor in our application
 		"root",
 		// Setup the supervision system EventNotifier
@@ -63,10 +63,10 @@ func main() {
 		// * detectes a worker failure
 		//
 		// This callback is the ideal place to add traceability to our supervision
-		// system, in this particular `capataz.EventNotifer`, we log each event and send
+		// system, in this particular `cap.EventNotifer`, we log each event and send
 		// metrics to prometheus to check our application health
 		//
-		capataz.WithNodes(
+		cap.WithNodes(
 			// When the "root" supervisor starts, it's going to start these two
 			// supervisors (sub-branches). Our root supervisor is not concerned
 			// about what these sub-systems do.
@@ -86,10 +86,10 @@ func main() {
 			//
 			// In case the root supervisor failures surpassess the error tolerance,
 			// then the application will fail hard.
-			capataz.Subtree(prometheusSpec),
-			capataz.Subtree(greetersSpec),
+			cap.Subtree(prometheusSpec),
+			cap.Subtree(greetersSpec),
 		),
-		capataz.WithNotifier(func(ev capataz.Event) {
+		cap.WithNotifier(func(ev cap.Event) {
 			logEventNotifier(ev)
 			promEventNotifier(ev)
 		}),

@@ -1,4 +1,4 @@
-package capataz_test
+package cap_test
 
 //
 // NOTE: If you feel it is counter-intuitive to have workers start before
@@ -11,20 +11,20 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/capatazlib/go-capataz/capataz"
+	"github.com/capatazlib/go-capataz/cap"
 	. "github.com/capatazlib/go-capataz/internal/stest"
 )
 
 func TestTemporaryOneForOneSingleFailingWorkerDoesNotRecover(t *testing.T) {
 	parentName := "root"
 	// Fail only one time
-	worker1, failWorker1 := FailOnSignalWorker(1, "worker1", capataz.WithRestart(capataz.Temporary))
+	worker1, failWorker1 := FailOnSignalWorker(1, "worker1", cap.WithRestart(cap.Temporary))
 
 	events, err := ObserveSupervisor(
 		context.TODO(),
 		parentName,
-		capataz.WithNodes(worker1),
-		[]capataz.Opt{},
+		cap.WithNodes(worker1),
+		[]cap.Opt{},
 		func(em EventManager) {
 			// NOTE: we won't stop the supervisor until the child has failed at least
 			// once
@@ -56,14 +56,14 @@ func TestTemporaryOneForOneSingleFailingWorkerDoesNotRecover(t *testing.T) {
 func TestTemporaryOneForOneNestedFailingWorkerDoesNotRecover(t *testing.T) {
 	parentName := "root"
 	// Fail only one time
-	worker1, failWorker1 := FailOnSignalWorker(1, "worker1", capataz.WithRestart(capataz.Temporary))
-	tree1 := capataz.NewSupervisorSpec("subtree1", capataz.WithNodes(worker1))
+	worker1, failWorker1 := FailOnSignalWorker(1, "worker1", cap.WithRestart(cap.Temporary))
+	tree1 := cap.NewSupervisorSpec("subtree1", cap.WithNodes(worker1))
 
 	events, err := ObserveSupervisor(
 		context.TODO(),
 		parentName,
-		capataz.WithNodes(capataz.Subtree(tree1)),
-		[]capataz.Opt{},
+		cap.WithNodes(cap.Subtree(tree1)),
+		[]cap.Opt{},
 		func(em EventManager) {
 			// NOTE: we won't stop the supervisor until the child has failed at least
 			// once
@@ -97,13 +97,13 @@ func TestTemporaryOneForOneNestedFailingWorkerDoesNotRecover(t *testing.T) {
 func TestTemporaryOneForOneSingleCompleteWorkerDoesNotRestart(t *testing.T) {
 	parentName := "root"
 	// Fail only one time
-	worker1, completeWorker1 := CompleteOnSignalWorker(1, "worker1", capataz.WithRestart(capataz.Temporary))
+	worker1, completeWorker1 := CompleteOnSignalWorker(1, "worker1", cap.WithRestart(cap.Temporary))
 
 	events, err := ObserveSupervisor(
 		context.TODO(),
 		parentName,
-		capataz.WithNodes(worker1),
-		[]capataz.Opt{},
+		cap.WithNodes(worker1),
+		[]cap.Opt{},
 		func(em EventManager) {
 			// NOTE: we won't stop the supervisor until the child has failed at least
 			// once
@@ -135,14 +135,14 @@ func TestTemporaryOneForOneSingleCompleteWorkerDoesNotRestart(t *testing.T) {
 func TestTemporaryOneForOneNestedCompleteWorkerDoesNotRestart(t *testing.T) {
 	parentName := "root"
 	// Fail only one time
-	worker1, completeWorker1 := CompleteOnSignalWorker(1, "worker1", capataz.WithRestart(capataz.Temporary))
-	tree1 := capataz.NewSupervisorSpec("subtree1", capataz.WithNodes(worker1))
+	worker1, completeWorker1 := CompleteOnSignalWorker(1, "worker1", cap.WithRestart(cap.Temporary))
+	tree1 := cap.NewSupervisorSpec("subtree1", cap.WithNodes(worker1))
 
 	events, err := ObserveSupervisor(
 		context.TODO(),
 		parentName,
-		capataz.WithNodes(capataz.Subtree(tree1)),
-		[]capataz.Opt{},
+		cap.WithNodes(cap.Subtree(tree1)),
+		[]cap.Opt{},
 		func(em EventManager) {
 			// NOTE: we won't stop the supervisor until the child has failed at least
 			// once

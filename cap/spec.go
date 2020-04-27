@@ -1,4 +1,4 @@
-package capataz
+package cap
 
 import (
 	"context"
@@ -35,7 +35,7 @@ func (o Order) SortStart(input0 []c.ChildSpec) []c.ChildSpec {
 		}
 		return input
 	default:
-		panic("Invalid capataz.Order value")
+		panic("Invalid cap.Order value")
 	}
 }
 
@@ -51,7 +51,7 @@ func (o Order) SortTermination(input0 []c.ChildSpec) []c.ChildSpec {
 	case RightToLeft:
 		return input
 	default:
-		panic("Invalid capataz.Order value")
+		panic("Invalid cap.Order value")
 	}
 }
 
@@ -122,23 +122,23 @@ func (spec SupervisorSpec) buildChildrenSpecs() ([]c.ChildSpec, CleanupResources
 // NewSupervisorSpec creates a SupervisorSpec. It requires the name of the
 // supervisor (for tracing purposes) and some children nodes to supervise.
 //
-// ## How to provide a capataz.BuildNodesFn
+// ## How to provide a cap.BuildNodesFn
 //
 // There are two possible use cases:
 //
 // ### Monitoring children that do not share resources
 //
 // To specify a static group of children nodes, you need to use the
-// capataz.WithNodes utility function. This function may receive capataz.Subtree or
-// capataz.Worker nodes.
+// cap.WithNodes utility function. This function may receive cap.Subtree or
+// cap.Worker nodes.
 //
 // #### Example:
 //
-// > capataz.NewSupervisorSpec("root", capataz.WithNodes(
-// >     capataz.Subtree(subtreeSupervisorSpec),
+// > cap.NewSupervisorSpec("root", cap.WithNodes(
+// >     cap.Subtree(subtreeSupervisorSpec),
 // >     workerChildSpec,
 // >   ),
-// >   capataz.WithOrder(capataz.RightToLeft),
+// >   cap.WithOrder(cap.RightToLeft),
 // > )
 //
 //
@@ -151,10 +151,10 @@ func (spec SupervisorSpec) buildChildrenSpecs() ([]c.ChildSpec, CleanupResources
 //
 // #### Example:
 //
-// > capataz.NewSupervisorSpec("root",
-// >   func() ([]capataz.Node, capataz.CleanupResourcesFn, error) {
+// > cap.NewSupervisorSpec("root",
+// >   func() ([]cap.Node, cap.CleanupResourcesFn, error) {
 // >     buffer := make(chan MyType)
-// >     nodes := []capataz.Node{
+// >     nodes := []cap.Node{
 // >       producerWorker(buffer),
 // >       consumerWorker(buffer),
 // >     }
@@ -163,7 +163,7 @@ func (spec SupervisorSpec) buildChildrenSpecs() ([]c.ChildSpec, CleanupResources
 // >     }
 // >     return nodes, cleanup, nil
 // >   },
-// >   capataz.WithOrder(capataz.RightToLeft),
+// >   cap.WithOrder(cap.RightToLeft),
 // > )
 //
 // #### Dealing with errors
@@ -186,7 +186,7 @@ func (spec SupervisorSpec) buildChildrenSpecs() ([]c.ChildSpec, CleanupResources
 //
 // This library does not handle this scenario. Is the responsibility of the user
 // of the API to ensure a start timeouts and cleanup timeouts inside the
-// capataz.BuildNodesFn and capataz.CleanupResourcesFn respectively.
+// cap.BuildNodesFn and cap.CleanupResourcesFn respectively.
 //
 func NewSupervisorSpec(name string, buildNodes BuildNodesFn, opts ...Opt) SupervisorSpec {
 	spec := SupervisorSpec{

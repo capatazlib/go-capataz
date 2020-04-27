@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/capatazlib/go-capataz/capataz"
+	"github.com/capatazlib/go-capataz/cap"
 	"github.com/capatazlib/go-capataz/internal/c"
 )
 
@@ -15,21 +15,21 @@ import (
 type EventP interface {
 
 	// Call will execute the logic of this event predicate
-	Call(capataz.Event) bool
+	Call(cap.Event) bool
 
 	// Returns an string representation of this event predicate (for debugging
 	// purposes)
 	String() string
 }
 
-// EventTagP is a predicate that asserts the `capataz.EventTag` of a given `capataz.Event`
-// matches an expected `capataz.EventTag`
+// EventTagP is a predicate that asserts the `cap.EventTag` of a given `capataz.Event`
+// matches an expected `cap.EventTag`
 type EventTagP struct {
-	tag capataz.EventTag
+	tag cap.EventTag
 }
 
 // Call will execute predicate that checks tag name of event
-func (p EventTagP) Call(ev capataz.Event) bool {
+func (p EventTagP) Call(ev cap.Event) bool {
 	return ev.GetTag() == p.tag
 }
 
@@ -45,7 +45,7 @@ type ProcessNameP struct {
 
 // Call will execute predicate that checks the name of the process that
 // triggered the event
-func (p ProcessNameP) Call(ev capataz.Event) bool {
+func (p ProcessNameP) Call(ev cap.Event) bool {
 	return ev.GetProcessRuntimeName() == p.name
 }
 
@@ -61,7 +61,7 @@ type ProcessChildTagP struct {
 
 // Call will execute predicate that checks the ChildTag of the process that
 // triggered the event matches the expected ChildTag
-func (p ProcessChildTagP) Call(ev capataz.Event) bool {
+func (p ProcessChildTagP) Call(ev cap.Event) bool {
 	return ev.GetChildTag() == p.childTag
 }
 
@@ -77,7 +77,7 @@ type AndP struct {
 
 // Call will try and verify that all it's grouped predicates return true, if any
 // returns false, this predicate function will return false
-func (p AndP) Call(ev capataz.Event) bool {
+func (p AndP) Call(ev cap.Event) bool {
 	acc := true
 	for _, pred := range p.preds {
 		acc = acc && pred.Call(ev)
@@ -107,7 +107,7 @@ func ProcessName(name string) EventP {
 func SupervisorStarted(name string) EventP {
 	return AndP{
 		preds: []EventP{
-			EventTagP{tag: capataz.ProcessStarted},
+			EventTagP{tag: cap.ProcessStarted},
 			ProcessNameP{name: name},
 			ProcessChildTagP{childTag: c.Supervisor},
 		},
@@ -119,7 +119,7 @@ func SupervisorStarted(name string) EventP {
 func WorkerStarted(name string) EventP {
 	return AndP{
 		preds: []EventP{
-			EventTagP{tag: capataz.ProcessStarted},
+			EventTagP{tag: cap.ProcessStarted},
 			ProcessNameP{name: name},
 			ProcessChildTagP{childTag: c.Worker},
 		},
@@ -131,7 +131,7 @@ func WorkerStarted(name string) EventP {
 func WorkerCompleted(name string) EventP {
 	return AndP{
 		preds: []EventP{
-			EventTagP{tag: capataz.ProcessCompleted},
+			EventTagP{tag: cap.ProcessCompleted},
 			ProcessNameP{name: name},
 			ProcessChildTagP{childTag: c.Worker},
 		},
@@ -143,7 +143,7 @@ func WorkerCompleted(name string) EventP {
 func SupervisorTerminated(name string) EventP {
 	return AndP{
 		preds: []EventP{
-			EventTagP{tag: capataz.ProcessTerminated},
+			EventTagP{tag: cap.ProcessTerminated},
 			ProcessNameP{name: name},
 			ProcessChildTagP{childTag: c.Supervisor},
 		},
@@ -155,7 +155,7 @@ func SupervisorTerminated(name string) EventP {
 func WorkerTerminated(name string) EventP {
 	return AndP{
 		preds: []EventP{
-			EventTagP{tag: capataz.ProcessTerminated},
+			EventTagP{tag: cap.ProcessTerminated},
 			ProcessNameP{name: name},
 			ProcessChildTagP{childTag: c.Worker},
 		},
@@ -167,7 +167,7 @@ func WorkerTerminated(name string) EventP {
 func SupervisorFailed(name string) EventP {
 	return AndP{
 		preds: []EventP{
-			EventTagP{tag: capataz.ProcessFailed},
+			EventTagP{tag: cap.ProcessFailed},
 			ProcessNameP{name: name},
 			ProcessChildTagP{childTag: c.Supervisor},
 		},
@@ -179,7 +179,7 @@ func SupervisorFailed(name string) EventP {
 func WorkerFailed(name string) EventP {
 	return AndP{
 		preds: []EventP{
-			EventTagP{tag: capataz.ProcessFailed},
+			EventTagP{tag: cap.ProcessFailed},
 			ProcessNameP{name: name},
 			ProcessChildTagP{childTag: c.Worker},
 		},
@@ -191,7 +191,7 @@ func WorkerFailed(name string) EventP {
 func SupervisorStartFailed(name string) EventP {
 	return AndP{
 		preds: []EventP{
-			EventTagP{tag: capataz.ProcessStartFailed},
+			EventTagP{tag: cap.ProcessStartFailed},
 			ProcessNameP{name: name},
 			ProcessChildTagP{childTag: c.Supervisor},
 		},
@@ -203,7 +203,7 @@ func SupervisorStartFailed(name string) EventP {
 func WorkerStartFailed(name string) EventP {
 	return AndP{
 		preds: []EventP{
-			EventTagP{tag: capataz.ProcessStartFailed},
+			EventTagP{tag: cap.ProcessStartFailed},
 			ProcessNameP{name: name},
 			ProcessChildTagP{childTag: c.Worker},
 		},

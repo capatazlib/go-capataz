@@ -1,4 +1,4 @@
-package capataz
+package cap
 
 // This file contains the implementation of the public methods for the
 // Supervisor API

@@ -1,4 +1,4 @@
-package capataz_test
+package cap_test
 
 //
 // NOTE: If you feel it is counter-intuitive to have workers start before
@@ -12,7 +12,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/capatazlib/go-capataz/capataz"
+	"github.com/capatazlib/go-capataz/cap"
 	. "github.com/capatazlib/go-capataz/internal/stest"
 )
 
@@ -21,10 +21,10 @@ func TestSupervisorWithErroredBuildNodesFn(t *testing.T) {
 		events, err := ObserveSupervisor(
 			context.TODO(),
 			"root",
-			func() ([]capataz.Node, capataz.CleanupResourcesFn, error) {
-				return []capataz.Node{}, nil, errors.New("resource alloc error")
+			func() ([]cap.Node, cap.CleanupResourcesFn, error) {
+				return []cap.Node{}, nil, errors.New("resource alloc error")
 			},
-			[]capataz.Opt{},
+			[]cap.Opt{},
 			func(EventManager) {},
 		)
 
@@ -36,23 +36,23 @@ func TestSupervisorWithErroredBuildNodesFn(t *testing.T) {
 			})
 	})
 	t.Run("on multi-level tree", func(t *testing.T) {
-		subtree1 := capataz.NewSupervisorSpec("subtree1", capataz.WithNodes(WaitDoneWorker("worker1")))
+		subtree1 := cap.NewSupervisorSpec("subtree1", cap.WithNodes(WaitDoneWorker("worker1")))
 
-		failingSubtree2 := capataz.NewSupervisorSpec("subtree2", func() ([]capataz.Node, capataz.CleanupResourcesFn, error) {
-			return []capataz.Node{}, nil, errors.New("resource alloc error")
+		failingSubtree2 := cap.NewSupervisorSpec("subtree2", func() ([]cap.Node, cap.CleanupResourcesFn, error) {
+			return []cap.Node{}, nil, errors.New("resource alloc error")
 		})
 
-		subtree3 := capataz.NewSupervisorSpec("subtree3", capataz.WithNodes(WaitDoneWorker("worker2")))
+		subtree3 := cap.NewSupervisorSpec("subtree3", cap.WithNodes(WaitDoneWorker("worker2")))
 
 		events, err := ObserveSupervisor(
 			context.TODO(),
 			"root",
-			capataz.WithNodes(
-				capataz.Subtree(subtree1),
-				capataz.Subtree(failingSubtree2),
-				capataz.Subtree(subtree3),
+			cap.WithNodes(
+				cap.Subtree(subtree1),
+				cap.Subtree(failingSubtree2),
+				cap.Subtree(subtree3),
 			),
-			[]capataz.Opt{},
+			[]cap.Opt{},
 			func(EventManager) {},
 		)
 
@@ -77,14 +77,14 @@ func TestSupervisorWithErroredCleanupResourcesFn(t *testing.T) {
 		events, err := ObserveSupervisor(
 			context.TODO(),
 			"root",
-			func() ([]capataz.Node, capataz.CleanupResourcesFn, error) {
-				nodes := []capataz.Node{WaitDoneWorker("worker1")}
+			func() ([]cap.Node, cap.CleanupResourcesFn, error) {
+				nodes := []cap.Node{WaitDoneWorker("worker1")}
 				cleanup := func() error {
 					return errors.New("cleanup resources err")
 				}
 				return nodes, cleanup, nil
 			},
-			[]capataz.Opt{},
+			[]cap.Opt{},
 			func(EventManager) {},
 		)
 
@@ -99,27 +99,27 @@ func TestSupervisorWithErroredCleanupResourcesFn(t *testing.T) {
 			})
 	})
 	t.Run("on multi-level tree", func(t *testing.T) {
-		subtree1 := capataz.NewSupervisorSpec("subtree1", capataz.WithNodes(WaitDoneWorker("worker1")))
+		subtree1 := cap.NewSupervisorSpec("subtree1", cap.WithNodes(WaitDoneWorker("worker1")))
 
-		failingSubtree2 := capataz.NewSupervisorSpec("subtree2", func() ([]capataz.Node, capataz.CleanupResourcesFn, error) {
-			nodes := []capataz.Node{WaitDoneWorker("worker2")}
+		failingSubtree2 := cap.NewSupervisorSpec("subtree2", func() ([]cap.Node, cap.CleanupResourcesFn, error) {
+			nodes := []cap.Node{WaitDoneWorker("worker2")}
 			cleanup := func() error {
 				return errors.New("cleanup resources err")
 			}
 			return nodes, cleanup, nil
 		})
 
-		subtree3 := capataz.NewSupervisorSpec("subtree3", capataz.WithNodes(WaitDoneWorker("worker3")))
+		subtree3 := cap.NewSupervisorSpec("subtree3", cap.WithNodes(WaitDoneWorker("worker3")))
 
 		events, err := ObserveSupervisor(
 			context.TODO(),
 			"root",
-			capataz.WithNodes(
-				capataz.Subtree(subtree1),
-				capataz.Subtree(failingSubtree2),
-				capataz.Subtree(subtree3),
+			cap.WithNodes(
+				cap.Subtree(subtree1),
+				cap.Subtree(failingSubtree2),
+				cap.Subtree(subtree3),
 			),
-			[]capataz.Opt{},
+			[]cap.Opt{},
 			func(EventManager) {},
 		)
 

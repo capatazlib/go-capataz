@@ -1,4 +1,4 @@
-package capataz
+package cap
 
 import (
 	"context"
@@ -115,9 +115,9 @@ func handleChildNotification(
 
 ////////////////////////////////////////////////////////////////////////////////
 
-// startChildren iterates over all the children (specified with `capataz.WithNodes`
-// and `capataz.WithSubtree`) starting a goroutine for each. The children iteration
-// will be sorted as specified with the `capataz.WithOrder` option. In case any child
+// startChildren iterates over all the children (specified with `cap.WithNodes`
+// and `cap.WithSubtree`) starting a goroutine for each. The children iteration
+// will be sorted as specified with the `cap.WithOrder` option. In case any child
 // fails to start, the supervisor start operation will be aborted and all the
 // started children so far will be stopped in the reverse order.
 func startChildren(

@@ -1,4 +1,4 @@
-package capataz
+package cap
 
 // This file contains logic on supervision sub-trees
 

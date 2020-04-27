@@ -6,13 +6,13 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/capatazlib/go-capataz/capataz"
+	"github.com/capatazlib/go-capataz/cap"
 )
 
-// WaitDoneWorker creates a `capataz.Node` that runs a goroutine that blocks until
+// WaitDoneWorker creates a `cap.Node` that runs a goroutine that blocks until
 // the `context.Done` channel indicates a supervisor termination
-func WaitDoneWorker(name string) capataz.Node {
-	cspec := capataz.NewWorker(name, func(ctx context.Context) error {
+func WaitDoneWorker(name string) cap.Node {
+	cspec := cap.NewWorker(name, func(ctx context.Context) error {
 		// In real-world code, here we would have some business logic. For this
 		// particular scenario, we want to block until we get a stop notification
 		// from our parent supervisor and return `nil`
@@ -22,12 +22,12 @@ func WaitDoneWorker(name string) capataz.Node {
 	return cspec
 }
 
-// FailStartWorker creates a `capataz.Node` that runs a goroutine that fails on
+// FailStartWorker creates a `cap.Node` that runs a goroutine that fails on
 // start
-func FailStartWorker(name string) capataz.Node {
-	cspec := capataz.NewWorkerWithNotifyStart(
+func FailStartWorker(name string) cap.Node {
+	cspec := cap.NewWorkerWithNotifyStart(
 		name,
-		func(ctx context.Context, notifyStart capataz.NotifyStartFn) error {
+		func(ctx context.Context, notifyStart cap.NotifyStartFn) error {
 			err := fmt.Errorf("FailStartWorker %s", name)
 			notifyStart(err)
 			// NOTE: Even though we return the err value here, this err will never be
@@ -40,13 +40,13 @@ func FailStartWorker(name string) capataz.Node {
 	return cspec
 }
 
-// NeverTerminateWorker creates a `capataz.Node` that runs a goroutine that never stops
+// NeverTerminateWorker creates a `cap.Node` that runs a goroutine that never stops
 // when asked to, causing the goroutine to leak in the runtime
-func NeverTerminateWorker(name string) capataz.Node {
+func NeverTerminateWorker(name string) cap.Node {
 	// For the sake of making the test go fast, lets reduce the amount of time we
 	// wait for the child to terminate
 	waitTime := 10 * time.Millisecond
-	cspec := capataz.NewWorker(
+	cspec := cap.NewWorker(
 		name,
 		func(ctx context.Context) error {
 			ctx.Done()
@@ -57,20 +57,20 @@ func NeverTerminateWorker(name string) capataz.Node {
 		},
 		// Here we explicitly say how much we are going to wait for this child
 		// termination
-		capataz.WithShutdown(capataz.Timeout(waitTime)),
+		cap.WithShutdown(cap.Timeout(waitTime)),
 	)
 	return cspec
 }
 
-// FailOnSignalWorker creates a `capataz.Node` that runs a goroutine that will fail at
+// FailOnSignalWorker creates a `cap.Node` that runs a goroutine that will fail at
 // least the given number of times as soon as the returned start signal is
 // called. Once this number of times has been reached, it waits until the given
 // `context.Done` channel indicates a supervisor termination.
 func FailOnSignalWorker(
 	totalErrCount int32,
 	name string,
-	opts ...capataz.WorkerOpt,
-) (capataz.Node, func(bool)) {
+	opts ...cap.WorkerOpt,
+) (cap.Node, func(bool)) {
 	currentFailCount := int32(0)
 	startCh := make(chan struct{})
 	startSignal := func(done bool) {
@@ -80,7 +80,7 @@ func FailOnSignalWorker(
 		}
 		startCh <- struct{}{}
 	}
-	return capataz.NewWorker(
+	return cap.NewWorker(
 		name,
 		func(ctx context.Context) error {
 			<-startCh
@@ -95,19 +95,19 @@ func FailOnSignalWorker(
 	), startSignal
 }
 
-// CompleteOnSignalWorker creates a `capataz.Node` that runs a goroutine that
+// CompleteOnSignalWorker creates a `cap.Node` that runs a goroutine that
 // will complete at at as soon as the returned start signal is called.
 func CompleteOnSignalWorker(
 	totalCompleteCount int32,
 	name string,
-	opts ...capataz.WorkerOpt,
-) (capataz.Node, func()) {
+	opts ...cap.WorkerOpt,
+) (cap.Node, func()) {
 	currentCompleteCount := int32(0)
 	startCh := make(chan struct{})
 	startSignal := func() {
 		startCh <- struct{}{}
 	}
-	return capataz.NewWorker(
+	return cap.NewWorker(
 		name,
 		func(ctx context.Context) error {
 			<-startCh

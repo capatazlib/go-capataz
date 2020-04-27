@@ -3,11 +3,11 @@ package main
 import (
 	"os"
 
-	"github.com/capatazlib/go-capataz/capataz"
+	"github.com/capatazlib/go-capataz/cap"
 	"github.com/sirupsen/logrus"
 )
 
-func newLogEventNotifier() (*logrus.Entry, capataz.EventNotifier) {
+func newLogEventNotifier() (*logrus.Entry, cap.EventNotifier) {
 	log := logrus.New()
 	log.Out = os.Stdout
 	log.Level = logrus.DebugLevel
@@ -15,7 +15,7 @@ func newLogEventNotifier() (*logrus.Entry, capataz.EventNotifier) {
 
 	ll := log.WithFields(logrus.Fields{})
 
-	return ll, func(ev capataz.Event) {
+	return ll, func(ev cap.Event) {
 		if ev.Err() != nil {
 			ll = log.WithError(ev.Err())
 		}

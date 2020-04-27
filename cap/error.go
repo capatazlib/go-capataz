@@ -1,4 +1,4 @@
-package capataz
+package cap
 
 import (
 	"errors"
