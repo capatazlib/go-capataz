@@ -78,7 +78,7 @@ func (spec SupervisorSpec) rootStart(
 	// allocation logic
 	if rscAllocError != nil {
 		cancelFn()
-		eventNotifier.SupervisorStartFailed(supRuntimeName, rscAllocError)
+		eventNotifier.supervisorStartFailed(supRuntimeName, rscAllocError)
 		return Supervisor{}, rscAllocError
 	}
 
@@ -92,7 +92,7 @@ func (spec SupervisorSpec) rootStart(
 			// We check if there was an start error reported, if this is the case, we
 			// notify that the supervisor start failed
 			if startErr != nil {
-				eventNotifier.SupervisorStartFailed(supRuntimeName, startErr)
+				eventNotifier.supervisorStartFailed(supRuntimeName, startErr)
 				return startErr
 			}
 
@@ -103,7 +103,7 @@ func (spec SupervisorSpec) rootStart(
 			supErr := <-terminateCh
 
 			if supErr != nil {
-				eventNotifier.SupervisorFailed(supRuntimeName, supErr)
+				eventNotifier.supervisorFailed(supRuntimeName, supErr)
 				return supErr
 			}
 
@@ -114,7 +114,7 @@ func (spec SupervisorSpec) rootStart(
 				stopingTime = time.Now()
 			}
 
-			eventNotifier.SupervisorTerminated(supRuntimeName, stopingTime)
+			eventNotifier.supervisorTerminated(supRuntimeName, stopingTime)
 			return nil
 		},
 	}

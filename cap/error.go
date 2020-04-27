@@ -8,11 +8,11 @@ import (
 )
 
 // startError is the error reported back to a Supervisor when the start of a
-// Child fails
+// worker fails
 type startError = error
 
 // terminateError is the error reported back to a Supervisor when the
-// termination of a Child fails
+// termination of a worker fails
 type terminateError = error
 
 // SupervisorTerminationError wraps a termination error from a supervised
@@ -74,9 +74,9 @@ func (se *SupervisorTerminationError) Error() string {
 				"(and resource cleanup failed as well)",
 		)
 	} else if se.nodeErr != nil {
-		return fmt.Sprintf("worker failed to terminate")
+		return "worker failed to terminate"
 	} else if se.rscCleanupErr != nil {
-		return fmt.Sprintf("supervisor failed to cleanup resources")
+		return "supervisor failed to cleanup resources"
 	}
 	// NOTE: this case never happens, an invariant condition of this type has not
 	// been respected. If we are here, it means we manually created a wrong
@@ -86,9 +86,9 @@ func (se *SupervisorTerminationError) Error() string {
 	)
 }
 
-// SupervisorRestartError wraps an error tolerance surpassed error from a
-// children, enhancing it with supervisor information and possible shutdown
-// errors on other siblings
+// SupervisorRestartError wraps an error tolerance surpassed error from a child
+// node, enhancing it with supervisor information and possible shutdown errors
+// on other siblings
 type SupervisorRestartError struct {
 	supRuntimeName string
 	nodeErr        *c.ErrorToleranceReached
@@ -121,9 +121,9 @@ func (se *SupervisorRestartError) Error() string {
 				"(and other nodes failed to terminate as well)",
 		)
 	} else if se.nodeErr != nil {
-		return fmt.Sprintf("worker surpassed error tolerance")
+		return "worker surpassed error tolerance"
 	} else if se.terminateErr != nil {
-		return fmt.Sprintf("supervisor nodes failed to terminate")
+		return "supervisor nodes failed to terminate"
 	}
 	// NOTE: this case never happens, an invariant condition of this type is that
 	// it only hold values with a nodeErr. If we are here, it means we manually
@@ -133,7 +133,7 @@ func (se *SupervisorRestartError) Error() string {
 	)
 }
 
-// Unwrap returns a child error or a termination error
+// Unwrap returns a child node error or a termination error
 func (se *SupervisorRestartError) Unwrap() error {
 	// it should never be nil
 	if se.nodeErr != nil {
@@ -145,7 +145,7 @@ func (se *SupervisorRestartError) Unwrap() error {
 	return nil
 }
 
-// Cause returns a child error or a termination error
+// Cause returns a child node error or a termination error
 func (se *SupervisorRestartError) Cause() error {
 	// it should never be nil
 	if se.nodeErr != nil {

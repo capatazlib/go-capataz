@@ -12,7 +12,8 @@ func WithOrder(o Order) Opt {
 	}
 }
 
-// WithStrategy specifies how children get restarted when one of them fails
+// WithStrategy specifies how children nodes of a supervisor get restarted when
+// one of the node fails
 func WithStrategy(s Strategy) Opt {
 	return func(spec *SupervisorSpec) {
 		spec.strategy = s

@@ -32,10 +32,10 @@ var Indefinitely = c.Indefinitely
 // given we will only support workers and supervisors
 type NodeTag = c.ChildTag
 
-// Worker is used for a worker that run a business-logic goroutine
+// WorkerT is used for a worker that run a business-logic goroutine
 var WorkerT = c.Worker
 
-// Supervisor is used for a worker that runs another supervision tree
+// SupervisorT is used for a worker that runs another supervision tree
 var SupervisorT = c.Supervisor
 
 // Timeout specifies a duration of time the parent supervisor will wait for the

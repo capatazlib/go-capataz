@@ -11,9 +11,8 @@ import (
 // Subtree or a Worker
 type Node func(SupervisorSpec) c.ChildSpec
 
-// Order specifies the order in which a supervision tree is going to start and
-// stop its children. The stop ordering is always the reverse of the start
-// ordering.
+// Order specifies the order in which a supervisor is going to start its node
+// children. The stop order is the reverse of the start order.
 type Order uint32
 
 const (
@@ -23,8 +22,8 @@ const (
 	RightToLeft
 )
 
-// SortStart returns children sorted for the supervisor start
-func (o Order) SortStart(input0 []c.ChildSpec) []c.ChildSpec {
+// sortStart returns children sorted for the supervisor start
+func (o Order) sortStart(input0 []c.ChildSpec) []c.ChildSpec {
 	input := append(input0[:0:0], input0...)
 	switch o {
 	case LeftToRight:
@@ -39,8 +38,8 @@ func (o Order) SortStart(input0 []c.ChildSpec) []c.ChildSpec {
 	}
 }
 
-// SortTermination returns children sorted for the supervisor stop
-func (o Order) SortTermination(input0 []c.ChildSpec) []c.ChildSpec {
+// sortTermination returns children sorted for the supervisor stop
+func (o Order) sortTermination(input0 []c.ChildSpec) []c.ChildSpec {
 	input := append(input0[:0:0], input0...)
 	switch o {
 	case LeftToRight:
@@ -76,24 +75,24 @@ func (spec SupervisorSpec) getEventNotifier() EventNotifier {
 	return spec.eventNotifier
 }
 
-// CleanupResourcesFn is a function that cleans up resources that were initialized
-// in a BuildNodesFn function.
+// CleanupResourcesFn is a function that cleans up resources that were
+// initialized in a `cap.BuildNodesFn` function.
 type CleanupResourcesFn = func() error
 
 // BuildNodesFn is a function that returns a list of nodes
 type BuildNodesFn = func() ([]Node, CleanupResourcesFn, error)
 
-// SupervisorSpec represents the specification of a Supervisor; it serves as a
-// template for the construction of supervision trees. In the SupervisorSpec you
-// can specify settings like:
+// SupervisorSpec represents the specification of a static supervisor; it serves
+// as a template for the construction of a runtime supervision tree. In the
+// SupervisorSpec you can specify settings like:
 //
 // - The children (workers or sub-trees) you want spawned in your system when it
-// gets started
+// starts
 //
-// - The order in which the supervised children get started
+// - The order in which the supervised node children get started
 //
-// - When a failure occurs, if the supervisor restarts the failing child, or all
-// its children
+// - Notifies the supervisor to restart a child node that failed in unexpected
+// ways, or to restart all its siblings
 //
 type SupervisorSpec struct {
 	name            string
@@ -122,51 +121,67 @@ func (spec SupervisorSpec) buildChildrenSpecs() ([]c.ChildSpec, CleanupResources
 // NewSupervisorSpec creates a SupervisorSpec. It requires the name of the
 // supervisor (for tracing purposes) and some children nodes to supervise.
 //
-// ## How to provide a cap.BuildNodesFn
+// * How to provide a cap.BuildNodesFn
 //
 // There are two possible use cases:
 //
-// ### Monitoring children that do not share resources
+// ** Monitoring children that do not share resources
 //
 // To specify a static group of children nodes, you need to use the
 // cap.WithNodes utility function. This function may receive cap.Subtree or
 // cap.Worker nodes.
 //
-// #### Example:
+// *** Example:
 //
-// > cap.NewSupervisorSpec("root", cap.WithNodes(
-// >     cap.Subtree(subtreeSupervisorSpec),
-// >     workerChildSpec,
-// >   ),
-// >   cap.WithOrder(cap.RightToLeft),
-// > )
+//     cap.NewSupervisorSpec("root",
+//       // Specify child nodes to spawn when this supervisor starts
+//       cap.WithNodes(
+//         cap.Subtree(subtreeSupervisorSpec),
+//         workerChildSpec,
+//       ),
+//       // Specify child nodes start from right to left (reversed order) and
+//       // stop from left to right.
+//       cap.WithOrder(cap.RightToLeft),
+//     )
 //
 //
-// ### Monitoring nodes that share resources
+// ** Monitoring nodes that share resources
 //
-// Sometimes, you want a tree of workers interacting between each other, and
-// these nodes share a resource that only the workers should know about (for
+// Sometimes, you want a group of children nodes to interacting between each
+// other via some shared resource that only the workers should know about (for
 // example, a gochan, a db datapool, etc). You are able to specify a function
 // that allocates and releases these kind of resources.
 //
-// #### Example:
+// *** Example:
 //
-// > cap.NewSupervisorSpec("root",
-// >   func() ([]cap.Node, cap.CleanupResourcesFn, error) {
-// >     buffer := make(chan MyType)
-// >     nodes := []cap.Node{
-// >       producerWorker(buffer),
-// >       consumerWorker(buffer),
-// >     }
-// >     cleanup := func() {
-// >       close(buffer)
-// >     }
-// >     return nodes, cleanup, nil
-// >   },
-// >   cap.WithOrder(cap.RightToLeft),
-// > )
+//     cap.NewSupervisorSpec("root",
 //
-// #### Dealing with errors
+//       // Implement a function that return all nodes to be supervised.
+//       // When this supervisor gets (re)started, this function will be called.
+//       // Imagine this function as a factory for it's children.
+//       func() ([]cap.Node, cap.CleanupResourcesFn, error) {
+//
+//         // In this example, child nodes have a shared resource (a gochan)
+//         // and it gets passed to their constructors.
+//         buffer := make(chan MyType)
+//         nodes := []cap.Node{
+//           producerWorker(buffer),
+//           consumerWorker(buffer),
+//         }
+//
+//         // We create a function that gets executed when the supervisor
+//         // shuts down.
+//         cleanup := func() {
+//           close(buffer)
+//         }
+//
+//         // We return the allocated Node records and the cleanup function
+//         return nodes, cleanup, nil
+//       },
+//       cap.WithOrder(cap.RightToLeft),
+//     )
+//
+// * Dealing with errors
 //
 // Given resources can involve IO allocations, using this functionality opens
 // the door to a few error scenarios:
@@ -185,8 +200,8 @@ func (spec SupervisorSpec) buildChildrenSpecs() ([]c.ChildSpec, CleanupResources
 // 3) Resource allocation/cleanup hangs
 //
 // This library does not handle this scenario. Is the responsibility of the user
-// of the API to ensure a start timeouts and cleanup timeouts inside the
-// cap.BuildNodesFn and cap.CleanupResourcesFn respectively.
+// of the API to implement start timeouts and cleanup timeouts inside the
+// `cap.BuildNodesFn` and `cap.CleanupResourcesFn` respectively.
 //
 func NewSupervisorSpec(name string, buildNodes BuildNodesFn, opts ...Opt) SupervisorSpec {
 	spec := SupervisorSpec{
@@ -210,25 +225,26 @@ func NewSupervisorSpec(name string, buildNodes BuildNodesFn, opts ...Opt) Superv
 	return spec
 }
 
-// Start creates a Supervisor from the SupervisorSpec. A Supervisor is a tree of
-// goroutines. The Start algorithm begins with the spawning the leaf worker
-// goroutines first. Depending on the SupervisorSpec's order, it will do an
-// initialization in pre-order (LeftToRight) or post-order (RightToLeft).
+// Start creates a `Supervisor` from the `SupervisorSpec`. A `Supervisor` is a
+// tree of workers and sub-trees. The Start algorithm begins with the spawning
+// the leaf worker goroutines first. Depending on the SupervisorSpec's order, it
+// will do an initialization in pre-order (LeftToRight) or post-order
+// (RightToLeft).
 //
-// ### Initialization of the tree
+// * Initialization of the tree
 //
 // Once all the children leafs are initialized and running, the supervisor will
-// execute it's supervision monitor logic (listening to failures on its
+// execute its supervision monitor logic (listening to failures on its
 // children). Invoking this method will block the thread until all the children
 // and its sub-tree's childrens have been started.
 //
-// ### Failure on child initialization
+// * Failure on child initialization
 //
-// In case one of the tree children fails to start, the Supervisor is going to
+// In case one of the tree's worker fails to start, the Supervisor is going to
 // retry a number of times before giving up and returning an error. In case this
 // supervisor is a sub-tree, it's parent supervisor will retry the
 // initialization until the error tolerance is surpassed; eventually, the errors
-// will reach the root supervisor and the program will return a hard error.
+// will reach the root supervisor and the program will return an error.
 //
 func (spec SupervisorSpec) Start(parentCtx context.Context) (Supervisor, error) {
 	sup, err := spec.rootStart(parentCtx, rootSupervisorName)
@@ -238,7 +254,7 @@ func (spec SupervisorSpec) Start(parentCtx context.Context) (Supervisor, error) 
 	return sup, nil
 }
 
-// GetName returns the specified name for a Supervisor Spec
+// GetName returns the given name of the supervisor spec (not a runtime name)
 func (spec SupervisorSpec) GetName() string {
 	return spec.name
 }

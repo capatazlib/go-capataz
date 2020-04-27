@@ -53,20 +53,20 @@ func (p ProcessNameP) String() string {
 	return fmt.Sprintf("name == %s", p.name)
 }
 
-// ProcessChildTagP is a predicate that asserts the ChildTag of the `Child` that
+// ProcessNodeTagP is a predicate that asserts the ChildTag of the `Child` that
 // triggered the event matches the expect ChildTag
-type ProcessChildTagP struct {
-	childTag c.ChildTag
+type ProcessNodeTagP struct {
+	nodeTag cap.NodeTag
 }
 
 // Call will execute predicate that checks the ChildTag of the process that
 // triggered the event matches the expected ChildTag
-func (p ProcessChildTagP) Call(ev cap.Event) bool {
-	return ev.GetChildTag() == p.childTag
+func (p ProcessNodeTagP) Call(ev cap.Event) bool {
+	return ev.GetNodeTag() == p.nodeTag
 }
 
-func (p ProcessChildTagP) String() string {
-	return fmt.Sprintf("childTag == %s", p.childTag)
+func (p ProcessNodeTagP) String() string {
+	return fmt.Sprintf("nodeTag == %s", p.nodeTag)
 }
 
 // AndP is a predicate that builds the conjunction of a group EventP predicates
@@ -109,7 +109,7 @@ func SupervisorStarted(name string) EventP {
 		preds: []EventP{
 			EventTagP{tag: cap.ProcessStarted},
 			ProcessNameP{name: name},
-			ProcessChildTagP{childTag: c.Supervisor},
+			ProcessNodeTagP{nodeTag: c.Supervisor},
 		},
 	}
 }
@@ -121,7 +121,7 @@ func WorkerStarted(name string) EventP {
 		preds: []EventP{
 			EventTagP{tag: cap.ProcessStarted},
 			ProcessNameP{name: name},
-			ProcessChildTagP{childTag: c.Worker},
+			ProcessNodeTagP{nodeTag: c.Worker},
 		},
 	}
 }
@@ -133,7 +133,7 @@ func WorkerCompleted(name string) EventP {
 		preds: []EventP{
 			EventTagP{tag: cap.ProcessCompleted},
 			ProcessNameP{name: name},
-			ProcessChildTagP{childTag: c.Worker},
+			ProcessNodeTagP{nodeTag: c.Worker},
 		},
 	}
 }
@@ -145,7 +145,7 @@ func SupervisorTerminated(name string) EventP {
 		preds: []EventP{
 			EventTagP{tag: cap.ProcessTerminated},
 			ProcessNameP{name: name},
-			ProcessChildTagP{childTag: c.Supervisor},
+			ProcessNodeTagP{nodeTag: c.Supervisor},
 		},
 	}
 }
@@ -157,7 +157,7 @@ func WorkerTerminated(name string) EventP {
 		preds: []EventP{
 			EventTagP{tag: cap.ProcessTerminated},
 			ProcessNameP{name: name},
-			ProcessChildTagP{childTag: c.Worker},
+			ProcessNodeTagP{nodeTag: c.Worker},
 		},
 	}
 }
@@ -169,7 +169,7 @@ func SupervisorFailed(name string) EventP {
 		preds: []EventP{
 			EventTagP{tag: cap.ProcessFailed},
 			ProcessNameP{name: name},
-			ProcessChildTagP{childTag: c.Supervisor},
+			ProcessNodeTagP{nodeTag: c.Supervisor},
 		},
 	}
 }
@@ -181,7 +181,7 @@ func WorkerFailed(name string) EventP {
 		preds: []EventP{
 			EventTagP{tag: cap.ProcessFailed},
 			ProcessNameP{name: name},
-			ProcessChildTagP{childTag: c.Worker},
+			ProcessNodeTagP{nodeTag: c.Worker},
 		},
 	}
 }
@@ -193,7 +193,7 @@ func SupervisorStartFailed(name string) EventP {
 		preds: []EventP{
 			EventTagP{tag: cap.ProcessStartFailed},
 			ProcessNameP{name: name},
-			ProcessChildTagP{childTag: c.Supervisor},
+			ProcessNodeTagP{nodeTag: c.Supervisor},
 		},
 	}
 }
@@ -205,7 +205,7 @@ func WorkerStartFailed(name string) EventP {
 		preds: []EventP{
 			EventTagP{tag: cap.ProcessStartFailed},
 			ProcessNameP{name: name},
-			ProcessChildTagP{childTag: c.Worker},
+			ProcessNodeTagP{nodeTag: c.Worker},
 		},
 	}
 }
