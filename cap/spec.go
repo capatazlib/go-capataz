@@ -97,8 +97,6 @@ type BuildNodesFn = func() ([]Node, CleanupResourcesFn, error)
 //
 // * Notifies the supervisor to restart a child node (and, if specified all its
 // siblings as well) when the node fails in unexpected ways.
-
-//
 type SupervisorSpec struct {
 	name            string
 	buildNodes      BuildNodesFn
