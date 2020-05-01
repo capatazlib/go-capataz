@@ -99,7 +99,11 @@ func (e Event) String() string {
 }
 
 // EventNotifier is a function that is used for reporting events from the from
-// the supervision system
+// the supervision system.
+//
+// This function may be used to observe the behavior of all the supervisors in
+// the systems, and it is a great place to hook in monitoring services like
+// logging, error tracing and metrics gatherers.
 type EventNotifier func(Event)
 
 // processTerminated reports an event with an EventTag of ProcessTerminated

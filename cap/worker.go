@@ -6,14 +6,13 @@ import (
 	"github.com/capatazlib/go-capataz/internal/c"
 )
 
-// NotifyStartFn is a function given to supervisor workers to notify the
-// supervisor that the worker has started.
+// NotifyStartFn is a function given to worker nodes that allows them to notify
+// the parent supervisor that they are officialy started.
 //
-// * Notify worker's start failure
+// You may notify a worker fail to start by passing an error argument to this
+// function, otherwise nil.
 //
-// In case the worker cannot get started it should call this function with an
-// error value different than nil.
-//
+// See the documentation of NewWorkerWithNotifyStart for more details
 type NotifyStartFn = c.NotifyStartFn
 
 // childToNode transforms a c.ChildSpec into a Node.
@@ -23,51 +22,57 @@ func childToNode(chSpec c.ChildSpec) Node {
 	}
 }
 
-// NewWorker creates a `Node` that represents a worker goroutine. It requires
-// two arguments: a `name` that is used for runtime tracing and a `startFn`
-// function.
+// NewWorker creates a Node that represents a worker goroutine. It requires two
+// arguments: a name that is used for runtime tracing and a startFn function.
 //
-// * The `name` argument
+// The name argument
 //
-// The `name` argument must not be empty nor contain forward slash characters
-// (e.g. `/`), otherwise, the system will panic. This method is preferred as
-// opposed to return an error given it is considered a bad implementation
-// (ideally a compilation error).
+// A name argument must not be empty nor contain forward slash characters (e.g.
+// /), otherwise, the system will panic[*].
 //
-// * The `startFn` argument
+// [*] This method is preferred as opposed to return an error given it is considered
+// a bad implementation (ideally a compilation error).
 //
-// The `startFn` function where your business logic should be located. This
-// attribute of a `Node` is going to be used to spawn a new supervised
-// goroutine.
+// The startFn argument
 //
-// The `startFn` function will receive a `context.Context` record that *must* be
+// The startFn function is where your business logic should be located. This
+// function will be running on a new supervised goroutine.
+//
+// The startFn function will receive a context.Context record that *must* be
 // used inside your business logic to accept stop signals from its parent
 // supervisor.
 //
-// Depending on the `Shutdown` values used in the `Node` , if the `startFn`
-// function does not respect the given context, the parent supervisor will
-// either block forever or leak goroutines after a timeout has been reached.
+// Depending on the Shutdown values used with the WithShutdown settings of the
+// worker, if the `startFn` function does not respect the given context, the
+// parent supervisor will either block forever or leak goroutines after a
+// timeout has been reached.
 //
 func NewWorker(name string, startFn func(context.Context) error, opts ...WorkerOpt) Node {
 	return childToNode(c.New(name, startFn, opts...))
 }
 
 // NewWorkerWithNotifyStart accomplishes the same goal as `New` with the
-// addition of passing a `notifyStart` callback function to the `start`
-// parameter.
+// addition of passing an extra argument (notifyStart callback) to the startFn
+// function parameter.
 //
-// * The `NotifyStartFn` argument
+// The NotifyStartFn argument
 //
-// The `NotifyStartFn` is a callback that allows the spawned worker goroutine to
-// signal when it has officially started. Is essential to call this callback
-// function in your business logic as soon as you consider the worker is
-// initialized, otherwise the parent supervisor will block and eventually fail
-// with a timeout.
+// Sometimes you want to consider a goroutine started after certain
+// initialization was done; like doing a read from a Database or API, or some
+// socket is bound, etc. The NotifyStartFn is a callback that allows the spawned
+// worker goroutine to signal when it has officially started.
 //
-// * Report a start error on `NotifyStartFn`
+// Is essential to call this callback function in your business logic as soon as
+// you consider the worker is initialized, otherwise the parent supervisor will
+// block and eventually fail with a timeout.
 //
-// If for some reason, a child is not able to start correctly, the child should
-// call the `NotifyStartFn` function with the start `error` as a parameter.
+// Report a start error on NotifyStartFn
+//
+// If for some reason, a child is not able to start correctly (e.g. DB
+// connection fails, network is kaput), the child may call the given
+// NotifyStartFn function with the impending error as a parameter. This will
+// cause the whole supervision system start procedure to abort.
+//
 func NewWorkerWithNotifyStart(
 	name string,
 	startFn func(context.Context, NotifyStartFn) error,

@@ -103,10 +103,29 @@ func (spec SupervisorSpec) subtree(
 	)
 }
 
-// Subtree transforms SupervisorSpec into a Node.
+// Subtree transforms SupervisorSpec into a Node. This function allows you to
+// insert a black-box sub-system into a bigger supervised system.
 //
 // Note the subtree SupervisorSpec is going to inherit the event notifier from
 // its parent supervisor.
+//
+// Example:
+//
+//   // Initialized a SupervisorSpec that doesn't know anything about other
+//   // parts of the systems (e.g. is self-contained)
+//   networkingSubsystem := cap.NewSupervisorSpec("net", ...)
+//
+//   // Another self-contained system
+//   filesystemSubsystem := cap.NewSupervisorSpec("fs", ...)
+//
+//   // SupervisorSpec that is started in your main.go
+//   cap.NewSupervisorSpec("root",
+//    cap.WithNodes(
+//      cap.Subtree(networkingSubsystem),
+//      cap.Subtree(filesystemSubsystem),
+//    ),
+//   )
+//
 func Subtree(subtreeSpec SupervisorSpec, opts ...WorkerOpt) Node {
 	return func(supSpec SupervisorSpec) c.ChildSpec {
 		return supSpec.subtree(subtreeSpec, opts...)

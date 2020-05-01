@@ -25,12 +25,12 @@ type SupervisorTerminationError struct {
 	nodeErrMap     map[string]error
 }
 
-// Unwrap returns a error from a supervised goroutine (if any)
+// Unwrap returns anj error from a supervised goroutine (if any)
 func (se *SupervisorTerminationError) Unwrap() error {
 	return se.nodeErr
 }
 
-// Cause returns a error from a supervised goroutine (if any)
+// Cause returns an error from a supervised goroutine (if any)
 func (se *SupervisorTerminationError) Cause() error {
 	return se.nodeErr
 }
@@ -112,6 +112,7 @@ func (se *SupervisorRestartError) KVs() map[string]interface{} {
 	return kvs
 }
 
+// Error returns an error message
 func (se *SupervisorRestartError) Error() string {
 	// NOTE: We are not reporting error details on the string given we want to
 	// rely on structured logging via KVs
