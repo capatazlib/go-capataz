@@ -21,7 +21,7 @@ func WithOrder(o Order) Opt {
 }
 
 // WithStrategy is an Opt that specifies how children nodes of a supervisor get
-// restarted when one of the node fails
+// restarted when one of the nodes fails
 //
 // Possible values may be:
 //

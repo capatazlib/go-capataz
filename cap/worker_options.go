@@ -32,16 +32,14 @@ var Temporary = c.Temporary
 type Shutdown = c.Shutdown
 
 // Indefinitely is a Shutdown value that specifies the parent supervisor must
-// wait indefinitely for the worker goroutine to stop executing
-//
-// You can specify this option using the WithShutdown function
+// wait indefinitely for the worker goroutine to stop executing. You can specify
+// this option using the WithShutdown function
 var Indefinitely = c.Indefinitely
 
 // Timeout is a Shutdown function that returns a value that indicates the time
 // that the supervisor will wait before "force-killing" a worker goroutine. This
-// function receives a time.Duration value
-//
-// You can specify this option using the WithShutdown function
+// function receives a time.Duration value. You can specify this option using
+// the WithShutdown function.
 //
 // * Warning
 //
@@ -49,7 +47,7 @@ var Indefinitely = c.Indefinitely
 // mechanism for goroutines.
 //
 // There is no known way to kill a goroutine via a signal other than using
-// context.Done which the supervised goroutine must observe and respect.
+// context.Done, which the supervised goroutine must observe and respect.
 //
 // If the timeout is reached and the goroutine does not stop (because the worker
 // goroutine is not using the offered context value), the supervisor will
@@ -57,7 +55,7 @@ var Indefinitely = c.Indefinitely
 // leaving the goroutine running in memory (e.g. memory leak)
 var Timeout = c.Timeout
 
-// NodeTag specifies the type of node that is running, this is a closed set
+// NodeTag specifies the type of node that is running. This is a closed set
 // given we will only support workers and supervisors
 type NodeTag = c.ChildTag
 

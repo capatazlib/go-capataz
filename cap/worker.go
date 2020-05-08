@@ -9,8 +9,7 @@ import (
 // NotifyStartFn is a function given to worker nodes that allows them to notify
 // the parent supervisor that they are officialy started.
 //
-// You may notify a worker fail to start by passing an error argument to this
-// function, otherwise nil.
+// The argument contains an error if there was a failure, nil otherwise.
 //
 // See the documentation of NewWorkerWithNotifyStart for more details
 type NotifyStartFn = c.NotifyStartFn
@@ -51,7 +50,7 @@ func NewWorker(name string, startFn func(context.Context) error, opts ...WorkerO
 	return childToNode(c.New(name, startFn, opts...))
 }
 
-// NewWorkerWithNotifyStart accomplishes the same goal as `New` with the
+// NewWorkerWithNotifyStart accomplishes the same goal as NewWorker with the
 // addition of passing an extra argument (notifyStart callback) to the startFn
 // function parameter.
 //
@@ -62,14 +61,14 @@ func NewWorker(name string, startFn func(context.Context) error, opts ...WorkerO
 // socket is bound, etc. The NotifyStartFn is a callback that allows the spawned
 // worker goroutine to signal when it has officially started.
 //
-// Is essential to call this callback function in your business logic as soon as
-// you consider the worker is initialized, otherwise the parent supervisor will
-// block and eventually fail with a timeout.
+// It is essential to call this callback function in your business logic as soon
+// as you consider the worker is initialized, otherwise the parent supervisor
+// will block and eventually fail with a timeout.
 //
 // Report a start error on NotifyStartFn
 //
-// If for some reason, a child is not able to start correctly (e.g. DB
-// connection fails, network is kaput), the child may call the given
+// If for some reason, a child node is not able to start correctly (e.g. DB
+// connection fails, network is kaput), the node may call the given
 // NotifyStartFn function with the impending error as a parameter. This will
 // cause the whole supervision system start procedure to abort.
 //

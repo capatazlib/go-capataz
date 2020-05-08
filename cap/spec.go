@@ -206,13 +206,13 @@ func (spec SupervisorSpec) buildChildrenSpecs() ([]c.ChildSpec, CleanupResources
 //
 // 1) Resource allocation returns an error
 //
-// On this scenario, the supervision start procedure will fail and it will
-// follow the regular shutdown procedure, the already started nodes will be
+// In this scenario, the supervision start procedure will fail and it will
+// follow the regular shutdown procedure: the already started nodes will be
 // terminated and an error will be returned immediately.
 //
 // 2) Resource cleanup returns an error
 //
-// On this scenario, the termination procedure will collect the error and report
+// In this scenario, the termination procedure will collect the error and report
 // it in the returned SupervisorTerminationError.
 //
 // 3) Resource allocation/cleanup hangs

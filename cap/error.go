@@ -43,7 +43,7 @@ func (se *SupervisorTerminationError) GetRuntimeName() string {
 // NodeFailCount returns the number of nodes that failed to terminate correctly.
 // Note if a goroutine fails to terminate because of a shutdown timeout, the
 // failed goroutines may leak. This happens because go doesn't offer any true
-// way to _kill_ a goroutine.
+// way to kill a goroutine.
 func (se *SupervisorTerminationError) NodeFailCount() int {
 	return len(se.nodeErrMap)
 }
