@@ -9,27 +9,28 @@ and shutdown ordering guarantees.
 
 Why Supervision Trees
 
-Goroutines are a great tool to solve many jobs, but they come with a few
+Goroutines are a great tool to solve many jobs, but, alone, they come with a few
 drawbacks:
 
 * We don't have easy ways to know when a goroutine stopped working (e.g. random
-panic)
+panic) other than the main program crashing.
 
 * As soon as we spawn a group of goroutines, we don't have any guarantees they
 will start in the order we anticipated.
 
-* The way goroutines are designed make it very easy to not follow go best
-practices like message passing; instead is easy to reach mutexes instead.
+* The way goroutines are designed make it very easy to not follow golang best
+practices like message passing; instead, it is easy to reach mutexes.
 
 Granted, we can use tools like gochans, sync.WaitGroup, sync.Cond, etc. to deal
 with these issues, but, they are very low-level and there is unnecessary
-boilerplate involved in order to make it work.
+boilerplate involved in order to make them work.
 
-Capataz offers a declarative API that allows you to get goroutine error handling
-and start/stop system mechanisms by enforcing good practices at the type level.
+Capataz offers a declarative API that allows developers to easily manage
+goroutine error handling and start/stop system mechanisms through type
+composition.
 
-What is great is that you can compose several supervised sub-systems together
-into a bigger supervised system, increasing the reliability of your application
+A great benefit, is that you can compose several sub-systems together into a
+bigger supervised system, increasing the reliability of your application
 altogether.
 
 Capataz offers a few types and functions that you need to learn upfront to be
@@ -51,6 +52,7 @@ function
 			},
 		// (3)
 		cap.WithRestart(cap.Permanent),
+		// (4)
 		cap.WithShutdown(cap.Timeout(1 * time.Second)),
 	})
 
@@ -64,19 +66,19 @@ check for stop signals that may get triggered when failures are detected, and
 add cleanup code if you allocated some resource.
 
 The function also returns an error, which may indicate that the worker goroutine
-finished on a bad state. Depending on your worker setup, an error may indicate a
-supervisor that you need to get restarted.
+finished on a bad state. Depending on your setup, an error may indicate a
+supervisor that the worker goroutine needs to get restarted.
 
-The third argument (3) is a WorkerOpt. This one in particular indicates that the
-worker goroutine should always get restarted, whether the function returns an
-error or returns nil. You can check the WithRestart function for more available
-options.
+The third argument (3) is a WorkerOpt. This option in particular indicates that
+the worker goroutine should always get restarted, whether the function returns
+an error or returns nil. You can check the WithRestart function for more
+available options.
 
-The fourth argument (4) is also a WorkerOpt. It specifies that the supervisor
-must wait at least 1 second to stop "my-worker" before giving up.
+The fourth argument (4) is also a WorkerOpt. This option specifies that the
+supervisor must wait at least 1 second to stop "my-worker" before giving up.
 
-All starts and stops of Worker node are managed in its Supervisor, so you need
-to plug this worker into a SupervisorSpec in order to see it in action.
+All starts and stops of Worker goroutines are managed by its Supervisor, so you
+need to plug this worker into a SupervisorSpec in order to see it in action.
 
 SupervisorSpec
 
@@ -97,29 +99,30 @@ You can create a SupervisorSpec using the NewSupervisorSpec function
 		cap.WithStrategy(cap.OneForOne),
 	)
 
-The first argument (1) is a name. Like the workers, this name is going to be
-used for monitoring/tracing purposes.
+The first argument (1) is a name. Like in NewWorker call, this name is going to
+be used for monitoring/tracing purposes.
 
-The second argument (2) is a function that returns a pre-defined BuildNodesFn, this
-function assigns all the nodes this supervisor must monitor. We have two workers
-and one subtree, which is another supervisor that monitors other workers.
+The second argument (2) is a function that returns a pre-defined BuildNodesFn,
+the function describes all the nodes this supervisor must monitor. We have two
+workers (myWorker, myOtherWorker) and one subtree (mySubsystem), which is
+another supervisor that monitors other workers.
 
-The third argument (3) is an Opt. This parameter specifies how these tree nodes
+The third argument (3) is an Opt. This option specifies how these tree nodes
 should get started. the LeftToRight value indicates that when starting, it
 should start with myWorker, then myOtherWorker and end with mySubsystem.
 
-This API will guarantee that the mySubsystem won't start until myOtherWorker
-starts, and that one won't start until myWorker starts. When root shuts down, it
-will stop each child node in reverse order, starting with mySubsystem, then
-myOtherWorker and finally myWorker.
+This API will guarantee that the mySubsystem sub-tree won't start until
+myOtherWorker starts, and that one won't start until myWorker starts. When root
+shuts down, it will stop each child node in reverse order, starting with
+mySubsystem, then myOtherWorker and finally myWorker.
 
-The fourth argument (4) is an Opt. This parameter specifies how children should
-get restart when one of them fails. In this particular example, only the failing
+The fourth argument (4) is an Opt. This option specifies how children should get
+restarted when one of them fails. In this particular example, only the failing
 child node will get restarted. Check the WithStrategy docs for more details.
 
 Once we have a SupervisorSpec, we have the blueprint to start a system, spawning
 each goroutine we need in order. Note that all the wiring of resources is
-happening at build time. The allocation resources comes at later step.
+happening at build time. The actual allocation of resources comes at later step.
 
 We will use this SupervisorSpec to create a Supervisor value.
 
@@ -131,12 +134,13 @@ value
 	sup, startErr := root.Start()
 
 This call will return a Supervisor record or an error. The error may happen when
-one of the children nodes is not able to allocate some IO resource and reports
-it failed to Start (see NewWithStart and NewSupervisorSpec for details).
+one of the supervision tree children nodes is not able to allocate some IO
+resource and reports it failed to Start (see NewWithStart and NewSupervisorSpec
+for details).
 
 The Start call is synchronous, the program will not continue until all worker
-nodes and sub-trees are started in the specified order. For our SupervisorSpec
-above the following supervision tree will be spawned
+nodes and sub-trees are started in the specified order. With the SupervisorSpec
+example above the following supervision tree will be spawned
 
 	root
 	|
@@ -148,8 +152,8 @@ above the following supervision tree will be spawned
 		|
 		` <other workers or sub-trees here>
 
-At this point, all your program workers should have allocated the resources and
-running as expected. If you want to stop the system, you can call the Stop
+At this point, all your program workers should have allocated their resources
+and running as expected. If you want to stop the system, you can call the Stop
 method on the returned supervisor:
 
 	stopErr := sup.Stop()
@@ -203,9 +207,9 @@ We have a Worker that is reponsible to send certain reports to a given channel
 that some consumer is going to use. The Worker goroutine is the only one
 accessing the database, so it is responsible for initializing it. It uses the
 notifyStart function to indicate if there was an error on start when connecting
-to the database. If this happened (1), the start procedure of the supervision
-system will stop and abort, if not, the Start routine won't continue until the
-worker notifies is ready (2).
+to the database. If this happened (1), the start procedure of the root
+supervisor will stop and abort, if not, the Start routine won't continue until
+the worker notifies is ready (2).
 
 What about that channel though?
 
@@ -260,17 +264,17 @@ call.
 
 	}
 
-On the code above, instead of using the WithNodes function, we define our own
-BuildNodesFn (1). This function creates a gochan for Report that both producer and
-consumer are going to use (2).
+On the code above, instead of using the cap.WithNodes function, we define our
+own BuildNodesFn (1). This function creates a gochan for Report values that both
+producer and consumer are going to use (2).
 
 We then declare a cleanup function that closes the allocated gochan in case this
 supervisor gets restarted or stopped (3), and finally, it returns the nodes that
-the supervisor is going to monitor (4).
+the supervisor is going to monitor (4), the cleanup function and a nil error.
 
 If there is a restart of this supervisor, the cleanup function gets called, and
-the logic inside the BuildNodesFn gets called again, restarting this part of
-your bigger system without affecting other parts of the system.
+the logic inside the BuildNodesFn gets called again, restarting this specific
+sub-system and without affecting other parts of the bigger system.
 
 Other Examples
 
