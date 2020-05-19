@@ -133,6 +133,7 @@ type ChildSpec struct {
 	Shutdown     Shutdown
 	Restart      Restart
 	ErrTolerance ErrTolerance
+	CapturePanic bool
 
 	Start func(context.Context, NotifyStartFn) error
 }
@@ -150,4 +151,9 @@ func (chSpec ChildSpec) IsWorker() bool {
 // GetRestart returns the Restart setting for this ChildSpec
 func (chSpec ChildSpec) GetRestart() Restart {
 	return chSpec.Restart
+}
+
+// DoesCapturePanic indicates if this child handles panics
+func (chSpec ChildSpec) DoesCapturePanic() bool {
+	return chSpec.CapturePanic
 }

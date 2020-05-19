@@ -96,6 +96,10 @@ var WithRestart = c.WithRestart
 //
 var WithShutdown = c.WithShutdown
 
+// WithCapturePanic is a WorkerOpt that specifies if panics raised by
+// this worker should be treated as errors.
+var WithCapturePanic = c.WithCapturePanic
+
 // WithTag is a WorkerOpt that sets the given NodeTag on Worker.
 //
 // Do not use this function if you are not extending capataz' API.

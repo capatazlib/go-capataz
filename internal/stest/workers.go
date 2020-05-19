@@ -62,7 +62,7 @@ func NeverTerminateWorker(name string) cap.Node {
 	return cspec
 }
 
-// FailOnSignalWorker creates a `cap.Node` that runs a goroutine that will fail at
+// FailOnSignalWorker creates a cap.Node that runs a goroutine that will fail at
 // least the given number of times as soon as the returned start signal is
 // called. Once this number of times has been reached, it waits until the given
 // `context.Done` channel indicates a supervisor termination.
@@ -87,6 +87,41 @@ func FailOnSignalWorker(
 			if currentFailCount < totalErrCount {
 				atomic.AddInt32(&currentFailCount, 1)
 				return fmt.Errorf("Failing child (%d out of %d)", currentFailCount, totalErrCount)
+			}
+			<-ctx.Done()
+			return nil
+		},
+		opts...,
+	), startSignal
+}
+
+// PanicOnSignalWorker creates a cap.Node that runs a goroutine that will panic
+// at least the given number of times as soon as the returned start signal is
+// called. Once this number of times has been reached, it waits until the given
+// context.Done channel indicates a supervisor termination.
+func PanicOnSignalWorker(
+	totalErrCount int32,
+	name string,
+	opts ...cap.WorkerOpt,
+) (cap.Node, func(bool)) {
+	currentFailCount := int32(0)
+	startCh := make(chan struct{})
+	startSignal := func(done bool) {
+		if done {
+			close(startCh)
+			return
+		}
+		startCh <- struct{}{}
+	}
+	opts = append(opts, cap.WithCapturePanic(true))
+	return cap.NewWorker(
+		name,
+		func(ctx context.Context) error {
+			<-startCh
+			if currentFailCount < totalErrCount {
+				atomic.AddInt32(&currentFailCount, 1)
+				err := fmt.Errorf("Panicking child (%d out of %d)", currentFailCount, totalErrCount)
+				panic(err)
 			}
 			<-ctx.Done()
 			return nil

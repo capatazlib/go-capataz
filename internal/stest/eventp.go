@@ -96,6 +96,25 @@ func (p AndP) String() string {
 	return strings.Join(acc, " && ")
 }
 
+// ErrorMsgP is a predicate that asserts the message of an error is the one
+// specified
+type ErrorMsgP struct {
+	errMsg string
+}
+
+// Call will try and verify that the event has an error attribute with the
+// specified message
+func (p ErrorMsgP) Call(ev cap.Event) bool {
+	err := ev.Err()
+	return err != nil && err.Error() == p.errMsg
+}
+
+func (p ErrorMsgP) String() string {
+	return fmt.Sprintf("err == %s", p.errMsg)
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 // ProcessName is a predicate to assert an event was triggered by the given
 // runtime process name
 func ProcessName(name string) EventP {
@@ -182,6 +201,19 @@ func WorkerFailed(name string) EventP {
 			EventTagP{tag: cap.ProcessFailed},
 			ProcessNameP{name: name},
 			ProcessNodeTagP{nodeTag: c.Worker},
+		},
+	}
+}
+
+// WorkerFailedWith is a predicate to assert an event represents a process that
+// failed
+func WorkerFailedWith(name, errMsg string) EventP {
+	return AndP{
+		preds: []EventP{
+			EventTagP{tag: cap.ProcessFailed},
+			ProcessNameP{name: name},
+			ProcessNodeTagP{nodeTag: c.Worker},
+			ErrorMsgP{errMsg: errMsg},
 		},
 	}
 }
