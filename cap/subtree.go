@@ -1,4 +1,4 @@
-package s
+package cap
 
 // This file contains logic on supervision sub-trees
 
@@ -6,8 +6,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/capatazlib/go-capataz/c"
-	ic "github.com/capatazlib/go-capataz/internal/c"
+	"github.com/capatazlib/go-capataz/internal/c"
 )
 
 // run performs the main logic of a Supervisor. This function:
@@ -35,7 +34,7 @@ func (spec SupervisorSpec) run(
 	}
 
 	// notifyCh is used to keep track of errors from children
-	notifyCh := make(chan ic.ChildNotification)
+	notifyCh := make(chan c.ChildNotification)
 
 	// ctrlCh is used to keep track of request from client APIs (e.g. spawn child)
 	// ctrlCh := make(chan ControlMsg)
@@ -102,4 +101,33 @@ func (spec SupervisorSpec) subtree(
 		subtreeMain(spec.name, subtreeSpec),
 		copts...,
 	)
+}
+
+// Subtree transforms SupervisorSpec into a Node. This function allows you to
+// insert a black-box sub-system into a bigger supervised system.
+//
+// Note the subtree SupervisorSpec is going to inherit the event notifier from
+// its parent supervisor.
+//
+// Example:
+//
+//   // Initialized a SupervisorSpec that doesn't know anything about other
+//   // parts of the systems (e.g. is self-contained)
+//   networkingSubsystem := cap.NewSupervisorSpec("net", ...)
+//
+//   // Another self-contained system
+//   filesystemSubsystem := cap.NewSupervisorSpec("fs", ...)
+//
+//   // SupervisorSpec that is started in your main.go
+//   cap.NewSupervisorSpec("root",
+//    cap.WithNodes(
+//      cap.Subtree(networkingSubsystem),
+//      cap.Subtree(filesystemSubsystem),
+//    ),
+//   )
+//
+func Subtree(subtreeSpec SupervisorSpec, opts ...WorkerOpt) Node {
+	return func(supSpec SupervisorSpec) c.ChildSpec {
+		return supSpec.subtree(subtreeSpec, opts...)
+	}
 }

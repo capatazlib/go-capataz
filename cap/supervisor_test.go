@@ -1,4 +1,4 @@
-package s_test
+package cap_test
 
 //
 // NOTE: If you feel it is counter-intuitive to have workers start before
@@ -11,17 +11,16 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/capatazlib/go-capataz/cap"
 	. "github.com/capatazlib/go-capataz/internal/stest"
-
-	"github.com/capatazlib/go-capataz/s"
 )
 
 func TestStartSingleChild(t *testing.T) {
 	events, err := ObserveSupervisor(
 		context.TODO(),
 		"root",
-		s.WithChildren(s.Worker(WaitDoneChild("one"))),
-		[]s.Opt{},
+		cap.WithNodes(WaitDoneWorker("one")),
+		[]cap.Opt{},
 		func(EventManager) {},
 	)
 
@@ -41,12 +40,12 @@ func TestStartMutlipleChildrenLeftToRight(t *testing.T) {
 	events, err := ObserveSupervisor(
 		context.TODO(),
 		"root",
-		s.WithChildren(
-			s.Worker(WaitDoneChild("child0")),
-			s.Worker(WaitDoneChild("child1")),
-			s.Worker(WaitDoneChild("child2")),
+		cap.WithNodes(
+			WaitDoneWorker("child0"),
+			WaitDoneWorker("child1"),
+			WaitDoneWorker("child2"),
 		),
-		[]s.Opt{},
+		[]cap.Opt{},
 		func(EventManager) {},
 	)
 
@@ -72,13 +71,13 @@ func TestStartMutlipleChildrenRightToLeft(t *testing.T) {
 	events, err := ObserveSupervisor(
 		context.TODO(),
 		"root",
-		s.WithChildren(
-			s.Worker(WaitDoneChild("child0")),
-			s.Worker(WaitDoneChild("child1")),
-			s.Worker(WaitDoneChild("child2")),
+		cap.WithNodes(
+			WaitDoneWorker("child0"),
+			WaitDoneWorker("child1"),
+			WaitDoneWorker("child2"),
 		),
-		[]s.Opt{
-			s.WithOrder(s.RightToLeft),
+		[]cap.Opt{
+			cap.WithOrder(cap.RightToLeft),
 		},
 		func(EventManager) {},
 	)
@@ -106,24 +105,24 @@ func TestStartNestedSupervisors(t *testing.T) {
 	b0n := "branch0"
 	b1n := "branch1"
 
-	cs := []s.Node{
-		s.Worker(WaitDoneChild("child0")),
-		s.Worker(WaitDoneChild("child1")),
-		s.Worker(WaitDoneChild("child2")),
-		s.Worker(WaitDoneChild("child3")),
+	cs := []cap.Node{
+		WaitDoneWorker("child0"),
+		WaitDoneWorker("child1"),
+		WaitDoneWorker("child2"),
+		WaitDoneWorker("child3"),
 	}
 
-	b0 := s.New(b0n, s.WithChildren(cs[0], cs[1]))
-	b1 := s.New(b1n, s.WithChildren(cs[2], cs[3]))
+	b0 := cap.NewSupervisorSpec(b0n, cap.WithNodes(cs[0], cs[1]))
+	b1 := cap.NewSupervisorSpec(b1n, cap.WithNodes(cs[2], cs[3]))
 
 	events, err := ObserveSupervisor(
 		context.TODO(),
 		parentName,
-		s.WithChildren(
-			s.Subtree(b0),
-			s.Subtree(b1),
+		cap.WithNodes(
+			cap.Subtree(b0),
+			cap.Subtree(b1),
 		),
-		[]s.Opt{},
+		[]cap.Opt{},
 		func(EventManager) {},
 	)
 
@@ -157,26 +156,26 @@ func TestStartFailedChild(t *testing.T) {
 	b0n := "branch0"
 	b1n := "branch1"
 
-	cs := []s.Node{
-		s.Worker(WaitDoneChild("child0")),
-		s.Worker(WaitDoneChild("child1")),
-		s.Worker(WaitDoneChild("child2")),
-		// NOTE: FailStartChild here
-		s.Worker(FailStartChild("child3")),
-		s.Worker(WaitDoneChild("child4")),
+	cs := []cap.Node{
+		WaitDoneWorker("child0"),
+		WaitDoneWorker("child1"),
+		WaitDoneWorker("child2"),
+		// NOTE: FailStartWorker here
+		FailStartWorker("child3"),
+		WaitDoneWorker("child4"),
 	}
 
-	b0 := s.New(b0n, s.WithChildren(cs[0], cs[1]))
-	b1 := s.New(b1n, s.WithChildren(cs[2], cs[3], cs[4]))
+	b0 := cap.NewSupervisorSpec(b0n, cap.WithNodes(cs[0], cs[1]))
+	b1 := cap.NewSupervisorSpec(b1n, cap.WithNodes(cs[2], cs[3], cs[4]))
 
 	events, err := ObserveSupervisor(
 		context.TODO(),
 		parentName,
-		s.WithChildren(
-			s.Subtree(b0),
-			s.Subtree(b1),
+		cap.WithNodes(
+			cap.Subtree(b0),
+			cap.Subtree(b1),
 		),
-		[]s.Opt{},
+		[]cap.Opt{},
 		func(em EventManager) {},
 	)
 
@@ -218,25 +217,25 @@ func TestTerminateFailedChild(t *testing.T) {
 	b0n := "branch0"
 	b1n := "branch1"
 
-	cs := []s.Node{
-		s.Worker(WaitDoneChild("child0")),
-		s.Worker(WaitDoneChild("child1")),
-		// NOTE: There is a NeverTerminateChild here
-		s.Worker(NeverTerminateChild("child2")),
-		s.Worker(WaitDoneChild("child3")),
+	cs := []cap.Node{
+		WaitDoneWorker("child0"),
+		WaitDoneWorker("child1"),
+		// NOTE: There is a NeverTerminateWorker here
+		NeverTerminateWorker("child2"),
+		WaitDoneWorker("child3"),
 	}
 
-	b0 := s.New(b0n, s.WithChildren(cs[0], cs[1]))
-	b1 := s.New(b1n, s.WithChildren(cs[2], cs[3]))
+	b0 := cap.NewSupervisorSpec(b0n, cap.WithNodes(cs[0], cs[1]))
+	b1 := cap.NewSupervisorSpec(b1n, cap.WithNodes(cs[2], cs[3]))
 
 	events, err := ObserveSupervisor(
 		context.TODO(),
 		parentName,
-		s.WithChildren(
-			s.Subtree(b0),
-			s.Subtree(b1),
+		cap.WithNodes(
+			cap.Subtree(b0),
+			cap.Subtree(b1),
 		),
-		[]s.Opt{},
+		[]cap.Opt{},
 		func(em EventManager) {},
 	)
 

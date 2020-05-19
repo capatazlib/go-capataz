@@ -1,4 +1,4 @@
-package s
+package cap
 
 import (
 	"errors"
@@ -7,12 +7,12 @@ import (
 	"github.com/capatazlib/go-capataz/internal/c"
 )
 
-// startError is the error reported back to a Supervisor when
-// the start of a Child fails
+// startError is the error reported back to a Supervisor when the start of a
+// worker fails
 type startError = error
 
-// terminateError is the error reported back to a Supervisor when
-// the termination of a Child fails
+// terminateError is the error reported back to a Supervisor when the
+// termination of a worker fails
 type terminateError = error
 
 // SupervisorTerminationError wraps a termination error from a supervised
@@ -21,18 +21,18 @@ type terminateError = error
 type SupervisorTerminationError struct {
 	supRuntimeName string
 	rscCleanupErr  error
-	childErr       error
-	childErrMap    map[string]error
+	nodeErr        error
+	nodeErrMap     map[string]error
 }
 
-// Unwrap returns a error from a supervised goroutine (if any)
+// Unwrap returns anj error from a supervised goroutine (if any)
 func (se *SupervisorTerminationError) Unwrap() error {
-	return se.childErr
+	return se.nodeErr
 }
 
-// Cause returns a error from a supervised goroutine (if any)
+// Cause returns an error from a supervised goroutine (if any)
 func (se *SupervisorTerminationError) Cause() error {
-	return se.childErr
+	return se.nodeErr
 }
 
 // GetRuntimeName returns the name of the supervisor that failed
@@ -40,23 +40,23 @@ func (se *SupervisorTerminationError) GetRuntimeName() string {
 	return se.supRuntimeName
 }
 
-// ChildFailCount returns the number of children that failed to terminate
-// correctly. Note if a goroutine fails to terminate because of a shutdown
-// timeout, the failed goroutines may leak. This happens because go doesn't
-// offer any true way to _kill_ a goroutine.
-func (se *SupervisorTerminationError) ChildFailCount() int {
-	return len(se.childErrMap)
+// NodeFailCount returns the number of nodes that failed to terminate correctly.
+// Note if a goroutine fails to terminate because of a shutdown timeout, the
+// failed goroutines may leak. This happens because go doesn't offer any true
+// way to kill a goroutine.
+func (se *SupervisorTerminationError) NodeFailCount() int {
+	return len(se.nodeErrMap)
 }
 
 // KVs returns a data bag map that may be used in structured logging
 func (se *SupervisorTerminationError) KVs() map[string]interface{} {
 	kvs := make(map[string]interface{})
 	kvs["supervisor.name"] = se.supRuntimeName
-	for chKey, chErr := range se.childErrMap {
-		kvs[fmt.Sprintf("supervisor.child.%v.stop.error", chKey)] = chErr.Error()
+	for chKey, chErr := range se.nodeErrMap {
+		kvs[fmt.Sprintf("supervisor.node.%v.stop.error", chKey)] = chErr.Error()
 	}
-	if se.childErr != nil {
-		kvs["supervisor.termination.error"] = se.childErr.Error()
+	if se.nodeErr != nil {
+		kvs["supervisor.termination.error"] = se.nodeErr.Error()
 	}
 	if se.rscCleanupErr != nil {
 		kvs["supervisor.cleanup.error"] = se.rscCleanupErr.Error()
@@ -68,15 +68,15 @@ func (se *SupervisorTerminationError) KVs() map[string]interface{} {
 func (se *SupervisorTerminationError) Error() string {
 	// NOTE: We are not reporting error details on the string given we want to
 	// rely on structured logging via KVs
-	if (se.childErr != nil || len(se.childErrMap) > 0) && se.rscCleanupErr != nil {
+	if (se.nodeErr != nil || len(se.nodeErrMap) > 0) && se.rscCleanupErr != nil {
 		return fmt.Sprintf(
-			"supervisor children failed to terminate " +
+			"worker failed to terminate " +
 				"(and resource cleanup failed as well)",
 		)
-	} else if se.childErr != nil {
-		return fmt.Sprintf("supervisor child failed to terminate")
+	} else if se.nodeErr != nil {
+		return "worker failed to terminate"
 	} else if se.rscCleanupErr != nil {
-		return fmt.Sprintf("supervisor failed to cleanup resources")
+		return "supervisor failed to cleanup resources"
 	}
 	// NOTE: this case never happens, an invariant condition of this type has not
 	// been respected. If we are here, it means we manually created a wrong
@@ -86,12 +86,12 @@ func (se *SupervisorTerminationError) Error() string {
 	)
 }
 
-// SupervisorRestartError wraps an error tolerance surpassed error from a
-// children, enhancing it with supervisor information and possible shutdown
-// errors on other siblings
+// SupervisorRestartError wraps an error tolerance surpassed error from a child
+// node, enhancing it with supervisor information and possible shutdown errors
+// on other siblings
 type SupervisorRestartError struct {
 	supRuntimeName string
-	childErr       *c.ErrorToleranceReached
+	nodeErr        *c.ErrorToleranceReached
 	terminateErr   *SupervisorTerminationError
 }
 
@@ -99,7 +99,7 @@ type SupervisorRestartError struct {
 func (se *SupervisorRestartError) KVs() map[string]interface{} {
 	kvs := make(map[string]interface{})
 	terminateKvs := se.terminateErr.KVs()
-	childErrKvs := se.childErr.KVs()
+	childErrKvs := se.nodeErr.KVs()
 
 	for k, v := range terminateKvs {
 		kvs[k] = v
@@ -112,32 +112,33 @@ func (se *SupervisorRestartError) KVs() map[string]interface{} {
 	return kvs
 }
 
+// Error returns an error message
 func (se *SupervisorRestartError) Error() string {
 	// NOTE: We are not reporting error details on the string given we want to
 	// rely on structured logging via KVs
-	if se.childErr != nil && se.terminateErr != nil {
+	if se.nodeErr != nil && se.terminateErr != nil {
 		return fmt.Sprintf(
-			"supervisor child surpassed error threshold, " +
-				"(and other children failed to terminate as well)",
+			"worker surpassed error threshold, " +
+				"(and other nodes failed to terminate as well)",
 		)
-	} else if se.childErr != nil {
-		return fmt.Sprintf("supervisor child surpassed error tolerance")
+	} else if se.nodeErr != nil {
+		return "worker surpassed error tolerance"
 	} else if se.terminateErr != nil {
-		return fmt.Sprintf("supervisor children failed to terminate")
+		return "supervisor nodes failed to terminate"
 	}
 	// NOTE: this case never happens, an invariant condition of this type is that
-	// it only hold values with a childErr. If we are here, it means we manually
+	// it only hold values with a nodeErr. If we are here, it means we manually
 	// created a wrong SupervisorRestartError value (implementation error).
 	panic(
 		errors.New("invalid SupervisorRestartError was created"),
 	)
 }
 
-// Unwrap returns a child error or a termination error
+// Unwrap returns a child node error or a termination error
 func (se *SupervisorRestartError) Unwrap() error {
 	// it should never be nil
-	if se.childErr != nil {
-		return se.childErr.Unwrap()
+	if se.nodeErr != nil {
+		return se.nodeErr.Unwrap()
 	}
 	if se.terminateErr != nil {
 		return se.terminateErr
@@ -145,11 +146,11 @@ func (se *SupervisorRestartError) Unwrap() error {
 	return nil
 }
 
-// Cause returns a child error or a termination error
+// Cause returns a child node error or a termination error
 func (se *SupervisorRestartError) Cause() error {
 	// it should never be nil
-	if se.childErr != nil {
-		return se.childErr.Unwrap()
+	if se.nodeErr != nil {
+		return se.nodeErr.Unwrap()
 	}
 	if se.terminateErr != nil {
 		return se.terminateErr

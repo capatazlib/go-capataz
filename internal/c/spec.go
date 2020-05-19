@@ -151,10 +151,3 @@ func (chSpec ChildSpec) IsWorker() bool {
 func (chSpec ChildSpec) GetRestart() Restart {
 	return chSpec.Restart
 }
-
-// WithTag sets the given c.ChildTag on a c.ChildSpec
-func WithTag(t ChildTag) Opt {
-	return func(spec *ChildSpec) {
-		spec.Tag = t
-	}
-}

@@ -3,34 +3,7 @@ package c
 import (
 	"context"
 	"time"
-
-	"github.com/capatazlib/go-capataz/internal/c"
 )
-
-// NotifyStartFn is a function given to supervisor children to notify the
-// supervisor that the child has started.
-//
-// ### Notify child's start failure
-//
-// In case the child cannot get started it should call this function with an
-// error value different than nil.
-//
-type NotifyStartFn = c.NotifyStartFn
-
-// ChildSpec represents a Child specification; it serves as a template for the
-// construction of a goroutine. The ChildSpec record is used in conjunction with
-// the supervisor's SupervisorSpec.
-//
-// # A note about ChildTag
-//
-// An approach that we considered was to define a type heriarchy for
-// SupervisorChildSpec and WorkerChildSpec to deal with differences between
-// Workers and Supervisors rather than having a value you can use in a switch
-// statement. In reality, the differences between the two are minimal (only
-// behavior change happens when sending notifications to the events system). If
-// this changes, we may consider a design where we have a ChildSpec interface
-// and we have different implementations.
-type ChildSpec = c.ChildSpec
 
 // New creates a `ChildSpec` that represents a worker goroutine. It requires two
 // arguments: a `name` that is used for runtime tracing and a `startFn` function.
@@ -98,12 +71,12 @@ func NewWithNotifyStart(
 		// mechanism; If the timeout is reached and the goroutine does not stop, the
 		// supervisor will continue with the shutdown procedure, possibly leaving
 		// the goroutine running in memory (e.g. memory leak).
-		Shutdown: c.Timeout(5 * time.Second),
+		Shutdown: Timeout(5 * time.Second),
 
 		// Children will have a tolerance of 1 error every 5 seconds before telling
 		// the supervisor to give up, this is insipired by Erlang OTP documentation.
 		// http://erlang.org/doc/design_principles/sup_princ.html#maximum-restart-intensity
-		ErrTolerance: c.ErrTolerance{MaxErrCount: 1, ErrWindow: 5 * time.Second},
+		ErrTolerance: ErrTolerance{MaxErrCount: 1, ErrWindow: 5 * time.Second},
 	}
 
 	if name == "" {

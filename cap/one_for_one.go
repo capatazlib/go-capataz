@@ -1,4 +1,4 @@
-package s
+package cap
 
 import (
 	"errors"
@@ -30,7 +30,7 @@ func oneForOneRestart(
 	supChildren[chName] = newCh
 
 	if newCh.GetTag() == c.Worker {
-		eventNotifier.WorkerStarted(newCh.GetRuntimeName(), startTime)
+		eventNotifier.workerStarted(newCh.GetRuntimeName(), startTime)
 	}
 	return newCh, nil
 }

@@ -13,10 +13,10 @@ Each test is composed by a few components:
 
 The different known children builders are:
 
-* `WaitDoneChild`
-* `FailStartChild`
-* `FailOnSignalChild`
-* `NeverTerminateChild`
+* `WaitDoneWorker`
+* `FailStartWorker`
+* `FailOnSignalWorker`
+* `NeverTerminateWorker`
 
 All of them always return a `ChildSpec` with some expected behavior. In some
 cases a child builder returns a second value that allows you to control when the
