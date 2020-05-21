@@ -1,12 +1,15 @@
 let
-  # Look here for information about how to generate `nixpkgs-version.json`.
-  #  → https://nixos.wiki/wiki/FAQ/Pinning_Nixpkgs
-  pinnedVersion = builtins.fromJSON (builtins.readFile ./.nixpkgs-version.json);
-  pinnedPkgs = import (builtins.fetchGit {
-    inherit (pinnedVersion) url rev;
-    ref = "nixos-unstable";
-  }) {};
+  sources = import ./nix/sources.nix {};
 
+  # build an overlay with specific packages from sources.nix
+  overlay = _: pkgs: {
+    niv = import sources.niv {};
+  };
+
+  # get nixpkgs with pinned packages overlay
+  pinnedPkgs = import sources.nixpkgs {
+    overlays = [overlay];
+  };
 in
 
 # This allows overriding pkgs by passing `--arg pkgs ...`
@@ -33,22 +36,21 @@ let
     };
   };
 
+  go-capataz = import ./default.nix { pkgs = pkgs; };
+
 in
   pkgs.mkShell {
     buildInputs = with pkgs; [
       # bash scripts utilities
-      stdenv
       figlet
+      stdenv
 
       # current go version
-      go_1_13
-
-      # miscellaneous gathering of data
-      jq     # json
-      miller # csv
+      go_1_14
+      go-capataz
 
       # recommended packages to have for development with emacs/spacemacs
       gotools godef gocode golint golangci-lint gogetdoc gopkgs gotests impl
-      errcheck reftools humanlog delve
+      errcheck reftools humanlog delve vgo2nix
     ];
   }
