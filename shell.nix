@@ -51,7 +51,7 @@ in
 
       # recommended packages to have for development with emacs/spacemacs
       gotools godef gocode golint golangci-lint gogetdoc gopkgs gotests impl
-      errcheck reftools humanlog delve vgo2nix
+      errcheck reftools humanlog delve
     ];
 
     shellHook = ''

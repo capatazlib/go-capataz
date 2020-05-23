@@ -8,10 +8,16 @@ in
 
 assert pkgs.lib.versionAtLeast pkgs.go.version "1.14";
 
-pkgs.buildGoPackage rec {
+pkgs.buildGoModule rec {
   name = "go-capataz";
   version = "latest";
-  goPackagePath = "github.com/capatazlib/go-capataz";
   src = ./.;
-  goDeps = ./deps.nix;
+  vendorSha256 = "0zv0nfbc1qkj5jq9ax3da7g7jr1fqbb7zhy8sqis1h9jgzl06x2s";
+  meta = with pkgs.lib; {
+    description = "";
+    homepage = https://github.com/capatazlib/go-capataz;
+    license = licenses.mit;
+    maintainers = [ "Roman Gonzalez" ];
+    platforms = platforms.linux ++ platforms.darwin;
+  };
 }
