@@ -1,0 +1,25 @@
+name: "Tests"
+on:
+  pull_request:
+  push:
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: cachix/install-nix-action@v8
+      - uses: cachix/cachix-action@v6
+        with:
+          name: capatazlib
+          signingKey: '${{ secrets.CACHIX_SIGNING_KEY }}'
+
+      - name: Execute Linters
+        run: nix-shell ci.nix --run 'make lint'
+
+      - name: Execute Test Suite
+        run: nix-shell ci.nix --run 'make test'
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
