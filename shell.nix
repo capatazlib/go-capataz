@@ -4,6 +4,8 @@ let
   # build an overlay with specific packages from sources.nix
   overlay = _: pkgs: {
     niv = import sources.niv {};
+    # check note bellow
+    gopls = pkgs.callPackage ./nix/gopls {};
   };
 
   # get nixpkgs with pinned packages overlay
@@ -16,7 +18,6 @@ in
 { pkgs ? pinnedPkgs }:
 
 let
-
   humanlog = with pkgs; buildGoPackage rec {
     name = "humanlog";
     version = "0.2.1";
@@ -47,11 +48,17 @@ in
 
       # current go version
       go_1_14
-      go-capataz
 
       # recommended packages to have for development with emacs/spacemacs
       gotools godef gocode golint golangci-lint gogetdoc gopkgs gotests impl
       errcheck reftools humanlog delve
+
+      # NOTE: I needed to create a gopls package given gotools got broken
+      # https://github.com/NixOS/nixpkgs/issues/88716
+      gopls
+
+      # capataz deps
+      go-capataz
     ];
 
     shellHook = ''
