@@ -12,4 +12,5 @@ jobs:
         with:
           name: capatazlib
           signingKey: '${{ secrets.CACHIX_SIGNING_KEY }}'
+      - run: nix-shell ci.nix --run 'make lint'
       - run: nix-shell ci.nix --run 'make test'
