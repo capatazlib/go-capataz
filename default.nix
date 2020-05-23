@@ -1,4 +1,11 @@
-{ buildGoPackage, go, lib }:
+let
+  sources = import ./nix/sources.nix {};
+  pinnedPkgs = import sources.nixpkgs {};
+in
+
+{ buildGoPackage ? pinnedPkgs.buildGoPackage,
+  go             ? pinnedPkgs.go,
+  lib            ? pinnedPkgs.lib }:
 
 assert lib.versionAtLeast go.version "1.14";
 

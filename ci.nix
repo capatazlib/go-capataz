@@ -16,7 +16,7 @@ in
 { pkgs ? pinnedPkgs }:
 
 let
-  go-capataz = import ./default.nix { pkgs = pkgs; };
+  go-capataz = pkgs.callPackage ./. {};
 
 in
   pkgs.mkShell {
