@@ -53,4 +53,8 @@ in
       gotools godef gocode golint golangci-lint gogetdoc gopkgs gotests impl
       errcheck reftools humanlog delve vgo2nix
     ];
+
+    shellHook = ''
+    unset GOPATH
+    '';
   }
