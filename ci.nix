@@ -20,6 +20,7 @@ let
 
 in
   pkgs.mkShell {
+    GOROOT = go_1_14.GOROOT;
     buildInputs = with pkgs; [
       # current go version
       go_1_14
@@ -30,6 +31,7 @@ in
     ];
 
     shellHook = ''
+      unset GOROOT
       unset GOPATH
     '';
   }

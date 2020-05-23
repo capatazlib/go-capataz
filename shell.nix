@@ -56,5 +56,6 @@ in
 
     shellHook = ''
     unset GOPATH
+    unset GOROOT
     '';
   }
