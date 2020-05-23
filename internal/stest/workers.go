@@ -130,8 +130,8 @@ func PanicOnSignalWorker(
 	), startSignal
 }
 
-// CompleteOnSignalWorker creates a `cap.Node` that runs a goroutine that
-// will complete at at as soon as the returned start signal is called.
+// CompleteOnSignalWorker creates a cap.Node that runs a goroutine that will
+// complete at at as soon as the returned start signal is called.
 func CompleteOnSignalWorker(
 	totalCompleteCount int32,
 	name string,

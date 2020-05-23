@@ -118,6 +118,12 @@ func (chSpec ChildSpec) DoStart(
 		defer func() {
 			if chSpec.DoesCapturePanic() {
 				panicVal := recover()
+				// if there is a panicVal in the recover, we should handle this as an
+				// error
+				if panicVal == nil {
+					return
+				}
+
 				panicErr, ok := panicVal.(error)
 				if !ok {
 					panicErr = fmt.Errorf("panic error: %v", panicVal)
