@@ -12,7 +12,5 @@ jobs:
         with:
           name: capatazlib
           signingKey: '${{ secrets.CACHIX_SIGNING_KEY }}'
-      # - run: nix-shell ci.nix --run 'make lint'
-      - run: nix-shell ci.nix --run 'go version'
-      - run: nix-shell ci.nix --run 'env | grep GO'
+      - run: nix-shell ci.nix --run 'make lint'
       - run: nix-shell ci.nix --run 'make test'
