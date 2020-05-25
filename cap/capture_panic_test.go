@@ -12,8 +12,9 @@ import (
 func TestCapturePanic(t *testing.T) {
 	t.Run("one-level tree", func(t *testing.T) {
 		parentName := "root"
+		// We create a worker that fails with a panic only once
 		panicChild1, signalPanic1 := PanicOnSignalWorker(
-			1,
+			1, /* 1 panic only */
 			"child1",
 		)
 
@@ -34,11 +35,23 @@ func TestCapturePanic(t *testing.T) {
 
 		AssertExactMatch(t, events,
 			[]EventP{
-				// start children from left to right
+				// *** Supervisor start process ***
+
 				WorkerStarted("root/child1"),
 				SupervisorStarted("root"),
+				// ^^^ supervisor started successfully, from here, it is supervising the
+				// only worker node it has
 				WorkerFailedWith("root/child1", "Panicking child (1 out of 1)"),
+				// ^^^ As specified with the PanicOnSignalWorker, this worker fails
+				// only one time (1 out of 1)
 				WorkerStarted("root/child1"),
+				// ^^^ Worker is (re)started, this time, it won't panic (given we ran)
+				// out of panic errors to throw
+
+				// *** Supervisor termination process (via ObserveSupervisor) ***
+
+				// When supervisor is termianted, it starts with it's child nodes, and
+				// then itself.
 				WorkerTerminated("root/child1"),
 				SupervisorTerminated("root"),
 			},
