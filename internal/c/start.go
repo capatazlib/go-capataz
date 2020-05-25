@@ -42,7 +42,9 @@ func waitTimeout(
 	}
 }
 
-func sendChildNotification(
+// sendNotificationToSup creates a ChildNotification record and sends it to the
+// assigned supervisor for this child.
+func sendNotificationToSup(
 	err error,
 	chSpec ChildSpec,
 	chRuntimeName string,
@@ -107,8 +109,6 @@ func (chSpec ChildSpec) DoStart(
 
 	// Child Goroutine is bootstraped
 	go func() {
-		// TODO: Recover from panics
-
 		// we tell the spawner this child thread has stopped
 		defer close(terminateCh)
 
@@ -128,7 +128,7 @@ func (chSpec ChildSpec) DoStart(
 				if !ok {
 					panicErr = fmt.Errorf("panic error: %v", panicVal)
 				}
-				sendChildNotification(
+				sendNotificationToSup(
 					panicErr,
 					chSpec,
 					chRuntimeName,
@@ -149,7 +149,7 @@ func (chSpec ChildSpec) DoStart(
 			close(startCh)
 		})
 
-		sendChildNotification(
+		sendNotificationToSup(
 			err,
 			chSpec,
 			chRuntimeName,
