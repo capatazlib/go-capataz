@@ -10,6 +10,14 @@ func WithRestart(r Restart) Opt {
 	}
 }
 
+// WithCapturePanic specifies if panics raised by this worker should be treated
+// as errors. restartable errors.
+func WithCapturePanic(capture bool) Opt {
+	return func(spec *ChildSpec) {
+		spec.CapturePanic = capture
+	}
+}
+
 // WithShutdown specifies how the shutdown of the worker is going to be handled.
 // Read `Indefinitely` and `Timeout` shutdown values documentation for details.
 func WithShutdown(s Shutdown) Opt {

@@ -3,6 +3,7 @@ package c
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 )
@@ -41,6 +42,44 @@ func waitTimeout(
 	}
 }
 
+// sendNotificationToSup creates a ChildNotification record and sends it to the
+// assigned supervisor for this child.
+func sendNotificationToSup(
+	err error,
+	chSpec ChildSpec,
+	chRuntimeName string,
+	supNotifyCh chan<- ChildNotification,
+	terminateCh chan<- ChildNotification,
+) {
+
+	chNotification := ChildNotification{
+		name:        chSpec.GetName(),
+		tag:         chSpec.GetTag(),
+		runtimeName: chRuntimeName,
+		err:         err,
+	}
+
+	// We send the chNotification that got created to our parent supervisor.
+	//
+	// There are two ways the supervisor could receive this notification:
+	//
+	// 1) If the supervisor is running it's supervision loop (e.g. normal
+	// execution), the notification will be received over the `supNotifyCh`
+	// channel; this will execute the restart mechanisms.
+	//
+	// 2) If the supervisor is shutting down, it won't be reading the
+	// `supNotifyCh`, but instead is going to be executing the `stopChildren`
+	// function, which calls the `child.Terminate` method for each of the supervised
+	// internally, this function reads the `terminateCh`.
+	//
+	select {
+	// (1)
+	case supNotifyCh <- chNotification:
+	// (2)
+	case terminateCh <- chNotification:
+	}
+}
+
 // DoStart spawns a new goroutine that will execute the `Start` attribute of the
 // ChildSpec, this function will block until the spawned goroutine notifies it
 // has been initialized.
@@ -58,11 +97,11 @@ func waitTimeout(
 // logic.
 //
 func (chSpec ChildSpec) DoStart(
-	parentName string,
+	supName string,
 	supNotifyCh chan<- ChildNotification,
 ) (Child, error) {
 
-	runtimeName := strings.Join([]string{parentName, chSpec.GetName()}, "/")
+	chRuntimeName := strings.Join([]string{supName, chSpec.GetName()}, "/")
 	childCtx, cancelFn := context.WithCancel(context.Background())
 
 	startCh := make(chan startError)
@@ -70,13 +109,34 @@ func (chSpec ChildSpec) DoStart(
 
 	// Child Goroutine is bootstraped
 	go func() {
-		// TODO: Recover from panics
-
 		// we tell the spawner this child thread has stopped
 		defer close(terminateCh)
 
 		// we cancel the childCtx on regular termination
 		defer cancelFn()
+
+		defer func() {
+			if chSpec.DoesCapturePanic() {
+				panicVal := recover()
+				// if there is a panicVal in the recover, we should handle this as an
+				// error
+				if panicVal == nil {
+					return
+				}
+
+				panicErr, ok := panicVal.(error)
+				if !ok {
+					panicErr = fmt.Errorf("panic error: %v", panicVal)
+				}
+				sendNotificationToSup(
+					panicErr,
+					chSpec,
+					chRuntimeName,
+					supNotifyCh,
+					terminateCh,
+				)
+			}
+		}()
 
 		// client logic starts here, despite the call here being a "start", we will
 		// block and wait here until an error (or lack of) is reported from the
@@ -89,33 +149,13 @@ func (chSpec ChildSpec) DoStart(
 			close(startCh)
 		})
 
-		childNotification := ChildNotification{
-			name:        chSpec.GetName(),
-			tag:         chSpec.GetTag(),
-			runtimeName: runtimeName,
-			err:         err,
-		}
-
-		// We send the childNotification that got created to our parent supervisor.
-		//
-		// There are two ways the supervisor could receive this notification:
-		//
-		// 1) If the supervisor is running it's supervision loop (e.g. normal
-		// execution), the notification will be received over the `supNotifyCh`
-		// channel; this will execute the restart mechanisms.
-		//
-		// 2) If the supervisor is shutting down, it won't be reading the
-		// `supNotifyCh`, but instead is going to be executing the `stopChildren`
-		// function, which calls the `child.Terminate` method for each of the supervised
-		// internally, this function reads the `terminateCh`.
-		//
-		select {
-		// (1)
-		case supNotifyCh <- childNotification:
-		// (2)
-		case terminateCh <- childNotification:
-		}
-
+		sendNotificationToSup(
+			err,
+			chSpec,
+			chRuntimeName,
+			supNotifyCh,
+			terminateCh,
+		)
 	}()
 
 	// Wait until child thread notifies it has started or failed with an error
@@ -125,7 +165,7 @@ func (chSpec ChildSpec) DoStart(
 	}
 
 	return Child{
-		runtimeName: runtimeName,
+		runtimeName: chRuntimeName,
 		createdAt:   time.Now(),
 		spec:        chSpec,
 		cancel:      cancelFn,

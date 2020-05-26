@@ -18,7 +18,11 @@ import (
 
 func TestPermanentOneForOneSingleCompleteWorker(t *testing.T) {
 	parentName := "root"
-	child1, completeWorker1 := CompleteOnSignalWorker(3, "child1", cap.WithRestart(cap.Permanent))
+	child1, completeWorker1 := CompleteOnSignalWorker(
+		3,
+		"child1",
+		cap.WithRestart(cap.Permanent),
+	)
 
 	events, err := ObserveSupervisor(
 		context.TODO(),
