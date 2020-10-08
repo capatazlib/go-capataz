@@ -149,9 +149,9 @@ func getCrashError(
 	}
 }
 
-// GetCrashError returns a crash error if there is one, the second parameter
+// GetCrashError returns a crash error if there is one, the first parameter
 // indicates if the supervisor is running or not. If the returned error is not
-// nil, the second result will always be true.
+// nil, the first result will always be true.
 func (sup Supervisor) GetCrashError(block bool) (bool, error) {
 	return getCrashError(
 		sup.spec.eventNotifier,

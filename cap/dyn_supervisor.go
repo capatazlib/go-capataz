@@ -284,7 +284,7 @@ func (dyn DynSupervisor) GetName() string {
 //
 // As opposed to a Supervisor, a DynSupervisor:
 //
-// * Cannot receive node specifications to start then in an static fashion
+// * Cannot receive node specifications to start them in an static fashion
 //
 // * It is able to spawn workers dynamically
 //
