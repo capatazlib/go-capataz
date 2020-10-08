@@ -124,6 +124,11 @@ func AssertPartialMatch(t *testing.T, evs []cap.Event, preds []EventP) {
 	}
 }
 
+// ObserveDynSupervisor is an utility function that receives all the arguments
+// required to build a DynSupervisor, and a callback that when executed will
+// block until some point in the future (after we performed the side-effects we
+// are testing). This function returns the list of events that happened in the monitored
+// supervised tree, as well as any crash errors.
 func ObserveDynSupervisor(
 	ctx context.Context,
 	rootName string,
@@ -204,7 +209,8 @@ func ObserveDynSupervisor(
 // ObserveSupervisor is an utility function that receives all the arguments
 // required to build a SupervisorSpec, and a callback that when executed will
 // block until some point in the future (after we performed the side-effects we
-// are testing).
+// are testing). This function returns the list of events that happened in the
+// monitored supervised tree, as well as any crash errors.
 func ObserveSupervisor(
 	ctx context.Context,
 	rootName string,
