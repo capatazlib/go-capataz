@@ -176,7 +176,12 @@ func (dyn *DynSupervisor) terminateNode(nodeName string) func() error {
 			return
 		}
 
-		err = <-resultCh
+		select {
+		case err = <-resultCh:
+		default:
+			// Not sure when this scenario would happen to be honest :shrug:
+			err = errors.New("could not get a cancelation confirmation from worker")
+		}
 		return
 	}
 }
