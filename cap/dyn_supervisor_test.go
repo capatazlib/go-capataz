@@ -159,6 +159,8 @@ func TestDynStartFailedChild(t *testing.T) {
 			WorkerTerminated("root/branch0/child0"),
 			SupervisorTerminated("root/branch0"),
 			SupervisorTerminated("root"),
+			// ^ here, we get a supervisor terminated because the supervisor does not
+			// crash on children start, as opposed to static supervisors
 		},
 	)
 }

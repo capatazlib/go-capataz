@@ -139,7 +139,9 @@ func handleCtrlMsg(
 
 func (dyn *DynSupervisor) terminateNode(nodeName string) func() error {
 
-	resultCh := make(chan terminateError)
+	// we initialize the resultCh with a buffer of 1, we may store the result
+	// before the client is ready to read it.
+	resultCh := make(chan terminateError, 1)
 	terminatemsg := terminateChildMsg{
 		nodeName:   nodeName,
 		resultChan: resultCh,
@@ -161,7 +163,6 @@ func (dyn *DynSupervisor) terminateNode(nodeName string) func() error {
 		}()
 		// block until the supervisor can handle the request, in case the
 		// supervisor is stopped, this line is going to panic
-		// TODO: be extra paranoid and add a timeout here
 		msg := ctrlMsg{
 			tag: terminateChild,
 			msg: terminatemsg,
@@ -203,7 +204,9 @@ func (dyn *DynSupervisor) Spawn(nodeFn Node) (func() error, error) {
 		return nil, fmt.Errorf("supervisor already terminated: %w", terminationErr)
 	}
 
-	resultCh := make(chan interface{})
+	// we initialize the resultCh with a buffer of 1, we may store the result
+	// before the client is ready to read it.
+	resultCh := make(chan interface{}, 1)
 	startmsg := startChildMsg{
 		node:       nodeFn,
 		resultChan: resultCh,
