@@ -356,17 +356,17 @@ func TestDynCancelAlreadyTerminatedWorker(t *testing.T) {
 	)
 }
 
-// func TestDynCancelAlreadyTerminatedSupervisor(t *testing.T) {
-//	sup, err := cap.NewDynSupervisor(context.TODO(), "root")
-//	assert.NoError(t, err)
+func TestDynCancelAlreadyTerminatedSupervisor(t *testing.T) {
+	sup, err := cap.NewDynSupervisor(context.TODO(), "root")
+	assert.NoError(t, err)
 
-//	cancelWorker, err := sup.Spawn(WaitDoneWorker("one"))
-//	assert.NoError(t, err)
+	cancelWorker, err := sup.Spawn(WaitDoneWorker("one"))
+	assert.NoError(t, err)
 
-//	err = sup.Terminate()
-//	assert.NoError(t, err)
+	err = sup.Terminate()
+	assert.NoError(t, err)
 
-//	err = cancelWorker()
-//	assert.Error(t, err)
-//	assert.Equal(t, "could not talk to supervisor: send on closed channel", err.Error())
-// }
+	err = cancelWorker()
+	assert.Error(t, err)
+	assert.Equal(t, "could not talk to supervisor: send on closed channel", err.Error())
+}
