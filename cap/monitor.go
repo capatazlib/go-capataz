@@ -172,7 +172,7 @@ func startChildNodes(
 		if chStartErr != nil {
 			nodeErrMap := terminateChildNodes(spec, supChildrenSpecs, children)
 			// Is important we stop the children before we finish the supervisor
-			return nil, &SupervisorTerminationError{
+			return nil, &SupervisorError{
 				supRuntimeName: supRuntimeName,
 				nodeErr:        chStartErr,
 				nodeErrMap:     nodeErrMap,
@@ -249,7 +249,7 @@ func terminateSupervisor(
 	onTerminate func(error),
 	restartErr *c.ErrorToleranceReached,
 ) error {
-	var terminateErr *SupervisorTerminationError
+	var terminateErr *SupervisorError
 	supNodeErrMap := terminateChildNodes(supSpec, supChildrenSpecs, supChildren)
 	supRscCleanupErr := supRscCleanup()
 
@@ -259,7 +259,7 @@ func terminateSupervisor(
 
 		// On async strategy, we notify that the spawner terminated with an
 		// error
-		terminateErr = &SupervisorTerminationError{
+		terminateErr = &SupervisorError{
 			supRuntimeName: supRuntimeName,
 			nodeErrMap:     supNodeErrMap,
 			rscCleanupErr:  supRscCleanupErr,
