@@ -178,7 +178,7 @@ func (dyn *DynSupervisor) terminateNode(nodeName string) func() error {
 
 		select {
 		case err = <-resultCh:
-		default:
+		case <-time.After(1 * time.Second):
 			// Not sure when this scenario would happen to be honest :shrug:
 			err = errors.New("could not get a cancelation confirmation from worker")
 		}
@@ -225,26 +225,28 @@ func (dyn *DynSupervisor) Spawn(nodeFn Node) (func() error, error) {
 		return nil, errors.New("could not talk to supervisor")
 	}
 
-	// blocks until worker start, the worker already has a timeout mechanism
-	// so we rely on that to not get stuck here forever
-	result, ok := <-resultCh
+	select {
+	case result, ok := <-resultCh:
+		if !ok {
+			panic("could not get the result of a spawn call. Implementation error")
+		}
 
-	if !ok {
-		panic("could not get the result of a spawn call. Implementation error")
-	}
+		switch v := result.(type) {
+		// successful case
+		case string:
+			return dyn.terminateNode(v), nil
 
-	switch v := result.(type) {
-	// successful case
-	case string:
-		return dyn.terminateNode(v), nil
+			// error case
+		case error:
+			return nil, v
 
-	// error case
-	case error:
-		return nil, v
-
-	// unknown case
-	default:
-		panic("did not get valid response value from control message. Implementation error")
+			// unknown case
+		default:
+			panic("did not get valid response value from control message. Implementation error")
+		}
+	case <-time.After(1 * time.Second):
+		// Not sure when this scenario would happen to be honest :shrug:
+		return nil, errors.New("could not get a creation confirmation from worker")
 	}
 }
 
