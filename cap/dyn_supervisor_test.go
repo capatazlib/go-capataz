@@ -273,3 +273,100 @@ func TestDynSpawnAfterCrashedSupervisor(t *testing.T) {
 		},
 	)
 }
+
+func TestDynCancelWorker(t *testing.T) {
+	events, errs := ObserveDynSupervisor(
+		context.TODO(),
+		"root",
+		[]cap.Node{},
+		[]cap.Opt{},
+		func(sup cap.DynSupervisor, em EventManager) {
+			evIt := em.Iterator()
+
+			cancelWorker1, err := sup.Spawn(WaitDoneWorker("one"))
+			assert.NoError(t, err)
+
+			// wait for start before termination
+			evIt.SkipTill(WorkerStarted("root/one"))
+			cancelWorker1()
+			// wait for termination
+			evIt.SkipTill(WorkerTerminated("root/one"))
+
+			// spawn a second worker to spice the test a little
+			_, err = sup.Spawn(WaitDoneWorker("two"))
+		},
+	)
+
+	assert.Empty(t, errs)
+
+	AssertExactMatch(t, events,
+		[]EventP{
+			SupervisorStarted("root"),
+			WorkerStarted("root/one"),
+			WorkerTerminated("root/one"),
+			WorkerStarted("root/two"),
+			WorkerTerminated("root/two"),
+			// ^^^ triggered by supervisor termination
+			SupervisorTerminated("root"),
+		},
+	)
+}
+
+func TestDynCancelAlreadyTerminatedWorker(t *testing.T) {
+	events, errs := ObserveDynSupervisor(
+		context.TODO(),
+		"root",
+		[]cap.Node{},
+		[]cap.Opt{},
+		func(sup cap.DynSupervisor, em EventManager) {
+			evIt := em.Iterator()
+
+			cancelWorker1, err := sup.Spawn(WaitDoneWorker("one"))
+			assert.NoError(t, err)
+
+			// wait for start before termination
+			evIt.SkipTill(WorkerStarted("root/one"))
+			err = cancelWorker1()
+			assert.NoError(t, err)
+			// wait for termination
+			evIt.SkipTill(WorkerTerminated("root/one"))
+
+			// should fail with appropiate error
+			err = cancelWorker1()
+			assert.Error(t, err)
+			assert.Equal(t, err.Error(), "worker one not found")
+
+			// spawn a second worker to spice the test a little
+			_, err = sup.Spawn(WaitDoneWorker("two"))
+		},
+	)
+
+	assert.Empty(t, errs)
+
+	AssertExactMatch(t, events,
+		[]EventP{
+			SupervisorStarted("root"),
+			WorkerStarted("root/one"),
+			WorkerTerminated("root/one"),
+			WorkerStarted("root/two"),
+			WorkerTerminated("root/two"),
+			// ^^^ triggered by supervisor termination
+			SupervisorTerminated("root"),
+		},
+	)
+}
+
+func TestDynCancelAlreadyTerminatedSupervisor(t *testing.T) {
+	sup, err := cap.NewDynSupervisor(context.TODO(), "root")
+	assert.NoError(t, err)
+
+	cancelWorker, err := sup.Spawn(WaitDoneWorker("one"))
+	assert.NoError(t, err)
+
+	err = sup.Terminate()
+	assert.NoError(t, err)
+
+	err = cancelWorker()
+	assert.Error(t, err)
+	assert.Equal(t, "could not talk to supervisor: send on closed channel", err.Error())
+}

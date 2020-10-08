@@ -46,6 +46,8 @@ type DynSupervisor struct {
 	terminationErr error
 }
 
+// handleCtrlMsg is used in the supervisor monitor loop to operator over public
+// API calls like Spawn or Cancel a child node.
 func handleCtrlMsg(
 	eventNotifier EventNotifier,
 	supSpec SupervisorSpec,
@@ -119,6 +121,15 @@ func handleCtrlMsg(
 		default:
 		}
 
+		// we remove the terminated child from the spec and the runtime children to
+		// avoid shutting it down on supervisor termination
+		for i, chSpec := range supChildrenSpec {
+			if chSpec.GetName() == ch.GetName() {
+				supChildrenSpec = append(supChildrenSpec[:i], supChildrenSpec[i+1:]...)
+				delete(supChildren, ch.GetName())
+			}
+		}
+
 		return supChildrenSpec, supChildren
 
 	default:
@@ -126,22 +137,47 @@ func handleCtrlMsg(
 	}
 }
 
-func (dyn *DynSupervisor) terminateNode(nodeName string) context.CancelFunc {
+func (dyn *DynSupervisor) terminateNode(nodeName string) func() error {
+
 	resultCh := make(chan terminateError)
 	terminatemsg := terminateChildMsg{
 		nodeName:   nodeName,
 		resultChan: resultCh,
 	}
-	return func() {
+	return func() (err error) {
+		defer func() {
+			panicVal := recover()
+			if panicVal == nil {
+				return
+			}
+			switch v := panicVal.(type) {
+			case error:
+				err = fmt.Errorf("could not talk to supervisor: %w", v)
+				return
+			default:
+				// retrigger panic, this would happen on an implementation error
+				panic(panicVal)
+			}
+		}()
 		// block until the supervisor can handle the request, in case the
 		// supervisor is stopped, this line is going to panic
 		// TODO: be extra paranoid and add a timeout here
-		dyn.sup.ctrlCh <- ctrlMsg{
+		msg := ctrlMsg{
 			tag: terminateChild,
 			msg: terminatemsg,
 		}
+		select {
+		case dyn.sup.ctrlCh <- msg:
+		case _ = <-time.After(1 * time.Second):
+			// This scenario can happen when the supervisor is being terminated and the
+			// non-blocking sup.GetCrashError happened just before that (race
+			// condition).
+			err = errors.New("could not talk to supervisor")
+			return
+		}
 
-		_ = <-resultCh
+		err = <-resultCh
+		return
 	}
 }
 
@@ -149,17 +185,17 @@ func (dyn *DynSupervisor) terminateNode(nodeName string) context.CancelFunc {
 // either returns a cancel/shutdown callback or an error in the scenario the
 // start of this worker failed. This function blocks until the worker is
 // started.
-func (dyn *DynSupervisor) Spawn(nodeFn Node) (context.CancelFunc, error) {
+func (dyn *DynSupervisor) Spawn(nodeFn Node) (func() error, error) {
 	// if we already registered a terminationErr, return it
 	if dyn.terminated {
-		return func() {}, fmt.Errorf("supervisor already terminated: %w", dyn.terminationErr)
+		return nil, fmt.Errorf("supervisor already terminated: %w", dyn.terminationErr)
 	}
 
 	// if the underlying supervisor is kaput, return the error
 	if terminated, terminationErr := dyn.sup.GetCrashError(false); terminated {
 		dyn.terminated = true
 		dyn.terminationErr = terminationErr
-		return func() {}, fmt.Errorf("supervisor already terminated: %w", terminationErr)
+		return nil, fmt.Errorf("supervisor already terminated: %w", terminationErr)
 	}
 
 	resultCh := make(chan interface{})
@@ -181,7 +217,7 @@ func (dyn *DynSupervisor) Spawn(nodeFn Node) (context.CancelFunc, error) {
 		// This scenario can happen when the supervisor is being terminated and the
 		// non-blocking sup.GetCrashError happened just before that (race
 		// condition).
-		return func() {}, errors.New("could not talk to the supervisor")
+		return nil, errors.New("could not talk to supervisor")
 	}
 
 	// blocks until worker start, the worker already has a timeout mechanism
