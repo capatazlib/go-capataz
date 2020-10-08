@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/capatazlib/go-capataz/internal/c"
 )
@@ -155,7 +156,7 @@ func (dyn *DynSupervisor) Spawn(nodeFn Node) (context.CancelFunc, error) {
 	}
 
 	// if the underlying supervisor is kaput, return the error
-	if terminationErr := dyn.sup.GetCrashError(); terminationErr != nil {
+	if terminated, terminationErr := dyn.sup.GetCrashError(false); terminated {
 		dyn.terminated = true
 		dyn.terminationErr = terminationErr
 		return func() {}, fmt.Errorf("supervisor already terminated: %w", terminationErr)
@@ -169,10 +170,18 @@ func (dyn *DynSupervisor) Spawn(nodeFn Node) (context.CancelFunc, error) {
 
 	// block until the supervisor can handle the request, in case the
 	// supervisor is stopped, this line is going to panic
-	// TODO: be extra paranoid and add a timeout here
-	dyn.sup.ctrlCh <- ctrlMsg{
+	msg := ctrlMsg{
 		tag: startChild,
 		msg: startmsg,
+	}
+
+	select {
+	case dyn.sup.ctrlCh <- msg:
+	case _ = <-time.After(1 * time.Second):
+		// This scenario can happen when the supervisor is being terminated and the
+		// non-blocking sup.GetCrashError happened just before that (race
+		// condition).
+		return func() {}, errors.New("could not talk to the supervisor")
 	}
 
 	// blocks until worker start, the worker already has a timeout mechanism

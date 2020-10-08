@@ -245,12 +245,23 @@ func TestDynSpawnAfterCrashedSupervisor(t *testing.T) {
 			evIt := em.Iterator()
 			evIt.SkipTill(WorkerFailed("root/failing"))
 
+			// Wait for supervisor to be done
+			done := make(chan struct{})
+			// wait on a different goroutine to wait for the termination error to be
+			// filled, otherwise, we run into race conditions
+			go func() {
+				defer close(done)
+				sup.Wait()
+			}()
+			<-done
+
+			// try to spawn a worker again
 			_, err = sup.Spawn(failingNode)
 			assert.Error(t, err)
 		},
 	)
 
-	assert.Empty(t, errs)
+	assert.NotEmpty(t, errs)
 
 	AssertExactMatch(t, events,
 		[]EventP{

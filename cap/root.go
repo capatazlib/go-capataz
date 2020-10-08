@@ -10,6 +10,7 @@ package cap
 import (
 	"context"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/capatazlib/go-capataz/internal/c"
@@ -82,13 +83,28 @@ func (spec SupervisorSpec) rootStart(
 		return Supervisor{}, rscAllocError
 	}
 
+	// The variables bellow are used to detect the termination of a supervisor.
+	// This is necessary because when we run a DynSupervisor, we need to make sure
+	// that we *do not* spawn workers on a terminated supervisor, otherwise we run
+	// the risk to get a panic error, not good.
+	var mux sync.Mutex
+
+	var terminatedVal = false
+	var terminated = &terminatedVal
+
+	var terminateErrVal error
+	var terminateErr = &terminateErrVal
+
 	sup := Supervisor{
-		runtimeName: supRuntimeName,
-		ctrlCh:      ctrlCh,
-		terminateCh: terminateCh,
-		spec:        spec,
-		children:    make(map[string]c.Child, len(childrenSpecs)),
-		cancel:      cancelFn,
+		mux:          &mux,
+		runtimeName:  supRuntimeName,
+		ctrlCh:       ctrlCh,
+		terminateCh:  terminateCh,
+		terminated:   terminated,
+		terminateErr: terminateErr,
+		spec:         spec,
+		children:     make(map[string]c.Child, len(childrenSpecs)),
+		cancel:       cancelFn,
 		wait: func(stopingTime time.Time, startErr error) error {
 
 			// We check if there was an start error reported, if this is the case, we
@@ -102,21 +118,21 @@ func (spec SupervisorSpec) rootStart(
 			// errors in the termination (e.g. Timeout of child, error tolerance
 			// surpassed, etc.), the terminateCh is going to return an error,
 			// otherwise it will return nil
-			supErr := <-terminateCh
+			_, supErr := getCrashError(
+				eventNotifier,
+				supRuntimeName,
+				&mux,
+				terminateCh,
+				terminated,
+				terminateErr,
+				stopingTime,
+				true, /* block */
+			)
 
 			if supErr != nil {
-				eventNotifier.supervisorFailed(supRuntimeName, supErr)
 				return supErr
 			}
 
-			// stopingTime is only relevant when we call the internal wait function
-			// from the Terminate() public API; if we just called from Wait(), we don't
-			// need to keep track of the stop duration
-			if stopingTime == (time.Time{}) {
-				stopingTime = time.Now()
-			}
-
-			eventNotifier.supervisorTerminated(supRuntimeName, stopingTime)
 			return nil
 		},
 	}

@@ -194,7 +194,6 @@ func terminateChildNode(
 	terminationErr := ch.Terminate()
 
 	if terminationErr != nil {
-
 		// we also notify that the process failed
 		eventNotifier.processFailed(chSpec.GetTag(), ch.GetRuntimeName(), terminationErr)
 		return terminationErr
