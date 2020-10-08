@@ -59,7 +59,7 @@ func (spec SupervisorSpec) rootStart(
 	notifyCh := make(chan c.ChildNotification)
 
 	// ctrlCh is used to keep track of request from client APIs (e.g. spawn child)
-	// ctrlCh := make(chan ControlMsg)
+	ctrlCh := make(chan ctrlMsg)
 
 	// startCh is used to track when the supervisor loop thread has started
 	startCh := make(chan startError)
@@ -84,6 +84,8 @@ func (spec SupervisorSpec) rootStart(
 
 	sup := Supervisor{
 		runtimeName: supRuntimeName,
+		ctrlCh:      ctrlCh,
+		terminateCh: terminateCh,
 		spec:        spec,
 		children:    make(map[string]c.Child, len(childrenSpecs)),
 		cancel:      cancelFn,
@@ -130,6 +132,7 @@ func (spec SupervisorSpec) rootStart(
 		if err != nil {
 			terminateCh <- err
 		}
+		close(ctrlCh)
 		close(terminateCh)
 	}
 
@@ -145,7 +148,7 @@ func (spec SupervisorSpec) rootStart(
 			supRuntimeName,
 			supRscCleanup,
 			notifyCh,
-			// ctrlCh,
+			ctrlCh,
 			startTime,
 			onStart,
 			onTerminate,

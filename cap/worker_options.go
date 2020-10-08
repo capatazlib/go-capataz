@@ -106,7 +106,7 @@ var WithCapturePanic = c.WithCapturePanic
 var WithTag = c.WithTag
 
 // WithTolerance is a WorkerOpt that specifies how many errors the supervisor
-// should be willing to tolerate before giving up restarting it and fail.
+// should be willing to tolerate before giving up restarting and fail.
 //
 // If the tolerance is met, the parent supervisor is going to fail, if this is a
 // sub-tree, this error is going to be handled by a grand-parent supervisor,

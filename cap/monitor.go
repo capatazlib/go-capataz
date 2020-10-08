@@ -115,6 +115,38 @@ func handleChildNodeNotification(
 
 ////////////////////////////////////////////////////////////////////////////////
 
+// startChildNode is responsible of starting a single child. This function will
+// deal with the child lifecycle notification. It will return an error if
+// something goes wrong with the initialization of this child.
+func startChildNode(
+	spec SupervisorSpec,
+	supRuntimeName string,
+	notifyCh chan c.ChildNotification,
+	chSpec c.ChildSpec,
+) (c.Child, error) {
+	eventNotifier := spec.getEventNotifier()
+	startedTime := time.Now()
+	ch, chStartErr := chSpec.DoStart(supRuntimeName, notifyCh)
+
+	// NOTE: The error handling code bellow gets executed when the children
+	// fails at start time
+	if chStartErr != nil {
+		cRuntimeName := strings.Join(
+			[]string{supRuntimeName, chSpec.GetName()},
+			nodeSepToken,
+		)
+		eventNotifier.processStartFailed(chSpec.GetTag(), cRuntimeName, chStartErr)
+		return c.Child{}, chStartErr
+	}
+
+	// NOTE: we only notify when child is a worker because sub-trees supervisors
+	// are responsible of their own notification
+	if chSpec.IsWorker() {
+		eventNotifier.workerStarted(ch.GetRuntimeName(), startedTime)
+	}
+	return ch, nil
+}
+
 // startChildNodes iterates over all the children (specified with `cap.WithNodes`
 // and `cap.WithSubtree`) starting a goroutine for each. The children iteration
 // will be sorted as specified with the `cap.WithOrder` option. In case any child
@@ -126,22 +158,18 @@ func startChildNodes(
 	supRuntimeName string,
 	notifyCh chan c.ChildNotification,
 ) (map[string]c.Child, error) {
-	eventNotifier := spec.getEventNotifier()
 	children := make(map[string]c.Child)
 
-	// Start children
+	// Start children in the correct order
 	for _, chSpec := range spec.order.sortStart(supChildrenSpecs) {
-		startedTime := time.Now()
-		ch, chStartErr := chSpec.DoStart(supRuntimeName, notifyCh)
-
-		// NOTE: The error handling code bellow gets executed when the children
-		// fails at start time
+		// the function above will modify the children internally
+		ch, chStartErr := startChildNode(
+			spec,
+			supRuntimeName,
+			notifyCh,
+			chSpec,
+		)
 		if chStartErr != nil {
-			cRuntimeName := strings.Join(
-				[]string{supRuntimeName, chSpec.GetName()},
-				nodeSepToken,
-			)
-			eventNotifier.processStartFailed(chSpec.GetTag(), cRuntimeName, chStartErr)
 			nodeErrMap := terminateChildNodes(spec, supChildrenSpecs, children)
 			// Is important we stop the children before we finish the supervisor
 			return nil, &SupervisorTerminationError{
@@ -150,43 +178,30 @@ func startChildNodes(
 				nodeErrMap:     nodeErrMap,
 			}
 		}
-
-		// NOTE: we only notify when child is a worker because sub-trees supervisors
-		// are responsible of their own notification
-		if chSpec.IsWorker() {
-			eventNotifier.workerStarted(ch.GetRuntimeName(), startedTime)
-		}
 		children[chSpec.GetName()] = ch
 	}
 	return children, nil
 }
 
 // terminateChildNode executes the Terminate procedure on the given child, in case
-// there is an error on termination it notifies the event system and appends a
-// new entry to the given error map.
+// there is an error on termination it notifies the event system
 func terminateChildNode(
 	eventNotifier EventNotifier,
-	supNodeErrMap map[string]error,
 	ch c.Child,
-) map[string]error {
+) error {
 	chSpec := ch.GetSpec()
 	stoppingTime := time.Now()
 	terminationErr := ch.Terminate()
 
 	if terminationErr != nil {
-		// if a child fails to stop (either because of a legit failure or a
-		// timeout), we store the terminationError so that we can report all of them
-		// later
-		supNodeErrMap[chSpec.GetName()] = terminationErr
 
 		// we also notify that the process failed
 		eventNotifier.processFailed(chSpec.GetTag(), ch.GetRuntimeName(), terminationErr)
-	} else {
-		// we need to notify that the process stopped
-		eventNotifier.processTerminated(chSpec.GetTag(), ch.GetRuntimeName(), stoppingTime)
+		return terminationErr
 	}
-
-	return supNodeErrMap
+	// we need to notify that the process stopped
+	eventNotifier.processTerminated(chSpec.GetTag(), ch.GetRuntimeName(), stoppingTime)
+	return nil
 }
 
 // terminateChildNodes is used on the shutdown of the supervisor tree, it stops
@@ -212,7 +227,13 @@ func terminateChildNodes(
 		// * On stop, there may be a Transient child that completed, or a Temporary child
 		// that completed or failed.
 		if ok {
-			supNodeErrMap = terminateChildNode(eventNotifier, supNodeErrMap, ch)
+			terminationErr := terminateChildNode(eventNotifier, ch)
+			if terminationErr != nil {
+				// if a child fails to stop (either because of a legit failure or a
+				// timeout), we store the terminationError so that we can report all of them
+				// later
+				supNodeErrMap[chSpec.GetName()] = terminationErr
+			}
 		}
 	}
 	return supNodeErrMap
@@ -300,6 +321,7 @@ func runMonitorLoop(
 	supRuntimeName string,
 	supRscCleanup CleanupResourcesFn,
 	supNotifyCh chan c.ChildNotification,
+	ctrlCh chan ctrlMsg,
 	supStartTime time.Time,
 	onStart c.NotifyStartFn,
 	onTerminate notifyTerminationFn,
@@ -383,8 +405,16 @@ func runMonitorLoop(
 				)
 			}
 
-			// case msg := <-ctrlCh:
-			// TODO: Deal with public facing API calls
+		case msg := <-ctrlCh:
+			supChildrenSpecs, supChildren = handleCtrlMsg(
+				eventNotifier,
+				supSpec,
+				supChildrenSpecs,
+				supRuntimeName,
+				supChildren,
+				supNotifyCh,
+				msg,
+			)
 		}
 	}
 }

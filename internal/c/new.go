@@ -2,6 +2,7 @@ package c
 
 import (
 	"context"
+	"fmt"
 	"time"
 )
 
@@ -88,7 +89,7 @@ func NewWithNotifyStart(
 	spec.Name = name
 
 	if startFn == nil {
-		panic("Child cannot have empty start function")
+		panic(fmt.Sprintf("Child %s cannot have empty start function\n", name))
 	}
 
 	// apply options

@@ -15,11 +15,14 @@ import (
 // supervisor detects an error has occured. A Supervisor will always be
 // generated from a SupervisorSpec
 type Supervisor struct {
-	runtimeName string
-	spec        SupervisorSpec
-	children    map[string]c.Child
-	cancel      func()
-	wait        func(time.Time, startError) error
+	runtimeName    string
+	ctrlCh         chan ctrlMsg
+	terminateCh    chan error
+	terminationErr error
+	spec           SupervisorSpec
+	children       map[string]c.Child
+	cancel         func()
+	wait           func(time.Time, startError) error
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -45,4 +48,18 @@ func (sup Supervisor) Wait() error {
 // GetName returns the name of the Spec used to start this Supervisor
 func (sup Supervisor) GetName() string {
 	return sup.spec.GetName()
+}
+
+// GetCrashError will return an error if the supervisor crashed, otherwise
+// returns nil.
+func (sup Supervisor) GetCrashError() error {
+	var terminationErr error
+	select {
+	case terminationErr = <-sup.terminateCh:
+	default:
+	}
+	if terminationErr != nil {
+		sup.spec.eventNotifier.supervisorFailed(sup.runtimeName, terminationErr)
+	}
+	return terminationErr
 }
