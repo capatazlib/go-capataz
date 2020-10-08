@@ -336,9 +336,6 @@ func runMonitorLoop(
 		// in case we run in the async strategy we notify the spawner that we
 		// started with an error
 		onStart(restartErr)
-		// We signal that we terminated, the error is not reported here because
-		// it was reported in the onStart callback
-		onTerminate(nil)
 		return restartErr
 	}
 
