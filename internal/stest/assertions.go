@@ -157,7 +157,7 @@ func ObserveDynSupervisor(
 
 	errors := []error{}
 
-	// start procedurally the children given children
+	// start procedurally the given children
 	for _, node := range childNodes {
 		_, spawnErr := sup.Spawn(node)
 		if spawnErr != nil {
