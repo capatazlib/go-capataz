@@ -183,11 +183,6 @@ func ObserveDynSupervisor(
 	// be the last event reported
 	evIt.SkipTill(ProcessName(rootName))
 
-	if err != nil {
-		callback(sup, evManager)
-		return evManager.Snapshot(), []error{err}
-	}
-
 	// callback to do assertions with the event manager
 	callback(sup, evManager)
 
