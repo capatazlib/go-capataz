@@ -149,10 +149,10 @@ func ObserveDynSupervisor(
 
 	// We always want to start the supervisor for test purposes, so this is
 	// embedded in the ObserveDynSupervisor call
-	sup, err := cap.NewDynSupervisor(ctx, rootName, opts...)
+	sup, startErr := cap.NewDynSupervisor(ctx, rootName, opts...)
 
-	if err != nil {
-		return evManager.Snapshot(), []error{err}
+	if startErr != nil {
+		return evManager.Snapshot(), []error{startErr}
 	}
 
 	errors := []error{}
@@ -169,8 +169,8 @@ func ObserveDynSupervisor(
 
 	if len(errors) != 0 {
 		// once tests are done, we stop the supervisor
-		if err = sup.Terminate(); err != nil {
-			errors = append(errors, err)
+		if terminateErr := sup.Terminate(); terminateErr != nil {
+			errors = append(errors, terminateErr)
 		}
 		evIt.SkipTill(SupervisorTerminated(rootName))
 		return evManager.Snapshot(), errors
@@ -187,14 +187,14 @@ func ObserveDynSupervisor(
 	callback(sup, evManager)
 
 	// once tests are done, we stop the supervisor
-	err = sup.Terminate()
+	terminateErr := sup.Terminate()
 
 	// We wait till all the events have been reported (event from root must be the
 	// last event)
 	evIt.SkipTill(ProcessName(rootName))
 
-	if err != nil {
-		return evManager.Snapshot(), []error{err}
+	if terminateErr != nil {
+		return evManager.Snapshot(), []error{terminateErr}
 	}
 
 	// return all the events reported by the supervision system
@@ -227,7 +227,7 @@ func ObserveSupervisor(
 
 	// We always want to start the supervisor for test purposes, so this is
 	// embedded in the ObserveSupervisor call
-	sup, err := supSpec.Start(ctx)
+	sup, startErr := supSpec.Start(ctx)
 
 	evIt := evManager.Iterator()
 
@@ -238,23 +238,23 @@ func ObserveSupervisor(
 	// be the last event reported
 	evIt.SkipTill(ProcessName(rootName))
 
-	if err != nil {
+	if startErr != nil {
 		callback(evManager)
-		return evManager.Snapshot(), err
+		return evManager.Snapshot(), startErr
 	}
 
 	// callback to do assertions with the event manager
 	callback(evManager)
 
 	// once tests are done, we stop the supervisor
-	err = sup.Terminate()
+	terminateErr := sup.Terminate()
 
 	// We wait till all the events have been reported (event from root must be the
 	// last event)
 	evIt.SkipTill(ProcessName(rootName))
 
-	if err != nil {
-		return evManager.Snapshot(), err
+	if terminateErr != nil {
+		return evManager.Snapshot(), terminateErr
 	}
 
 	// return all the events reported by the supervision system
