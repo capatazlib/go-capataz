@@ -82,11 +82,8 @@ func (spec SupervisorSpec) rootStart(
 		return Supervisor{}, rscAllocError
 	}
 
-	// The variables bellow are used to detect the termination of a supervisor.
-	// This is necessary because when we run a DynSupervisor, we need to make sure
-	// that we *do not* spawn workers on a terminated supervisor, otherwise we run
-	// the risk of getting a panic error, not good.
 	tm := newTerminationManager()
+	// ^^^ used to detect the termination of a supervisor.
 
 	sup := Supervisor{
 		runtimeName: supRuntimeName,

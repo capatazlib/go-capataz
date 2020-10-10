@@ -13,6 +13,10 @@ import (
 // terminationManager offers an API to do thread-safe tracking of the
 // termination state of a Supervisor. This record is designed to hide the
 // required internal mutability on the Supervisor record.
+//
+// This is a necessary type; when we run a DynSupervisor, we need to make sure
+// that we *do not* spawn workers on a terminated supervisor, otherwise we run
+// the risk of getting a panic error.
 type terminationManager struct {
 	mux          *sync.Mutex
 	terminated   bool
