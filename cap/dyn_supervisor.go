@@ -248,7 +248,8 @@ func (dyn *DynSupervisor) Spawn(nodeFn Node) (func() error, error) {
 			panic("did not get valid response value from control message. Implementation error")
 		}
 	case <-time.After(1 * time.Second):
-		// Not sure when this scenario would happen to be honest :shrug:
+		// Paranoid timeout. Better to not hang if this ever happens; to be honest,
+		// not sure when this is the case :shrug:
 		return nil, errors.New("could not get a creation confirmation from worker")
 	}
 }

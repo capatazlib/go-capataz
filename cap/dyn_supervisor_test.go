@@ -37,7 +37,8 @@ func TestDynStartSingleChild(t *testing.T) {
 }
 
 // Test a supervision tree with three children start and stop in the default
-// order (LeftToRight)
+// start order of (LeftToRight), this will stop children in the reversed order
+// (RightToLeft)
 func TestDynStartMutlipleChildrenLeftToRight(t *testing.T) {
 	events, errs := ObserveDynSupervisor(
 		context.TODO(),
@@ -56,19 +57,24 @@ func TestDynStartMutlipleChildrenLeftToRight(t *testing.T) {
 		AssertExactMatch(t, events,
 			[]EventP{
 				SupervisorStarted("root"),
+				// ^^^ root starts first because we add workers bellow in a procedural
+				// fashion
 				WorkerStarted("root/child0"),
 				WorkerStarted("root/child1"),
 				WorkerStarted("root/child2"),
+				// ^^^ start ordering is bound by children order on the
+				// ObserveDynSupervisor call
 				WorkerTerminated("root/child2"),
 				WorkerTerminated("root/child1"),
 				WorkerTerminated("root/child0"),
+				// ^^^ stop is right to left (last-in, first-out style)
 				SupervisorTerminated("root"),
 			})
 	})
 }
 
-// Test a supervision tree with three children start and stop in the default
-// order (LeftToRight)
+// Test a supervision tree with three children start and stop in the RightToLeft
+// start order, this will stop children in the reversed order (LeftToRight)
 func TestDynStartMutlipleChildrenRightToLeft(t *testing.T) {
 	events, errs := ObserveDynSupervisor(
 		context.TODO(),
@@ -79,6 +85,7 @@ func TestDynStartMutlipleChildrenRightToLeft(t *testing.T) {
 			WaitDoneWorker("child2"),
 		},
 		[]cap.Opt{
+			// start order override happens here
 			cap.WithOrder(cap.RightToLeft),
 		},
 		func(cap.DynSupervisor, EventManager) {},
@@ -90,12 +97,17 @@ func TestDynStartMutlipleChildrenRightToLeft(t *testing.T) {
 		AssertExactMatch(t, events,
 			[]EventP{
 				SupervisorStarted("root"),
+				// ^^^ root starts first because we add workers bellow in a procedural
+				// fashion
 				WorkerStarted("root/child0"),
 				WorkerStarted("root/child1"),
 				WorkerStarted("root/child2"),
+				// ^^^ start ordering is bound by children order on the
+				// ObserveDynSupervisor call
 				WorkerTerminated("root/child0"),
 				WorkerTerminated("root/child1"),
 				WorkerTerminated("root/child2"),
+				// ^^^ stop is left to right (first-in, first-out style)
 				SupervisorTerminated("root"),
 			})
 	})
@@ -204,12 +216,15 @@ func TestDynTerminateFailedChild(t *testing.T) {
 			WorkerStarted("root/branch1/child2"),
 			WorkerStarted("root/branch1/child3"),
 			SupervisorStarted("root/branch1"),
-			// NOTE: From here, the stop of the supervisor begins
+
+			// ---- stop of the supervisor begins here
+
 			WorkerTerminated("root/branch1/child3"),
-			// NOTE: the child2 never stops and fails with a timeout
 			WorkerFailed("root/branch1/child2"),
-			// NOTE: The supervisor branch1 fails because of child2 timeout
+			// ^^^ child2 never stops and fails with a timeout caused by the
+			// NeverTerminateWorker specification
 			SupervisorFailed("root/branch1"),
+			// ^^^ The branch1 supervisor fails because of child2 timeout
 			WorkerTerminated("root/branch0/child1"),
 			WorkerTerminated("root/branch0/child0"),
 			SupervisorTerminated("root/branch0"),
@@ -306,6 +321,7 @@ func TestDynCancelWorker(t *testing.T) {
 			SupervisorStarted("root"),
 			WorkerStarted("root/one"),
 			WorkerTerminated("root/one"),
+			// ^^^ triggered by cancelWorker1 call
 			WorkerStarted("root/two"),
 			WorkerTerminated("root/two"),
 			// ^^^ triggered by supervisor termination
@@ -350,6 +366,7 @@ func TestDynCancelAlreadyTerminatedWorker(t *testing.T) {
 			SupervisorStarted("root"),
 			WorkerStarted("root/one"),
 			WorkerTerminated("root/one"),
+			// ^^^ triggered by call from cancelWorker1
 			WorkerStarted("root/two"),
 			WorkerTerminated("root/two"),
 			// ^^^ triggered by supervisor termination
