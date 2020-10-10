@@ -52,19 +52,14 @@ func WithNotifier(en EventNotifier) Opt {
 	}
 }
 
-// withNodes is used internally by a few functions in this API.
-func withNodes(nodes []Node) BuildNodesFn {
-	emptyCleanupResources := func() error { return nil }
-	return func() ([]Node, CleanupResourcesFn, error) {
-		return nodes, emptyCleanupResources, nil
-	}
-}
-
 // WithNodes allows the registration of child nodes in a SupervisorSpec. Node
 // records passed to this function are going to be supervised by the Supervisor
 // created from a SupervisorSpec.
 //
 // Check the documentation of NewSupervisorSpec for more details and examples.
 func WithNodes(nodes ...Node) BuildNodesFn {
-	return withNodes(nodes)
+	emptyCleanupResources := func() error { return nil }
+	return func() ([]Node, CleanupResourcesFn, error) {
+		return nodes, emptyCleanupResources, nil
+	}
 }

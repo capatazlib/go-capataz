@@ -295,7 +295,7 @@ func (dyn DynSupervisor) GetName() string {
 //   list of children
 //
 func NewDynSupervisor(ctx context.Context, name string, opts ...Opt) (DynSupervisor, error) {
-	spec := NewSupervisorSpec(name, withNodes([]Node{}), opts...)
+	spec := NewSupervisorSpec(name, WithNodes(), opts...)
 	sup, err := spec.Start(ctx)
 	if err != nil {
 		return DynSupervisor{}, err
