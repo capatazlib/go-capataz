@@ -10,6 +10,48 @@ import (
 	"github.com/capatazlib/go-capataz/internal/c"
 )
 
+// terminationManager offers an API to do thread-safe tracking of the
+// termination state of a Supervisor. This record is designed to hide the
+// required internal mutability on the Supervisor record.
+type terminationManager struct {
+	mux          *sync.Mutex
+	terminated   bool
+	terminateErr error
+}
+
+// newTerminationManager creates a new terminationManager
+func newTerminationManager() *terminationManager {
+	var mux sync.Mutex
+
+	return &terminationManager{
+		mux:          &mux,
+		terminated:   false,
+		terminateErr: nil,
+	}
+}
+
+// getTerminateErr is a (concurrent-safe) function that allows us to query if a
+// Supervisor was terminated.
+func (tm *terminationManager) getTerminateErr() (bool, error) {
+	tm.mux.Lock()
+	defer tm.mux.Unlock()
+	if tm.terminated {
+		// we already did the termination, just return the result
+		return tm.terminated, tm.terminateErr
+	}
+	// has not terminated, there cannot be error in this scenario
+	return false, nil
+}
+
+// setTerminationErr is a concurrent-safe function that registers the final
+// state of a Supervisor.
+func (tm *terminationManager) setTerminationErr(err error) {
+	tm.mux.Lock()
+	defer tm.mux.Unlock()
+	tm.terminated = true
+	tm.terminateErr = err
+}
+
 // Supervisor represents the root of a tree of goroutines. A Supervisor may have
 // leaf or sub-tree children, where each of the nodes in the tree represent a
 // goroutine that gets automatic restart abilities as soon as the parent
@@ -17,12 +59,11 @@ import (
 // generated from a SupervisorSpec
 type Supervisor struct {
 	runtimeName string
-	ctrlCh      chan ctrlMsg
 
-	mux          *sync.Mutex
-	terminateCh  chan error
-	terminated   *bool
-	terminateErr *error
+	ctrlCh      chan ctrlMsg
+	terminateCh chan error
+
+	terminateManager *terminationManager
 
 	spec     SupervisorSpec
 	children map[string]c.Child
@@ -55,37 +96,16 @@ func (sup Supervisor) GetName() string {
 	return sup.spec.GetName()
 }
 
-// getTerminateErr is an utility function that allows us to query if the
-// Supervisor was terminated in a concurrent-safe manner. If error is not nil,
-// then first bool must be true
-func getTerminateErr(
-	mux *sync.Mutex,
-	terminated *bool,
-	terminateErr *error,
-) (bool, error) {
-	mux.Lock()
-	defer mux.Unlock()
-	// We already did the termination, just return the result
-	if terminated != nil {
-		return *terminated, *terminateErr
-	}
-	return false, nil
-}
-
-// storeTerminationError is responsible of registering the final state of the supervisor
+// storeTerminationError is responsible of registering the final state of the
+// supervisor and to signal the event notifications system
 func storeTerminationErr(
 	eventNotifier EventNotifier,
 	supRuntimeName string,
-	mux *sync.Mutex,
-	terminated *bool,
-	terminateErr *error,
+	tm *terminationManager,
 	err error,
 	stopingTime time.Time,
 ) {
-	mux.Lock()
-	defer mux.Unlock()
-	*terminated = true
-	*terminateErr = err
+	tm.setTerminationErr(err)
 	if err != nil {
 		eventNotifier.supervisorFailed(supRuntimeName, err)
 		return
@@ -100,67 +120,59 @@ func storeTerminationErr(
 	eventNotifier.supervisorTerminated(supRuntimeName, stopingTime)
 }
 
-// GetCrashError will return an error if the supervisor crashed, otherwise
+// getCrashError will return an error if the supervisor crashed, otherwise
 // returns nil.
 func getCrashError(
+	block bool,
 	eventNotifier EventNotifier,
 	supRuntimeName string,
-	mux *sync.Mutex,
-	terminateCh chan error,
-	terminated *bool,
-	terminateErr *error,
+	terminateCh <-chan error,
+	tm *terminationManager,
 	stopingTime time.Time,
-	block bool,
 ) (bool, error) {
 
-	if terminatedVal, terminateErrVal := getTerminateErr(mux, terminated, terminateErr); terminatedVal {
+	if terminatedVal, terminateErrVal := tm.getTerminateErr(); terminatedVal {
 		return terminatedVal, terminateErrVal
 	}
 
 	if block {
-		terminateErrVal := <-terminateCh
+		terminateErr := <-terminateCh
 		storeTerminationErr(
 			eventNotifier,
 			supRuntimeName,
-			mux,
-			terminated,
+			tm,
 			terminateErr,
-			terminateErrVal,
 			stopingTime,
 		)
-		return true, terminateErrVal
+		return true, terminateErr
 	}
 
 	select {
-	case terminateErrVal := <-terminateCh:
+	case terminateErr := <-terminateCh:
 		storeTerminationErr(
 			eventNotifier,
 			supRuntimeName,
-			mux,
-			terminated,
+			tm,
 			terminateErr,
-			terminateErrVal,
 			time.Time{},
 		)
-		return true, terminateErrVal
+		return true, terminateErr
 
 	default:
 		return false, nil
 	}
 }
 
-// GetCrashError returns a crash error if there is one, the first parameter
-// indicates if the supervisor is running or not. If the returned error is not
-// nil, the first result will always be true.
+// GetCrashError is a non-blocking function that returns a crash error if there
+// is one, the first parameter indicates if the supervisor is running or not. If
+// the returned error is not nil, the first result will always be true.
 func (sup Supervisor) GetCrashError(block bool) (bool, error) {
 	return getCrashError(
+		false, /* block */
 		sup.spec.eventNotifier,
 		sup.runtimeName,
-		sup.mux,
 		sup.terminateCh,
-		sup.terminated,
-		sup.terminateErr,
+		sup.terminateManager,
 		time.Time{},
-		false, /* block */
 	)
 }

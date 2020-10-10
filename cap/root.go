@@ -10,7 +10,6 @@ package cap
 import (
 	"context"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/capatazlib/go-capataz/internal/c"
@@ -87,24 +86,19 @@ func (spec SupervisorSpec) rootStart(
 	// This is necessary because when we run a DynSupervisor, we need to make sure
 	// that we *do not* spawn workers on a terminated supervisor, otherwise we run
 	// the risk of getting a panic error, not good.
-	var mux sync.Mutex
-
-	var terminatedVal = false
-	var terminated = &terminatedVal
-
-	var terminateErrVal error
-	var terminateErr = &terminateErrVal
+	tm := newTerminationManager()
 
 	sup := Supervisor{
-		mux:          &mux,
-		runtimeName:  supRuntimeName,
-		ctrlCh:       ctrlCh,
-		terminateCh:  terminateCh,
-		terminated:   terminated,
-		terminateErr: terminateErr,
-		spec:         spec,
-		children:     make(map[string]c.Child, len(childrenSpecs)),
-		cancel:       cancelFn,
+		runtimeName: supRuntimeName,
+		ctrlCh:      ctrlCh,
+
+		terminateCh:      terminateCh,
+		terminateManager: tm,
+
+		spec:     spec,
+		children: make(map[string]c.Child, len(childrenSpecs)),
+
+		cancel: cancelFn,
 		wait: func(stopingTime time.Time, startErr error) error {
 
 			// We check if there was an start error reported, if this is the case, we
@@ -119,14 +113,12 @@ func (spec SupervisorSpec) rootStart(
 			// surpassed, etc.), the terminateCh is going to return an error,
 			// otherwise it will return nil
 			_, supErr := getCrashError(
+				true, /* block */
 				eventNotifier,
 				supRuntimeName,
-				&mux,
 				terminateCh,
-				terminated,
-				terminateErr,
+				tm,
 				stopingTime,
-				true, /* block */
 			)
 
 			if supErr != nil {
