@@ -188,14 +188,14 @@ func (dyn *DynSupervisor) terminateNode(nodeName string) func() error {
 			if panicVal == nil {
 				return
 			}
-			switch v := panicVal.(type) {
-			case error:
-				err = fmt.Errorf("could not talk to supervisor: %w", v)
+
+			if panicErr, ok := panicVal.(error); ok {
+				err = fmt.Errorf("could not talk to supervisor: %w", panicErr)
 				return
-			default:
-				// retrigger panic, this would happen on an implementation error
-				panic(panicVal)
 			}
+
+			// retrigger panic, this would happen on an implementation error
+			panic(panicVal)
 		}()
 		// block until the supervisor can handle the request, in case the
 		// supervisor is stopped, this line is going to panic
