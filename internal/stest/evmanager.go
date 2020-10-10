@@ -104,6 +104,7 @@ func (ei *EventIterator) foldl(
 	return acc
 }
 
+// TODO: Change name to WaitTill
 // SkipTill blocks until an event from the supervision system returns true for
 // the given predicate
 func (ei *EventIterator) SkipTill(pred EventP) {
