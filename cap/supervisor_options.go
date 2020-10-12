@@ -14,6 +14,7 @@ type Opt func(*SupervisorSpec)
 // * RightToLeft -- Start children nodes from right to left, stop them from left
 // to right
 //
+// TODO: Change name to WithStartOrder
 func WithOrder(o Order) Opt {
 	return func(spec *SupervisorSpec) {
 		spec.order = o

@@ -213,7 +213,7 @@ func (spec SupervisorSpec) buildChildrenSpecs() ([]c.ChildSpec, CleanupResources
 // 2) Resource cleanup returns an error
 //
 // In this scenario, the termination procedure will collect the error and report
-// it in the returned SupervisorTerminationError.
+// it in the returned SupervisorError.
 //
 // 3) Resource allocation/cleanup hangs
 //

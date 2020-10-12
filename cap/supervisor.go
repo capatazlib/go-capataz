@@ -4,10 +4,57 @@ package cap
 // Supervisor API
 
 import (
+	"sync"
 	"time"
 
 	"github.com/capatazlib/go-capataz/internal/c"
 )
+
+// terminationManager offers an API to do thread-safe tracking of the
+// termination state of a Supervisor. This record is designed to hide the
+// required internal mutability on the Supervisor record.
+//
+// This is a necessary type; when we run a DynSupervisor, we need to make sure
+// that we *do not* spawn workers on a terminated supervisor, otherwise we run
+// the risk of getting a panic error.
+type terminationManager struct {
+	mux          *sync.Mutex
+	terminated   bool
+	terminateErr error
+}
+
+// newTerminationManager creates a new terminationManager
+func newTerminationManager() *terminationManager {
+	var mux sync.Mutex
+
+	return &terminationManager{
+		mux:          &mux,
+		terminated:   false,
+		terminateErr: nil,
+	}
+}
+
+// getTerminateErr is a (concurrent-safe) function that allows us to query if a
+// Supervisor was terminated.
+func (tm *terminationManager) getTerminateErr() (bool, error) {
+	tm.mux.Lock()
+	defer tm.mux.Unlock()
+	if tm.terminated {
+		// we already did the termination, just return the result
+		return tm.terminated, tm.terminateErr
+	}
+	// has not terminated, there cannot be error in this scenario
+	return false, nil
+}
+
+// setTerminationErr is a concurrent-safe function that registers the final
+// state of a Supervisor.
+func (tm *terminationManager) setTerminationErr(err error) {
+	tm.mux.Lock()
+	defer tm.mux.Unlock()
+	tm.terminated = true
+	tm.terminateErr = err
+}
 
 // Supervisor represents the root of a tree of goroutines. A Supervisor may have
 // leaf or sub-tree children, where each of the nodes in the tree represent a
@@ -16,10 +63,16 @@ import (
 // generated from a SupervisorSpec
 type Supervisor struct {
 	runtimeName string
-	spec        SupervisorSpec
-	children    map[string]c.Child
-	cancel      func()
-	wait        func(time.Time, startError) error
+
+	ctrlCh      chan ctrlMsg
+	terminateCh chan error
+
+	terminateManager *terminationManager
+
+	spec     SupervisorSpec
+	children map[string]c.Child
+	cancel   func()
+	wait     func(time.Time, startError) error
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -45,4 +98,85 @@ func (sup Supervisor) Wait() error {
 // GetName returns the name of the Spec used to start this Supervisor
 func (sup Supervisor) GetName() string {
 	return sup.spec.GetName()
+}
+
+// storeTerminationError is responsible of registering the final state of the
+// supervisor and to signal the event notifications system
+func storeTerminationErr(
+	eventNotifier EventNotifier,
+	supRuntimeName string,
+	tm *terminationManager,
+	err error,
+	stopingTime time.Time,
+) {
+	tm.setTerminationErr(err)
+	if err != nil {
+		eventNotifier.supervisorFailed(supRuntimeName, err)
+		return
+	}
+
+	// stopingTime is only relevant when we call the internal wait function
+	// from the Terminate() public API; if we just called from Wait(), we don't
+	// need to keep track of the stop duration
+	if stopingTime == (time.Time{}) {
+		stopingTime = time.Now()
+	}
+	eventNotifier.supervisorTerminated(supRuntimeName, stopingTime)
+}
+
+// getCrashError will return an error if the supervisor crashed, otherwise
+// returns nil.
+func getCrashError(
+	block bool,
+	eventNotifier EventNotifier,
+	supRuntimeName string,
+	terminateCh <-chan error,
+	tm *terminationManager,
+	stopingTime time.Time,
+) (bool, error) {
+
+	if terminatedVal, terminateErrVal := tm.getTerminateErr(); terminatedVal {
+		return terminatedVal, terminateErrVal
+	}
+
+	if block {
+		terminateErr := <-terminateCh
+		storeTerminationErr(
+			eventNotifier,
+			supRuntimeName,
+			tm,
+			terminateErr,
+			stopingTime,
+		)
+		return true, terminateErr
+	}
+
+	select {
+	case terminateErr := <-terminateCh:
+		storeTerminationErr(
+			eventNotifier,
+			supRuntimeName,
+			tm,
+			terminateErr,
+			time.Time{},
+		)
+		return true, terminateErr
+
+	default:
+		return false, nil
+	}
+}
+
+// GetCrashError is a non-blocking function that returns a crash error if there
+// is one, the first parameter indicates if the supervisor is running or not. If
+// the returned error is not nil, the first result will always be true.
+func (sup Supervisor) GetCrashError(block bool) (bool, error) {
+	return getCrashError(
+		false, /* block */
+		sup.spec.eventNotifier,
+		sup.runtimeName,
+		sup.terminateCh,
+		sup.terminateManager,
+		time.Time{},
+	)
 }

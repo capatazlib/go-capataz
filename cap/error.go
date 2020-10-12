@@ -15,10 +15,10 @@ type startError = error
 // termination of a worker fails
 type terminateError = error
 
-// SupervisorTerminationError wraps a termination error from a supervised
+// SupervisorError wraps an error from a supervised
 // worker, enhancing it with supervisor information and possible shutdown errors
 // on other siblings
-type SupervisorTerminationError struct {
+type SupervisorError struct {
 	supRuntimeName string
 	rscCleanupErr  error
 	nodeErr        error
@@ -26,17 +26,17 @@ type SupervisorTerminationError struct {
 }
 
 // Unwrap returns anj error from a supervised goroutine (if any)
-func (se *SupervisorTerminationError) Unwrap() error {
+func (se *SupervisorError) Unwrap() error {
 	return se.nodeErr
 }
 
 // Cause returns an error from a supervised goroutine (if any)
-func (se *SupervisorTerminationError) Cause() error {
+func (se *SupervisorError) Cause() error {
 	return se.nodeErr
 }
 
 // GetRuntimeName returns the name of the supervisor that failed
-func (se *SupervisorTerminationError) GetRuntimeName() string {
+func (se *SupervisorError) GetRuntimeName() string {
 	return se.supRuntimeName
 }
 
@@ -44,12 +44,12 @@ func (se *SupervisorTerminationError) GetRuntimeName() string {
 // Note if a goroutine fails to terminate because of a shutdown timeout, the
 // failed goroutines may leak. This happens because go doesn't offer any true
 // way to kill a goroutine.
-func (se *SupervisorTerminationError) NodeFailCount() int {
+func (se *SupervisorError) NodeFailCount() int {
 	return len(se.nodeErrMap)
 }
 
 // KVs returns a data bag map that may be used in structured logging
-func (se *SupervisorTerminationError) KVs() map[string]interface{} {
+func (se *SupervisorError) KVs() map[string]interface{} {
 	kvs := make(map[string]interface{})
 	kvs["supervisor.name"] = se.supRuntimeName
 	for chKey, chErr := range se.nodeErrMap {
@@ -65,24 +65,25 @@ func (se *SupervisorTerminationError) KVs() map[string]interface{} {
 }
 
 // Error returns an error message
-func (se *SupervisorTerminationError) Error() string {
+func (se *SupervisorError) Error() string {
 	// NOTE: We are not reporting error details on the string given we want to
 	// rely on structured logging via KVs
 	if (se.nodeErr != nil || len(se.nodeErrMap) > 0) && se.rscCleanupErr != nil {
 		return fmt.Sprintf(
-			"worker failed to terminate " +
+			"supervisor error: %v "+
 				"(and resource cleanup failed as well)",
+			se.nodeErr,
 		)
 	} else if se.nodeErr != nil {
-		return "worker failed to terminate"
+		return fmt.Sprintf("supervisor error: %v", se.nodeErr)
 	} else if se.rscCleanupErr != nil {
-		return "supervisor failed to cleanup resources"
+		return "supervisor error: failed to cleanup resources"
 	}
 	// NOTE: this case never happens, an invariant condition of this type has not
 	// been respected. If we are here, it means we manually created a wrong
-	// SupervisorTerminationError value (implementation error).
+	// SupervisorError value (implementation error).
 	panic(
-		errors.New("invalid SupervisorTerminationError was created"),
+		errors.New("invalid SupervisorError was created"),
 	)
 }
 
@@ -92,7 +93,7 @@ func (se *SupervisorTerminationError) Error() string {
 type SupervisorRestartError struct {
 	supRuntimeName string
 	nodeErr        *c.ErrorToleranceReached
-	terminateErr   *SupervisorTerminationError
+	terminateErr   *SupervisorError
 }
 
 // KVs returns a data bag map that may be used in structured logging

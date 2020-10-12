@@ -66,7 +66,7 @@ func (em EventManager) StartCollector(ctx context.Context) {
 // EventCollector is used as an event notifier of a supervision system
 func (em EventManager) EventCollector(ctx context.Context) func(ev cap.Event) {
 	return func(ev cap.Event) {
-		// NOTE: DO NOT REMOVE LINE BELLOW (debug tool)
+		// NOTE: DO NOT REMOVE LINE BELLOW (DEBUG tool)
 		// fmt.Printf("%+v\n", ev)
 		select {
 		case <-ctx.Done():
@@ -106,6 +106,7 @@ func (ei *EventIterator) foldl(
 
 // SkipTill blocks until an event from the supervision system returns true for
 // the given predicate
+// TODO: Change name to WaitTill
 func (ei *EventIterator) SkipTill(pred EventP) {
 	_ = ei.foldl(nil, func(_ interface{}, ev cap.Event) (bool, interface{}) {
 		if pred.Call(ev) {

@@ -124,10 +124,88 @@ func AssertPartialMatch(t *testing.T, evs []cap.Event, preds []EventP) {
 	}
 }
 
+// ObserveDynSupervisor is an utility function that receives all the arguments
+// required to build a DynSupervisor, and a callback that when executed will
+// block until some point in the future (after we performed the side-effects we
+// are testing). This function returns the list of events that happened in the monitored
+// supervised tree, as well as any crash errors.
+func ObserveDynSupervisor(
+	ctx context.Context,
+	rootName string,
+	childNodes []cap.Node,
+	opts0 []cap.Opt,
+	callback func(cap.DynSupervisor, EventManager),
+) ([]cap.Event, []error) {
+	evManager := NewEventManager()
+	// Accumulate the events as they happen
+	evManager.StartCollector(ctx)
+
+	// Create a new Supervisor Opts that adds the EventManager's Notifier at the
+	// very beginning of the system setup, the order here is important as it
+	// propagates to sub-trees specified in this options
+	opts := append([]cap.Opt{
+		cap.WithNotifier(evManager.EventCollector(ctx)),
+	}, opts0...)
+
+	// We always want to start the supervisor for test purposes, so this is
+	// embedded in the ObserveDynSupervisor call
+	sup, startErr := cap.NewDynSupervisor(ctx, rootName, opts...)
+
+	if startErr != nil {
+		return evManager.Snapshot(), []error{startErr}
+	}
+
+	errors := []error{}
+
+	// start procedurally the given children
+	for _, node := range childNodes {
+		_, spawnErr := sup.Spawn(node)
+		if spawnErr != nil {
+			errors = append(errors, spawnErr)
+		}
+	}
+
+	evIt := evManager.Iterator()
+
+	if len(errors) != 0 {
+		// once tests are done, we stop the supervisor
+		if terminateErr := sup.Terminate(); terminateErr != nil {
+			errors = append(errors, terminateErr)
+		}
+		evIt.SkipTill(SupervisorTerminated(rootName))
+		return evManager.Snapshot(), errors
+	}
+
+	// NOTE: We execute SkipTill to make sure all the supervision tree got started
+	// (or failed) before doing assertions/returning an error. Also, note we use
+	// ProcessName instead of ProcessStarted/ProcessFailed given that ProcessName
+	// matches an event in both success and error cases. The event from root must
+	// be the last event reported
+	evIt.SkipTill(ProcessName(rootName))
+
+	// callback to do assertions with the event manager
+	callback(sup, evManager)
+
+	// once tests are done, we stop the supervisor
+	terminateErr := sup.Terminate()
+
+	// We wait till all the events have been reported (event from root must be the
+	// last event)
+	evIt.SkipTill(ProcessName(rootName))
+
+	if terminateErr != nil {
+		return evManager.Snapshot(), []error{terminateErr}
+	}
+
+	// return all the events reported by the supervision system
+	return evManager.Snapshot(), nil
+}
+
 // ObserveSupervisor is an utility function that receives all the arguments
 // required to build a SupervisorSpec, and a callback that when executed will
 // block until some point in the future (after we performed the side-effects we
-// are testing).
+// are testing). This function returns the list of events that happened in the
+// monitored supervised tree, as well as any crash errors.
 func ObserveSupervisor(
 	ctx context.Context,
 	rootName string,
@@ -149,7 +227,7 @@ func ObserveSupervisor(
 
 	// We always want to start the supervisor for test purposes, so this is
 	// embedded in the ObserveSupervisor call
-	sup, err := supSpec.Start(ctx)
+	sup, startErr := supSpec.Start(ctx)
 
 	evIt := evManager.Iterator()
 
@@ -160,23 +238,23 @@ func ObserveSupervisor(
 	// be the last event reported
 	evIt.SkipTill(ProcessName(rootName))
 
-	if err != nil {
+	if startErr != nil {
 		callback(evManager)
-		return evManager.Snapshot(), err
+		return evManager.Snapshot(), startErr
 	}
 
 	// callback to do assertions with the event manager
 	callback(evManager)
 
 	// once tests are done, we stop the supervisor
-	err = sup.Terminate()
+	terminateErr := sup.Terminate()
 
 	// We wait till all the events have been reported (event from root must be the
 	// last event)
 	evIt.SkipTill(ProcessName(rootName))
 
-	if err != nil {
-		return evManager.Snapshot(), err
+	if terminateErr != nil {
+		return evManager.Snapshot(), terminateErr
 	}
 
 	// return all the events reported by the supervision system

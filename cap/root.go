@@ -59,7 +59,7 @@ func (spec SupervisorSpec) rootStart(
 	notifyCh := make(chan c.ChildNotification)
 
 	// ctrlCh is used to keep track of request from client APIs (e.g. spawn child)
-	// ctrlCh := make(chan ControlMsg)
+	ctrlCh := make(chan ctrlMsg)
 
 	// startCh is used to track when the supervisor loop thread has started
 	startCh := make(chan startError)
@@ -82,11 +82,20 @@ func (spec SupervisorSpec) rootStart(
 		return Supervisor{}, rscAllocError
 	}
 
+	tm := newTerminationManager()
+	// ^^^ used to detect the termination of a supervisor.
+
 	sup := Supervisor{
 		runtimeName: supRuntimeName,
-		spec:        spec,
-		children:    make(map[string]c.Child, len(childrenSpecs)),
-		cancel:      cancelFn,
+		ctrlCh:      ctrlCh,
+
+		terminateCh:      terminateCh,
+		terminateManager: tm,
+
+		spec:     spec,
+		children: make(map[string]c.Child, len(childrenSpecs)),
+
+		cancel: cancelFn,
 		wait: func(stopingTime time.Time, startErr error) error {
 
 			// We check if there was an start error reported, if this is the case, we
@@ -100,21 +109,19 @@ func (spec SupervisorSpec) rootStart(
 			// errors in the termination (e.g. Timeout of child, error tolerance
 			// surpassed, etc.), the terminateCh is going to return an error,
 			// otherwise it will return nil
-			supErr := <-terminateCh
+			_, supErr := getCrashError(
+				true, /* block */
+				eventNotifier,
+				supRuntimeName,
+				terminateCh,
+				tm,
+				stopingTime,
+			)
 
 			if supErr != nil {
-				eventNotifier.supervisorFailed(supRuntimeName, supErr)
 				return supErr
 			}
 
-			// stopingTime is only relevant when we call the internal wait function
-			// from the Terminate() public API; if we just called from Wait(), we don't
-			// need to keep track of the stop duration
-			if stopingTime == (time.Time{}) {
-				stopingTime = time.Now()
-			}
-
-			eventNotifier.supervisorTerminated(supRuntimeName, stopingTime)
 			return nil
 		},
 	}
@@ -130,6 +137,7 @@ func (spec SupervisorSpec) rootStart(
 		if err != nil {
 			terminateCh <- err
 		}
+		close(ctrlCh)
 		close(terminateCh)
 	}
 
@@ -145,7 +153,7 @@ func (spec SupervisorSpec) rootStart(
 			supRuntimeName,
 			supRscCleanup,
 			notifyCh,
-			// ctrlCh,
+			ctrlCh,
 			startTime,
 			onStart,
 			onTerminate,

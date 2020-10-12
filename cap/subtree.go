@@ -37,7 +37,7 @@ func (spec SupervisorSpec) run(
 	notifyCh := make(chan c.ChildNotification)
 
 	// ctrlCh is used to keep track of request from client APIs (e.g. spawn child)
-	// ctrlCh := make(chan ControlMsg)
+	ctrlCh := make(chan ctrlMsg)
 
 	supRuntimeName := buildRuntimeName(spec, parentName)
 
@@ -52,7 +52,7 @@ func (spec SupervisorSpec) run(
 		supRuntimeName,
 		supRscCleanup,
 		notifyCh,
-		// ctrlCh,
+		ctrlCh,
 		startTime,
 		onStart,
 		onTerminate,

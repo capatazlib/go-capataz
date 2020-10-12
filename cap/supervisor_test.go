@@ -264,3 +264,39 @@ func TestTerminateFailedChild(t *testing.T) {
 		},
 	)
 }
+
+func TestDoubleTermination(t *testing.T) {
+	ctx := context.TODO()
+	evManager := NewEventManager()
+	evManager.StartCollector(ctx)
+
+	supSpec := cap.NewSupervisorSpec(
+		"root",
+		cap.WithNodes(WaitDoneWorker("one")),
+		cap.WithNotifier(evManager.EventCollector(ctx)),
+	)
+
+	// We always want to start the supervisor for test purposes, so this is
+	// embedded in the ObserveSupervisor call
+	sup, startErr := supSpec.Start(ctx)
+	assert.NoError(t, startErr)
+
+	evIt := evManager.Iterator()
+	evIt.SkipTill(SupervisorStarted("root"))
+
+	sup.Terminate()
+	evIt.SkipTill(SupervisorTerminated("root"))
+
+	// should not crash
+	sup.Terminate()
+
+	events := evManager.Snapshot()
+	AssertExactMatch(t, events,
+		[]EventP{
+			WorkerStarted("root/one"),
+			SupervisorStarted("root"),
+			WorkerTerminated("root/one"),
+			SupervisorTerminated("root"),
+		},
+	)
+}

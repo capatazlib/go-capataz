@@ -5,7 +5,7 @@ help:	## Display this message
 .DEFAULT_GOAL := help
 
 test: ## Run tests
-	go test -race -coverprofile=coverage.txt -covermode=atomic ./...
+	go test -timeout 10s -race -coverprofile=coverage.txt -covermode=atomic ./...
 .PHONY: test
 
 lint: ## Run linters
