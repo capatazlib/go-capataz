@@ -77,7 +77,7 @@ func TestStartMutlipleChildrenRightToLeft(t *testing.T) {
 			WaitDoneWorker("child2"),
 		),
 		[]cap.Opt{
-			cap.WithOrder(cap.RightToLeft),
+			cap.WithStartOrder(cap.RightToLeft),
 		},
 		func(EventManager) {},
 	)

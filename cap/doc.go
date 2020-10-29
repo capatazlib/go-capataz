@@ -94,7 +94,7 @@ You can create a SupervisorSpec using the NewSupervisorSpec function
 		// (2)
 		cap.WithNodes(myWorker, myOtherWorker, cap.Subtree(mySubsystem)),
 		// (3)
-		cap.WithOrder(cap.LeftToRight),
+		cap.WithStartOrder(cap.LeftToRight),
 		// (4)
 		cap.WithStrategy(cap.OneForOne),
 	)
@@ -259,7 +259,7 @@ call.
 				}, cleanupFn, nil
 			},
 			cap.WithStrategy(cap.OneForOne),
-			cap.WithOrder(cap.LeftToRight),
+			cap.WithStartOrder(cap.LeftToRight),
 		)
 
 	}

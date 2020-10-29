@@ -3,7 +3,7 @@ package cap
 // Opt is a type used to configure a SupervisorSpec
 type Opt func(*SupervisorSpec)
 
-// WithOrder is an Opt that specifies the start/stop order of a supervisor's
+// WithStartOrder is an Opt that specifies the start/stop order of a supervisor's
 // children nodes
 //
 // Possible values may be:
@@ -14,12 +14,16 @@ type Opt func(*SupervisorSpec)
 // * RightToLeft -- Start children nodes from right to left, stop them from left
 // to right
 //
-// TODO: Change name to WithStartOrder
-func WithOrder(o Order) Opt {
+func WithStartOrder(o Order) Opt {
 	return func(spec *SupervisorSpec) {
 		spec.order = o
 	}
 }
+
+// WithOrder is a backwards compatible alias to WithStartOrder
+//
+// Deprecated: Use WithStartOrder instead
+var WithOrder = WithStartOrder
 
 // WithStrategy is an Opt that specifies how children nodes of a supervisor get
 // restarted when one of the nodes fails
