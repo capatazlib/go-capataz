@@ -86,7 +86,7 @@ func TestDynStartMutlipleChildrenRightToLeft(t *testing.T) {
 		},
 		[]cap.Opt{
 			// start order override happens here
-			cap.WithOrder(cap.RightToLeft),
+			cap.WithStartOrder(cap.RightToLeft),
 		},
 		func(cap.DynSupervisor, EventManager) {},
 	)

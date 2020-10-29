@@ -146,7 +146,7 @@ func (spec SupervisorSpec) buildChildrenSpecs() ([]c.ChildSpec, CleanupResources
 //       // (2)
 //       // Specify child nodes start from right to left (reversed order) and
 //       // stop from left to right.
-//       cap.WithOrder(cap.RightToLeft),
+//       cap.WithStartOrder(cap.RightToLeft),
 //     )
 //
 //
@@ -196,7 +196,7 @@ func (spec SupervisorSpec) buildChildrenSpecs() ([]c.ChildSpec, CleanupResources
 //       },
 //
 //       // (2)
-//       cap.WithOrder(cap.RightToLeft),
+//       cap.WithStartOrder(cap.RightToLeft),
 //     )
 //
 // Dealing with errors
