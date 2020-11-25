@@ -157,3 +157,21 @@ func CompleteOnSignalWorker(
 		opts...,
 	), startSignal
 }
+
+// FailTerminationWorker creates a `cap.Node` that runs a goroutine that blocks
+// until the `context.Done` channel indicates a supervisor termination, then, it
+// returns a given error
+func FailTerminationWorker(
+	name string,
+	err error,
+	opts ...cap.WorkerOpt,
+) cap.Node {
+	cspec := cap.NewWorker(name, func(ctx context.Context) error {
+		// In real-world code, here we would have some business logic. For this
+		// particular scenario, we want to block until we get a stop notification
+		// from our parent supervisor and return an error
+		<-ctx.Done()
+		return err
+	})
+	return cspec
+}

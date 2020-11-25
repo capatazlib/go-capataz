@@ -3,6 +3,7 @@ package cap
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/capatazlib/go-capataz/internal/c"
 )
@@ -66,25 +67,35 @@ func (se *SupervisorError) KVs() map[string]interface{} {
 
 // Error returns an error message
 func (se *SupervisorError) Error() string {
-	// NOTE: We are not reporting error details on the string given we want to
-	// rely on structured logging via KVs
-	if (se.nodeErr != nil || len(se.nodeErrMap) > 0) && se.rscCleanupErr != nil {
-		return fmt.Sprintf(
-			"supervisor error: %v "+
-				"(and resource cleanup failed as well)",
-			se.nodeErr,
-		)
-	} else if se.nodeErr != nil {
-		return fmt.Sprintf("supervisor error: %v", se.nodeErr)
-	} else if se.rscCleanupErr != nil {
-		return "supervisor error: failed to cleanup resources"
+	sections := make([]string, 0, 5)
+	sections = append(sections, "\nsupervision tree termination failed")
+
+	if se.nodeErr != nil {
+		var buffer strings.Builder
+		buffer.WriteString("* cause error\n\n")
+		buffer.WriteString(fmt.Sprintf("\t%v\n", se.nodeErr))
+		sections = append(sections, buffer.String())
 	}
-	// NOTE: this case never happens, an invariant condition of this type has not
-	// been respected. If we are here, it means we manually created a wrong
-	// SupervisorError value (implementation error).
-	panic(
-		errors.New("invalid SupervisorError was created"),
-	)
+
+	if se.rscCleanupErr != nil {
+		var buffer strings.Builder
+		buffer.WriteString("* resource cleanup error\n\n")
+		buffer.WriteString(fmt.Sprintf("\t%v\n", se.rscCleanupErr))
+		sections = append(sections, buffer.String())
+	}
+
+	if len(se.nodeErrMap) > 0 {
+		var buffer strings.Builder
+		buffer.WriteString("* children with termination errors\n\n")
+		for siblingName, siblingErr := range se.nodeErrMap {
+			buffer.WriteString(fmt.Sprintf("\t- %s: %v\n", siblingName, siblingErr))
+		}
+		sections = append(sections, buffer.String())
+	}
+
+	sections = append(sections, "")
+
+	return strings.Join(sections, "\n\n")
 }
 
 // SupervisorRestartError wraps an error tolerance surpassed error from a child
