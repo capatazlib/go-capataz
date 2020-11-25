@@ -7,6 +7,7 @@ package cap_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -299,4 +300,33 @@ func TestDoubleTermination(t *testing.T) {
 			SupervisorTerminated("root"),
 		},
 	)
+}
+
+func TestFailedTerminationOnOneLevelTree(t *testing.T) {
+	events, err := ObserveSupervisor(
+		context.TODO(),
+		"root",
+		cap.WithNodes(
+			WaitDoneWorker("child0"),
+			FailTerminationWorker("child1", fmt.Errorf("child1 failed")),
+			WaitDoneWorker("child2"),
+		),
+		[]cap.Opt{},
+		func(EventManager) {},
+	)
+
+	assert.Error(t, err)
+	t.Run("starts and stops routines in the correct order", func(t *testing.T) {
+		AssertExactMatch(t, events,
+			[]EventP{
+				WorkerStarted("root/child0"),
+				WorkerStarted("root/child1"),
+				WorkerStarted("root/child2"),
+				SupervisorStarted("root"),
+				WorkerTerminated("root/child2"),
+				WorkerFailedWith("root/child1", "child1 failed"),
+				WorkerTerminated("root/child0"),
+				SupervisorFailed("root"),
+			})
+	})
 }
