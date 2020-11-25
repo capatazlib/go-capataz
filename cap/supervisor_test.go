@@ -8,6 +8,7 @@ package cap_test
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -316,6 +317,18 @@ func TestFailedTerminationOnOneLevelTree(t *testing.T) {
 	)
 
 	assert.Error(t, err)
+	errMsg := []string{
+		"\nsupervision tree termination failed",
+		"* children with termination errors",
+		"\t- child1: child1 failed\n",
+		"",
+	}
+	assert.Equal(
+		t,
+		strings.Join(errMsg, "\n\n"),
+		err.Error(),
+	)
+
 	t.Run("starts and stops routines in the correct order", func(t *testing.T) {
 		AssertExactMatch(t, events,
 			[]EventP{
