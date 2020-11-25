@@ -1,7 +1,6 @@
 package cap
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"strings"
@@ -72,21 +71,21 @@ func (se *SupervisorError) Error() string {
 	sections = append(sections, "\nsupervision tree termination failed")
 
 	if se.nodeErr != nil {
-		var buffer bytes.Buffer
+		var buffer strings.Builder
 		buffer.WriteString("* cause error\n\n")
 		buffer.WriteString(fmt.Sprintf("\t%v\n", se.nodeErr))
 		sections = append(sections, buffer.String())
 	}
 
 	if se.rscCleanupErr != nil {
-		var buffer bytes.Buffer
+		var buffer strings.Builder
 		buffer.WriteString("* resource cleanup error\n\n")
 		buffer.WriteString(fmt.Sprintf("\t%v\n", se.rscCleanupErr))
 		sections = append(sections, buffer.String())
 	}
 
 	if len(se.nodeErrMap) > 0 {
-		var buffer bytes.Buffer
+		var buffer strings.Builder
 		buffer.WriteString("* children with termination errors\n\n")
 		for siblingName, siblingErr := range se.nodeErrMap {
 			buffer.WriteString(fmt.Sprintf("\t- %s: %v\n", siblingName, siblingErr))
