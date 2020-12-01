@@ -11,10 +11,7 @@ type HealthReport struct {
 }
 
 // HealthyReport represents a healthy report
-var HealthyReport = HealthReport{
-	failedProcesses:         []string{},
-	delayedRestartProcesses: []string{},
-}
+var HealthyReport = HealthReport{}
 
 // HealthcheckMonitor listens to the events of a supervision tree events, and
 // assess if the supervisor is healthy or not
@@ -43,8 +40,8 @@ func (hr HealthReport) IsHealthyReport() bool {
 // events emitted by it. The given duration is the amount of time that indicates
 // a goroutine is taking too much time to restart.
 func NewHealthcheckMonitor(
-	maxAllowedRestartDuration time.Duration,
 	maxAllowedFailures uint32,
+	maxAllowedRestartDuration time.Duration,
 ) HealthcheckMonitor {
 	return HealthcheckMonitor{
 		maxAllowedRestartDuration: maxAllowedRestartDuration,
@@ -67,8 +64,8 @@ func (h HealthcheckMonitor) HandleEvent(ev Event) {
 // GetHealthReport returns a string that indicates why a the system
 // is unhealthy. Returns empty if everything is ok.
 func (h HealthcheckMonitor) GetHealthReport() HealthReport {
-	// if there are no failures, things are healthy
-	if len(h.failedEvs) == 0 {
+	// if there is an acceptable number of failures, things are healthy
+	if uint32(len(h.failedEvs)) <= h.maxAllowedFailures {
 		return HealthyReport
 	}
 
@@ -76,24 +73,19 @@ func (h HealthcheckMonitor) GetHealthReport() HealthReport {
 		failedProcesses:         make([]string, 0, len(h.failedEvs)),
 		delayedRestartProcesses: make([]string, 0, len(h.failedEvs)),
 	}
-	// if you have more than maxAllowedFailures process failing, then you are
-	// not healthy
-	if uint32(len(h.failedEvs)) > h.maxAllowedFailures {
-		for processName := range h.failedEvs {
-			hr.failedProcesses = append(hr.failedProcesses, processName)
-		}
-	}
 
-	// if we are getting a process taking more time to restart than expected
-	// notify as unhealthy
 	currentTime := time.Now()
 	for processName, ev := range h.failedEvs {
+		// Capture all failures
+		hr.failedProcesses = append(hr.failedProcesses, processName)
+
 		dur := currentTime.Sub(ev.GetCreated())
 
-		if dur < h.maxAllowedRestartDuration {
+		if dur <= h.maxAllowedRestartDuration {
 			continue
 		}
 
+		// Capture all failures that are taking too long to recover
 		hr.delayedRestartProcesses = append(hr.delayedRestartProcesses, processName)
 	}
 	return hr
