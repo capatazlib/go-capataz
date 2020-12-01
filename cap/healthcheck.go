@@ -60,7 +60,7 @@ func (h HealthcheckMonitor) GetUnhealthyReason() string {
 	return ""
 }
 
-// IsHealthy retursn true when the system is in a healthy state, meaning, no
+// IsHealthy return true when the system is in a healthy state, meaning, no
 // processes restarting at the moment
 func (h HealthcheckMonitor) IsHealthy() bool {
 	return h.GetUnhealthyReason() == ""
