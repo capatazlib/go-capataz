@@ -1,43 +1,90 @@
-package cap_test
+package cap
 
 import (
-	"context"
+	"errors"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
-
-	"github.com/capatazlib/go-capataz/cap"
-	. "github.com/capatazlib/go-capataz/internal/stest"
 )
 
-func TestHealthyHappyPath(t *testing.T) {
-	ctx := context.TODO()
+func TestNothingToDo(t *testing.T) {
 
-	healthcheckMonitor := cap.NewHealthcheckMonitor(1 * time.Millisecond)
-
-
-	supSpec := cap.NewSupervisorSpec(
-		"root",
-		cap.WithNodes(
-			WaitDoneWorker("one"),
-			WaitDoneWorker("two"),
-			),
-		cap.WithNotifier(
-			func(ev cap.Event) {
-				healthcheckMonitor.HandleEvent(ev)
-			},
-		),
-	)
-
-	// We always want to start the supervisor for test purposes, so this is
-	// embedded in the ObserveSupervisor call
-	sup, startErr := supSpec.Start(ctx)
-	assert.NoError(t, startErr)
+	healthcheckMonitor := NewHealthcheckMonitor(1*time.Millisecond, 1)
 
 	assert.True(t, healthcheckMonitor.IsHealthy())
+}
 
-	_ = sup.Terminate()
+func TestHappyPath(t *testing.T) {
+	healthcheckMonitor := NewHealthcheckMonitor(1*time.Millisecond, 1)
 
+	var notifier EventNotifier = func(ev Event) {
+		healthcheckMonitor.HandleEvent(ev)
+	}
+
+	notifier.workerStarted("w1", time.Now())
+	notifier.workerStarted("w2", time.Now())
 	assert.True(t, healthcheckMonitor.IsHealthy())
+}
+
+func TestMaxFailure(t *testing.T) {
+	healthcheckMonitor := NewHealthcheckMonitor(1*time.Millisecond, 0)
+
+	var notifier EventNotifier = func(ev Event) {
+		healthcheckMonitor.HandleEvent(ev)
+	}
+
+	notifier.workerStarted("w1", time.Now())
+	notifier.workerStarted("w2", time.Now())
+	assert.True(t, healthcheckMonitor.IsHealthy())
+
+	notifier.workerFailed("w1", errors.New("w1 error"))
+	assert.False(t, healthcheckMonitor.IsHealthy())
+}
+
+func TestHealthyReport(t *testing.T) {
+	healthcheckMonitor := NewHealthcheckMonitor(1*time.Millisecond, 0)
+
+	var notifier EventNotifier = func(ev Event) {
+		healthcheckMonitor.HandleEvent(ev)
+	}
+
+	notifier.workerStarted("w1", time.Now())
+
+	hr := healthcheckMonitor.GetHealthReport()
+	assert.True(t, hr.IsHealthyReport())
+}
+
+func TestUnhealthyFailuresReport(t *testing.T) {
+	healthcheckMonitor := NewHealthcheckMonitor(1000*time.Millisecond, 0)
+
+	var notifier EventNotifier = func(ev Event) {
+		healthcheckMonitor.HandleEvent(ev)
+	}
+
+	notifier.workerStarted("w1", time.Now())
+	notifier.workerFailed("w1", errors.New("w1 error"))
+
+	hr := healthcheckMonitor.GetHealthReport()
+	assert.False(t, hr.IsHealthyReport())
+
+	assert.EqualValues(t, 1, len(hr.GetFailedProcesses()))
+	assert.EqualValues(t, 0, len(hr.GetDelayedRestartProcesses()))
+}
+
+func TestUnhealthyDelaysReport(t *testing.T) {
+	healthcheckMonitor := NewHealthcheckMonitor(0*time.Millisecond, 0)
+
+	var notifier EventNotifier = func(ev Event) {
+		healthcheckMonitor.HandleEvent(ev)
+	}
+
+	notifier.workerStarted("w1", time.Now())
+	notifier.workerFailed("w1", errors.New("w1 error"))
+
+	hr := healthcheckMonitor.GetHealthReport()
+	assert.False(t, hr.IsHealthyReport())
+
+	assert.EqualValues(t, 1, len(hr.GetFailedProcesses()))
+	assert.EqualValues(t, 1, len(hr.GetDelayedRestartProcesses()))
 }
