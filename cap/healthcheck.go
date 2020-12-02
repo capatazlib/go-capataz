@@ -1,6 +1,7 @@
 package cap
 
 import (
+	"sync"
 	"time"
 )
 
@@ -16,6 +17,7 @@ var HealthyReport = HealthReport{}
 // HealthcheckMonitor listens to the events of a supervision tree events, and
 // assess if the supervisor is healthy or not
 type HealthcheckMonitor struct {
+	mu                        sync.Mutex
 	maxAllowedRestartDuration time.Duration
 	maxAllowedFailures        uint32
 	failedEvs                 map[string]Event
@@ -47,8 +49,8 @@ func (hr HealthReport) IsHealthyReport() bool {
 func NewHealthcheckMonitor(
 	maxAllowedFailures uint32,
 	maxAllowedRestartDuration time.Duration,
-) HealthcheckMonitor {
-	return HealthcheckMonitor{
+) *HealthcheckMonitor {
+	return &HealthcheckMonitor{
 		maxAllowedRestartDuration: maxAllowedRestartDuration,
 		maxAllowedFailures:        maxAllowedFailures,
 		failedEvs:                 make(map[string]Event),
@@ -57,7 +59,10 @@ func NewHealthcheckMonitor(
 
 // HandleEvent is a function that receives supervision events and assess if the
 // supervisor sending these events is healthy or not
-func (h HealthcheckMonitor) HandleEvent(ev Event) {
+func (h *HealthcheckMonitor) HandleEvent(ev Event) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
 	switch ev.GetTag() {
 	case ProcessFailed:
 		h.failedEvs[ev.GetProcessRuntimeName()] = ev
@@ -68,7 +73,10 @@ func (h HealthcheckMonitor) HandleEvent(ev Event) {
 
 // GetHealthReport returns a string that indicates why a the system
 // is unhealthy. Returns empty if everything is ok.
-func (h HealthcheckMonitor) GetHealthReport() HealthReport {
+func (h *HealthcheckMonitor) GetHealthReport() HealthReport {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
 	// if there is an acceptable number of failures, things are healthy
 	if uint32(len(h.failedEvs)) == 0 {
 		return HealthyReport
@@ -102,6 +110,6 @@ func (h HealthcheckMonitor) GetHealthReport() HealthReport {
 
 // IsHealthy return true when the system is in a healthy state, meaning, no
 // processes restarting at the moment
-func (h HealthcheckMonitor) IsHealthy() bool {
+func (h *HealthcheckMonitor) IsHealthy() bool {
 	return h.GetHealthReport().IsHealthyReport()
 }
