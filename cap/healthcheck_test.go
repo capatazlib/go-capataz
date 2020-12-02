@@ -188,8 +188,14 @@ func TestHealthPermanentOneForOneNestedFailingWorkerRecovers(t *testing.T) {
 			evIt.SkipTill(SupervisorStarted("root"))
 			// 2) Start the failing behavior of child1
 			failWorker1(true /* done */)
-			// 3) Wait till first restart
+			// 3) Wait until we can catch the failure
+			evIt.SkipTill(WorkerFailed("root/subtree1/child1"))
+			// 4) We are unhealthy
+			assert.False(t, healthcheckMonitor.IsHealthy())
+			// 5) Wait till first restart
 			evIt.SkipTill(WorkerStarted("root/subtree1/child1"))
+			// 6) We are healthy again
+			assert.True(t, healthcheckMonitor.IsHealthy())
 		},
 	)
 
