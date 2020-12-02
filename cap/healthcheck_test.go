@@ -159,7 +159,7 @@ func TestHealthTerminateFailedChild(t *testing.T) {
 	assert.True(t, failedProcesses["root/branch1/child2"])
 	assert.True(t, failedProcesses["root/branch1"])
 	assert.True(t, failedProcesses["root"])
-	// restart delays are under tolerance. Nobody restarted
+	// restart delays are over tolerance. Nobody restarted
 	assert.EqualValues(t, 3, len(delayedRestartProcesses))
 	assert.True(t, delayedRestartProcesses["root/branch1/child2"])
 	assert.True(t, delayedRestartProcesses["root/branch1"])
