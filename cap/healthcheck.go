@@ -6,8 +6,8 @@ import (
 
 // HealthReport contains a report for the HealthMonitor
 type HealthReport struct {
-	failedProcesses         []string
-	delayedRestartProcesses []string
+	failedProcesses         map[string]bool
+	delayedRestartProcesses map[string]bool
 }
 
 // HealthyReport represents a healthy report
@@ -22,12 +22,12 @@ type HealthcheckMonitor struct {
 }
 
 // GetFailedProcesses returns a list of the failed processes
-func (hr HealthReport) GetFailedProcesses() []string {
+func (hr HealthReport) GetFailedProcesses() map[string]bool {
 	return hr.failedProcesses
 }
 
 // GetDelayedRestartProcesses returns a list of the delayed restart processes
-func (hr HealthReport) GetDelayedRestartProcesses() []string {
+func (hr HealthReport) GetDelayedRestartProcesses() map[string]bool {
 	return hr.delayedRestartProcesses
 }
 
@@ -75,15 +75,15 @@ func (h HealthcheckMonitor) GetHealthReport() HealthReport {
 	}
 
 	hr := HealthReport{
-		failedProcesses:         make([]string, 0, len(h.failedEvs)),
-		delayedRestartProcesses: make([]string, 0, len(h.failedEvs)),
+		failedProcesses:         make(map[string]bool),
+		delayedRestartProcesses: make(map[string]bool),
 	}
 
 	// if you have more than maxAllowedFailures process failing, then you are
 	// not healthy
 	if uint32(len(h.failedEvs)) > h.maxAllowedFailures {
 		for processName := range h.failedEvs {
-			hr.failedProcesses = append(hr.failedProcesses, processName)
+			hr.failedProcesses[processName] = true
 		}
 	}
 
@@ -93,7 +93,7 @@ func (h HealthcheckMonitor) GetHealthReport() HealthReport {
 
 		// Capture all failures that are taking too long to recover
 		if dur > h.maxAllowedRestartDuration {
-			hr.delayedRestartProcesses = append(hr.delayedRestartProcesses, processName)
+			hr.delayedRestartProcesses[processName] = true
 		}
 	}
 

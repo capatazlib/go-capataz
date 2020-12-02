@@ -8,14 +8,14 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestNothingToDo(t *testing.T) {
+func TestHealthNothingToDo(t *testing.T) {
 
 	healthcheckMonitor := NewHealthcheckMonitor(0, 0*time.Millisecond)
 
 	assert.True(t, healthcheckMonitor.IsHealthy())
 }
 
-func TestHappyPath(t *testing.T) {
+func TestHealthHappyPath(t *testing.T) {
 	healthcheckMonitor := NewHealthcheckMonitor(0, 0*time.Millisecond)
 
 	var notifier EventNotifier = func(ev Event) {
@@ -77,6 +77,7 @@ func TestUnhealthyFailuresReport(t *testing.T) {
 
 	// Failures are over tolerance
 	assert.EqualValues(t, 1, len(hr.GetFailedProcesses()))
+	assert.True(t, hr.GetFailedProcesses()["w1"])
 	// restart delays are under tolerance
 	assert.EqualValues(t, 0, len(hr.GetDelayedRestartProcesses()))
 }
@@ -100,6 +101,7 @@ func TestUnhealthyDelaysReport(t *testing.T) {
 	assert.EqualValues(t, 0, len(hr.GetFailedProcesses()))
 	// restart delays are over tolerance
 	assert.EqualValues(t, 1, len(hr.GetDelayedRestartProcesses()))
+	assert.True(t, hr.GetDelayedRestartProcesses()["w1"])
 }
 
 func TestHealthRestoredReport(t *testing.T) {
@@ -120,8 +122,10 @@ func TestHealthRestoredReport(t *testing.T) {
 
 	// Failures are over tolerance
 	assert.EqualValues(t, 1, len(hr.GetFailedProcesses()))
+	assert.True(t, hr.GetFailedProcesses()["w1"])
 	// restart delays are over tolerance
 	assert.EqualValues(t, 1, len(hr.GetDelayedRestartProcesses()))
+	assert.True(t, hr.GetDelayedRestartProcesses()["w1"])
 
 	// Failures recovered
 	notifier.workerStarted("w1", time.Now())

@@ -213,16 +213,62 @@ func ObserveSupervisor(
 	opts0 []cap.Opt,
 	callback func(EventManager),
 ) ([]cap.Event, error) {
+	return ObserveSupervisorWithNotifiers(
+		ctx,
+		rootName,
+		buildNodes,
+		opts0,
+		[]cap.EventNotifier{},
+		callback,
+	)
+}
+
+// mergeNotifiers is a naive implementation of merged notifiers. It simply
+// concatenates the invocations. This should be sufficient for some simple
+// validation tests
+func mergeNotifiers(notifiers []cap.EventNotifier) cap.EventNotifier {
+	if len(notifiers) == 0 {
+		return func(cap.Event) {}
+	}
+	if len(notifiers) == 1 {
+		return notifiers[0]
+	}
+
+	return func(ev cap.Event) {
+		for _, n := range notifiers {
+			n(ev)
+		}
+	}
+}
+
+// ObserveSupervisorWithNotifiers is an utility function that receives all the arguments
+// required to build a SupervisorSpec, and a callback that when executed will
+// block until some point in the future (after we performed the side-effects we
+// are testing). This function returns the list of events that happened in the
+// monitored supervised tree, as well as any crash errors.
+func ObserveSupervisorWithNotifiers(
+	ctx context.Context,
+	rootName string,
+	buildNodes cap.BuildNodesFn,
+	opts0 []cap.Opt,
+	notifiers []cap.EventNotifier,
+	callback func(EventManager),
+) ([]cap.Event, error) {
 	evManager := NewEventManager()
 	// Accumulate the events as they happen
 	evManager.StartCollector(ctx)
 
+	// Merge the supplied notifiers with the event collector
+	mergedNotifiers := cap.WithNotifier(
+		mergeNotifiers(
+			append([]cap.EventNotifier{evManager.EventCollector(ctx)}, notifiers...),
+		),
+	)
+
 	// Create a new Supervisor Opts that adds the EventManager's Notifier at the
 	// very beginning of the system setup, the order here is important as it
 	// propagates to sub-trees specified in this options
-	opts := append([]cap.Opt{
-		cap.WithNotifier(evManager.EventCollector(ctx)),
-	}, opts0...)
+	opts := append([]cap.Opt{mergedNotifiers}, opts0...)
 	supSpec := cap.NewSupervisorSpec(rootName, buildNodes, opts...)
 
 	// We always want to start the supervisor for test purposes, so this is
