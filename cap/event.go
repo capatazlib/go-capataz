@@ -137,7 +137,7 @@ func (en EventNotifier) workerCompleted(name string) {
 	})
 }
 
-// processFailed reports an event with an EventTag of ProcessStartFailed
+// processFailed reports an event with an EventTag of ProcessFailed
 func (en EventNotifier) processFailed(
 	nodeTag NodeTag,
 	name string,
@@ -152,9 +152,14 @@ func (en EventNotifier) processFailed(
 	})
 }
 
-// supervisorFailed reports an event with an EventTag of ProcessFailed
+// supervisorFailed reports a supervisor event with an EventTag of ProcessFailed
 func (en EventNotifier) supervisorFailed(name string, err error) {
 	en.processFailed(c.Supervisor, name, err)
+}
+
+// workerFailed reports a worker event with an EventTag of ProcessFailed
+func (en EventNotifier) workerFailed(name string, err error) {
+	en.processFailed(c.Worker, name, err)
 }
 
 // workerFailed reports an event with an EventTag of ProcessFailed
