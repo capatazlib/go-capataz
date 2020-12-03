@@ -3,11 +3,12 @@ let
   pinnedPkgs = import sources.nixpkgs {};
 in
 
-{ buildGoPackage ? pinnedPkgs.buildGoPackage,
-  go             ? pinnedPkgs.go,
-  lib            ? pinnedPkgs.lib }:
+{ pkgs           ? pinnedPkgs,
+  buildGoPackage ? pkgs.buildGoPackage,
+  go             ? pkgs.go,
+  lib            ? pkgs.lib }:
 
-assert lib.versionAtLeast go.version "1.14";
+assert lib.versionAtLeast go.version "1.15";
 
 buildGoPackage rec {
   name = "go-capataz";
