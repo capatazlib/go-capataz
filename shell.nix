@@ -4,8 +4,6 @@ let
   # build an overlay with specific packages from sources.nix
   overlay = _: pkgs: {
     niv = import sources.niv {};
-    # check note bellow
-    gopls = pkgs.callPackage ./nix/gopls {};
   };
 
   # get nixpkgs with pinned packages overlay
@@ -45,17 +43,14 @@ in
       # bash scripts utilities
       figlet
       stdenv
+      cacert
 
       # current go version
-      go_1_14
+      go_1_15
 
       # recommended packages to have for development with emacs/spacemacs
       gotools godef gocode golint golangci-lint gogetdoc gopkgs gotests impl
-      errcheck reftools humanlog delve
-
-      # NOTE: I needed to create a gopls package given gotools got broken
-      # https://github.com/NixOS/nixpkgs/issues/88716
-      gopls
+      errcheck reftools humanlog delve gopls
 
       # capataz deps
       go-capataz
