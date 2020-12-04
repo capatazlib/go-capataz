@@ -8,6 +8,7 @@ package cap_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -38,9 +39,11 @@ func TestSupervisorWithErroredBuildNodesFn(t *testing.T) {
 	t.Run("on multi-level tree", func(t *testing.T) {
 		subtree1 := cap.NewSupervisorSpec("subtree1", cap.WithNodes(WaitDoneWorker("worker1")))
 
-		failingSubtree2 := cap.NewSupervisorSpec("subtree2", func() ([]cap.Node, cap.CleanupResourcesFn, error) {
-			return []cap.Node{}, nil, errors.New("resource alloc error")
-		})
+		failingSubtree2 := cap.NewSupervisorSpec(
+			"subtree2",
+			func() ([]cap.Node, cap.CleanupResourcesFn, error) {
+				return []cap.Node{}, nil, errors.New("resource alloc error")
+			})
 
 		subtree3 := cap.NewSupervisorSpec("subtree3", cap.WithNodes(WaitDoneWorker("worker2")))
 
@@ -72,6 +75,73 @@ func TestSupervisorWithErroredBuildNodesFn(t *testing.T) {
 	})
 }
 
+func TestSupervisorWithPanicBuildNodesFnOnSingleTree(t *testing.T) {
+	events, err := ObserveSupervisor(
+		context.TODO(),
+		"root",
+		func() ([]cap.Node, cap.CleanupResourcesFn, error) {
+			panic("single tree panic")
+		},
+		[]cap.Opt{},
+		func(EventManager) {},
+	)
+
+	assert.Error(t, err)
+	errKVs := err.(cap.ErrKVs)
+	kvs := errKVs.KVs()
+	assert.Equal(t, "supervisor build nodes function failed", err.Error())
+	assert.Equal(t, "root", kvs["supervisor.name"])
+	assert.Equal(t, "single tree panic", fmt.Sprint(kvs["supervisor.build.error"]))
+
+	AssertExactMatch(t, events,
+		[]EventP{
+			SupervisorStartFailed("root"),
+		})
+}
+
+func TestSupervisorWithPanicBuildNodesFnOnNestedTree(t *testing.T) {
+	subtree1 := cap.NewSupervisorSpec("subtree1", cap.WithNodes(WaitDoneWorker("worker1")))
+
+	failingSubtree2 := cap.NewSupervisorSpec(
+		"subtree2",
+		func() ([]cap.Node, cap.CleanupResourcesFn, error) {
+			panic("sub-tree panic")
+		})
+
+	subtree3 := cap.NewSupervisorSpec("subtree3", cap.WithNodes(WaitDoneWorker("worker3")))
+
+	events, err := ObserveSupervisor(
+		context.TODO(),
+		"root",
+		cap.WithNodes(
+			cap.Subtree(subtree1),
+			cap.Subtree(failingSubtree2),
+			cap.Subtree(subtree3),
+		),
+		[]cap.Opt{},
+		func(EventManager) {},
+	)
+
+	assert.Error(t, err)
+	errKVs := err.(cap.ErrKVs)
+	kvs := errKVs.KVs()
+	assert.Equal(t, "supervisor node failed to start", err.Error())
+	assert.Equal(t, "root/subtree2", kvs["supervisor.subtree.name"])
+	assert.Equal(t, "sub-tree panic", fmt.Sprint(kvs["supervisor.subtree.build.error"]))
+
+	AssertExactMatch(t, events,
+		[]EventP{
+			WorkerStarted("root/subtree1/worker1"),
+			SupervisorStarted("root/subtree1"),
+			SupervisorStartFailed("root/subtree2"),
+			// ^ supervisor panicked on creation
+			WorkerTerminated("root/subtree1/worker1"),
+			// ^ termination in reverse order starts
+			SupervisorTerminated("root/subtree1"),
+			SupervisorStartFailed("root"),
+		})
+}
+
 func TestSupervisorWithErroredCleanupResourcesFn(t *testing.T) {
 	t.Run("on one-level tree", func(t *testing.T) {
 		events, err := ObserveSupervisor(
@@ -101,13 +171,15 @@ func TestSupervisorWithErroredCleanupResourcesFn(t *testing.T) {
 	t.Run("on multi-level tree", func(t *testing.T) {
 		subtree1 := cap.NewSupervisorSpec("subtree1", cap.WithNodes(WaitDoneWorker("worker1")))
 
-		failingSubtree2 := cap.NewSupervisorSpec("subtree2", func() ([]cap.Node, cap.CleanupResourcesFn, error) {
-			nodes := []cap.Node{WaitDoneWorker("worker2")}
-			cleanup := func() error {
-				return errors.New("cleanup resources err")
-			}
-			return nodes, cleanup, nil
-		})
+		failingSubtree2 := cap.NewSupervisorSpec(
+			"subtree2",
+			func() ([]cap.Node, cap.CleanupResourcesFn, error) {
+				nodes := []cap.Node{WaitDoneWorker("worker2")}
+				cleanup := func() error {
+					return errors.New("cleanup resources err")
+				}
+				return nodes, cleanup, nil
+			})
 
 		subtree3 := cap.NewSupervisorSpec("subtree3", cap.WithNodes(WaitDoneWorker("worker3")))
 

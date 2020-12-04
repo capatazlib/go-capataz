@@ -2,6 +2,7 @@ package cap
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/capatazlib/go-capataz/internal/c"
@@ -106,10 +107,31 @@ type SupervisorSpec struct {
 	eventNotifier   EventNotifier
 }
 
+// reliableBuildNodes capture panics returned from the buildNodes client
+// provided function, and transform them into supervisor errors
+func reliableBuildNodes(
+	supRuntimeName string,
+	spec SupervisorSpec,
+) (nodes []Node, cleanup CleanupResourcesFn, err error) {
+	defer func() {
+		panicVal := recover()
+		if panicVal != nil {
+			err = &SupervisorBuildError{
+				supRuntimeName: supRuntimeName,
+				buildNodesErr:  fmt.Errorf("%v", panicVal),
+			}
+		}
+	}()
+	nodes, cleanup, err = spec.buildNodes()
+	return
+}
+
 // buildChildren constructs the childSpec records that the Supervisor is going
 // to monitor at runtime.
-func (spec SupervisorSpec) buildChildrenSpecs() ([]c.ChildSpec, CleanupResourcesFn, error) {
-	nodes, cleanup, err := spec.buildNodes()
+func (spec SupervisorSpec) buildChildrenSpecs(
+	supRuntimeName string,
+) ([]c.ChildSpec, CleanupResourcesFn, error) {
+	nodes, cleanup, err := reliableBuildNodes(supRuntimeName, spec)
 	if err != nil {
 		return []c.ChildSpec{}, cleanup, err
 	}

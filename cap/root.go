@@ -72,7 +72,7 @@ func (spec SupervisorSpec) rootStart(
 	eventNotifier := spec.getEventNotifier()
 
 	// Build childrenSpec and resource cleanup
-	childrenSpecs, supRscCleanup, rscAllocError := spec.buildChildrenSpecs()
+	childrenSpecs, supRscCleanup, rscAllocError := spec.buildChildrenSpecs(supRuntimeName)
 
 	// Do not even start the monitor loop if we find an error on the resource
 	// allocation logic

@@ -23,8 +23,10 @@ func (spec SupervisorSpec) run(
 	parentName string,
 	onStart c.NotifyStartFn,
 ) error {
+	supRuntimeName := buildRuntimeName(spec, parentName)
+
 	// Build childrenSpec and resource cleanup
-	supChildrenSpecs, supRscCleanup, rscAllocError := spec.buildChildrenSpecs()
+	supChildrenSpecs, supRscCleanup, rscAllocError := spec.buildChildrenSpecs(supRuntimeName)
 
 	// Do not even start the monitor loop if we find an error on the resource
 	// allocation logic
@@ -38,8 +40,6 @@ func (spec SupervisorSpec) run(
 
 	// ctrlCh is used to keep track of request from client APIs (e.g. spawn child)
 	ctrlCh := make(chan ctrlMsg)
-
-	supRuntimeName := buildRuntimeName(spec, parentName)
 
 	onTerminate := func(err terminateNodeError) {}
 
