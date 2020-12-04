@@ -14,12 +14,13 @@ func oneForOneRestart(
 	supNotifyCh chan<- c.ChildNotification,
 	wasComplete bool,
 	prevCh c.Child,
+	prevErr error,
 ) (c.Child, error) {
 	chSpec := prevCh.GetSpec()
 	chName := chSpec.GetName()
 
 	startTime := time.Now()
-	newCh, chRestartErr := prevCh.Restart(supRuntimeName, supNotifyCh, wasComplete)
+	newCh, chRestartErr := prevCh.Restart(supRuntimeName, supNotifyCh, wasComplete, prevErr)
 
 	if chRestartErr != nil {
 		return c.Child{}, chRestartErr
@@ -42,6 +43,7 @@ func oneForOneRestartLoop(
 	supNotifyCh chan<- c.ChildNotification,
 	wasComplete bool,
 	prevCh c.Child,
+	prevErr error,
 ) *c.ErrorToleranceReached {
 	for {
 		newCh, restartErr := oneForOneRestart(
@@ -51,6 +53,7 @@ func oneForOneRestartLoop(
 			supNotifyCh,
 			wasComplete,
 			prevCh,
+			prevErr,
 		)
 		// if we don't get start errors, break the loop
 		if restartErr == nil {

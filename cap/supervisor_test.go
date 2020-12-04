@@ -8,7 +8,6 @@ package cap_test
 import (
 	"context"
 	"fmt"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -182,6 +181,19 @@ func TestStartFailedChild(t *testing.T) {
 	)
 
 	assert.Error(t, err)
+	errKVs := err.(cap.ErrKVs)
+	kvs := errKVs.KVs()
+	assert.Equal(t, "supervisor node failed to start", err.Error())
+	assert.Equal(t, "root", kvs["supervisor.name"])
+	assert.Equal(t, "root/branch1", kvs["supervisor.subtree.name"])
+	assert.Equal(t,
+		"FailStartWorker child3",
+		fmt.Sprint(kvs["supervisor.subtree.start.node.error"]),
+	)
+	assert.Equal(t,
+		"child3",
+		fmt.Sprint(kvs["supervisor.subtree.start.node.name"]),
+	)
 
 	AssertExactMatch(t, events,
 		[]EventP{
@@ -242,6 +254,17 @@ func TestTerminateFailedChild(t *testing.T) {
 	)
 
 	assert.Error(t, err)
+	errKVs := err.(cap.ErrKVs)
+	kvs := errKVs.KVs()
+	assert.Equal(t, "supervisor terminated with failures", err.Error())
+	assert.Equal(t, "root", kvs["supervisor.name"])
+	assert.Equal(t, "root/branch1", kvs["supervisor.subtree.0.name"])
+	assert.Equal(t, "child2", kvs["supervisor.subtree.0.termination.node.0.name"])
+	assert.Equal(
+		t,
+		"child shutdown timeout",
+		fmt.Sprint(kvs["supervisor.subtree.0.termination.node.0.error"]),
+	)
 
 	AssertExactMatch(t, events,
 		[]EventP{
@@ -316,18 +339,14 @@ func TestFailedTerminationOnOneLevelTree(t *testing.T) {
 		func(EventManager) {},
 	)
 
+	// assert that error contains all information required to assess what went wrong
 	assert.Error(t, err)
-	errMsg := []string{
-		"\nsupervision tree termination failed",
-		"* children with termination errors",
-		"\t- child1: child1 failed\n",
-		"",
-	}
-	assert.Equal(
-		t,
-		strings.Join(errMsg, "\n\n"),
-		err.Error(),
-	)
+	errKVs := err.(cap.ErrKVs)
+	kvs := errKVs.KVs()
+	assert.Equal(t, "supervisor terminated with failures", err.Error())
+	assert.Equal(t, "root", kvs["supervisor.name"])
+	assert.Equal(t, "child1", kvs["supervisor.termination.node.0.name"])
+	assert.Equal(t, "child1 failed", fmt.Sprint(kvs["supervisor.termination.node.0.error"]))
 
 	t.Run("starts and stops routines in the correct order", func(t *testing.T) {
 		AssertExactMatch(t, events,

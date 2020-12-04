@@ -41,7 +41,7 @@ func (spec SupervisorSpec) run(
 
 	supRuntimeName := buildRuntimeName(spec, parentName)
 
-	onTerminate := func(err terminateError) {}
+	onTerminate := func(err terminateNodeError) {}
 
 	startTime := time.Now()
 	// spawn goroutine with supervisor monitorLoop

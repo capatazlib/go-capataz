@@ -21,7 +21,7 @@ var rootSupervisorName = ""
 
 // notifyTerminationFn is a callback that gets called when a supervisor is
 // terminating (with or without an error).
-type notifyTerminationFn = func(terminateError)
+type notifyTerminationFn = func(terminateNodeError)
 
 // buildRuntimeName creates the runtimeName of a Supervisor from the parent name
 // and the spec name
@@ -62,10 +62,10 @@ func (spec SupervisorSpec) rootStart(
 	ctrlCh := make(chan ctrlMsg)
 
 	// startCh is used to track when the supervisor loop thread has started
-	startCh := make(chan startError)
+	startCh := make(chan startNodeError)
 
 	// terminateCh is used when waiting for cancelFn to complete
-	terminateCh := make(chan terminateError)
+	terminateCh := make(chan terminateNodeError)
 
 	supRuntimeName := buildRuntimeName(spec, parentName)
 
@@ -126,14 +126,14 @@ func (spec SupervisorSpec) rootStart(
 		},
 	}
 
-	onStart := func(err startError) {
+	onStart := func(err startNodeError) {
 		if err != nil {
 			startCh <- err
 		}
 		close(startCh)
 	}
 
-	onTerminate := func(err terminateError) {
+	onTerminate := func(err terminateNodeError) {
 		if err != nil {
 			terminateCh <- err
 		}
