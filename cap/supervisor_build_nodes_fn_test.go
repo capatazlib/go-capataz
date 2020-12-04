@@ -142,79 +142,98 @@ func TestSupervisorWithPanicBuildNodesFnOnNestedTree(t *testing.T) {
 		})
 }
 
-func TestSupervisorWithErroredCleanupResourcesFn(t *testing.T) {
-	t.Run("on one-level tree", func(t *testing.T) {
-		events, err := ObserveSupervisor(
-			context.TODO(),
-			"root",
-			func() ([]cap.Node, cap.CleanupResourcesFn, error) {
-				nodes := []cap.Node{WaitDoneWorker("worker1")}
-				cleanup := func() error {
-					return errors.New("cleanup resources err")
-				}
-				return nodes, cleanup, nil
-			},
-			[]cap.Opt{},
-			func(EventManager) {},
-		)
+func TestSupervisorWithErroredCleanupResourcesFnOnSingleTree(t *testing.T) {
+	events, err := ObserveSupervisor(
+		context.TODO(),
+		"root",
+		func() ([]cap.Node, cap.CleanupResourcesFn, error) {
+			nodes := []cap.Node{WaitDoneWorker("worker1")}
+			cleanup := func() error {
+				return errors.New("cleanup resources err")
+			}
+			return nodes, cleanup, nil
+		},
+		[]cap.Opt{},
+		func(EventManager) {},
+	)
 
-		assert.Error(t, err, "supervisor failed to cleanup resources")
+	assert.Error(t, err)
+	errKvs := err.(cap.ErrKVs)
+	kvs := errKvs.KVs()
+	assert.Equal(t, "supervisor terminated with failures", err.Error())
+	assert.Equal(t, "root", kvs["supervisor.name"])
+	assert.Equal(
+		t,
+		"cleanup resources err",
+		fmt.Sprint(kvs["supervisor.termination.cleanup.error"]),
+	)
 
-		AssertExactMatch(t, events,
-			[]EventP{
-				WorkerStarted("root/worker1"),
-				SupervisorStarted("root"),
-				WorkerTerminated("root/worker1"),
-				SupervisorFailed("root"),
-			})
-	})
-	t.Run("on multi-level tree", func(t *testing.T) {
-		subtree1 := cap.NewSupervisorSpec("subtree1", cap.WithNodes(WaitDoneWorker("worker1")))
+	AssertExactMatch(t, events,
+		[]EventP{
+			WorkerStarted("root/worker1"),
+			SupervisorStarted("root"),
+			WorkerTerminated("root/worker1"),
+			SupervisorFailed("root"),
+		})
+}
 
-		failingSubtree2 := cap.NewSupervisorSpec(
-			"subtree2",
-			func() ([]cap.Node, cap.CleanupResourcesFn, error) {
-				nodes := []cap.Node{WaitDoneWorker("worker2")}
-				cleanup := func() error {
-					return errors.New("cleanup resources err")
-				}
-				return nodes, cleanup, nil
-			})
+func TestSupervisorWithErroredCleanupResourcesFnOnNestedTree(t *testing.T) {
+	subtree1 := cap.NewSupervisorSpec("subtree1", cap.WithNodes(WaitDoneWorker("worker1")))
 
-		subtree3 := cap.NewSupervisorSpec("subtree3", cap.WithNodes(WaitDoneWorker("worker3")))
+	failingSubtree2 := cap.NewSupervisorSpec(
+		"subtree2",
+		func() ([]cap.Node, cap.CleanupResourcesFn, error) {
+			nodes := []cap.Node{WaitDoneWorker("worker2")}
+			cleanup := func() error {
+				return errors.New("cleanup resources err")
+			}
+			return nodes, cleanup, nil
+		})
 
-		events, err := ObserveSupervisor(
-			context.TODO(),
-			"root",
-			cap.WithNodes(
-				cap.Subtree(subtree1),
-				cap.Subtree(failingSubtree2),
-				cap.Subtree(subtree3),
-			),
-			[]cap.Opt{},
-			func(EventManager) {},
-		)
+	subtree3 := cap.NewSupervisorSpec("subtree3", cap.WithNodes(WaitDoneWorker("worker3")))
 
-		assert.Error(t, err, "supervisor failed to cleanup resources")
+	events, err := ObserveSupervisor(
+		context.TODO(),
+		"root",
+		cap.WithNodes(
+			cap.Subtree(subtree1),
+			cap.Subtree(failingSubtree2),
+			cap.Subtree(subtree3),
+		),
+		[]cap.Opt{},
+		func(EventManager) {},
+	)
 
-		AssertExactMatch(t, events,
-			[]EventP{
-				WorkerStarted("root/subtree1/worker1"),
-				SupervisorStarted("root/subtree1"),
-				WorkerStarted("root/subtree2/worker2"),
-				SupervisorStarted("root/subtree2"),
-				WorkerStarted("root/subtree3/worker3"),
-				SupervisorStarted("root/subtree3"),
-				SupervisorStarted("root"),
-				// Termination starts here
-				WorkerTerminated("root/subtree3/worker3"),
-				SupervisorTerminated("root/subtree3"),
-				WorkerTerminated("root/subtree2/worker2"),
-				SupervisorFailed("root/subtree2"),
-				// ^ supervisor failed, but shutdown still continues
-				WorkerTerminated("root/subtree1/worker1"),
-				SupervisorTerminated("root/subtree1"),
-				SupervisorFailed("root"),
-			})
-	})
+	assert.Error(t, err)
+	errKvs := err.(cap.ErrKVs)
+	kvs := errKvs.KVs()
+	assert.Equal(t, "supervisor terminated with failures", err.Error())
+	assert.Equal(t, "root", kvs["supervisor.name"])
+	assert.Equal(t, "root/subtree2", kvs["supervisor.subtree.0.name"])
+	assert.Equal(
+		t,
+		"cleanup resources err",
+		fmt.Sprint(kvs["supervisor.subtree.0.termination.cleanup.error"]),
+	)
+
+	AssertExactMatch(t, events,
+		[]EventP{
+			WorkerStarted("root/subtree1/worker1"),
+			SupervisorStarted("root/subtree1"),
+			WorkerStarted("root/subtree2/worker2"),
+			SupervisorStarted("root/subtree2"),
+			WorkerStarted("root/subtree3/worker3"),
+			SupervisorStarted("root/subtree3"),
+			SupervisorStarted("root"),
+			// Termination starts here
+			WorkerTerminated("root/subtree3/worker3"),
+			SupervisorTerminated("root/subtree3"),
+			WorkerTerminated("root/subtree2/worker2"),
+			SupervisorFailed("root/subtree2"),
+			// ^ supervisor failed, but shutdown still continues
+			WorkerTerminated("root/subtree1/worker1"),
+			SupervisorTerminated("root/subtree1"),
+			SupervisorFailed("root"),
+		})
+
 }
