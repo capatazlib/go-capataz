@@ -24,7 +24,8 @@ type ErrKVs interface {
 
 // SupervisorTerminationError wraps errors returned by a child node that failed
 // to terminate (io errors, timeouts, etc.), enhancing it with supervisor
-// information
+// information. Note, the only way to have a valid SupervisorTerminationError is
+// for one of the child nodes to fail or the supervisor cleanup operation fails.
 type SupervisorTerminationError struct {
 	supRuntimeName string
 	nodeErrMap     map[string]error
@@ -95,6 +96,9 @@ type SupervisorStartError struct {
 	supRuntimeName string
 	nodeName       string
 	nodeErr        error
+	// terminationErr is non-nil when the abort process triggered by a supervisor
+	// start error produced new errors. A SupervisorTerminationError value will
+	// only exists when at least one supervisor node failed to terminate.
 	terminationErr *SupervisorTerminationError
 }
 
