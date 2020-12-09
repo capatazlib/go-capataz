@@ -9,8 +9,12 @@ import (
 	"github.com/capatazlib/go-capataz/internal/c"
 )
 
+// terminateNodeError is the error reported back to a Supervisor when the
+// termination of a node fails
 type terminateNodeError = error
 
+// startNodeError is the error reported back to a Supervisor when the start of a
+// node fails
 type startNodeError = error
 
 // ErrKVs is an utility interface used to get key-values out of Capataz errors
