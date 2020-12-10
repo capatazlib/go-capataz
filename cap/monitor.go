@@ -38,6 +38,7 @@ func handleChildNodeError(
 			supNotifyCh,
 			false, /* was complete */
 			prevCh,
+			prevChErr,
 		)
 
 	default: /* Temporary */
@@ -77,6 +78,7 @@ func handleChildNodeCompletion(
 			supNotifyCh,
 			true, /* was complete */
 			prevCh,
+			nil,
 		)
 	}
 }
@@ -170,16 +172,27 @@ func startChildNodes(
 			chSpec,
 		)
 		if chStartErr != nil {
+			// we must stop previously started children before we finish the supervisor
 			nodeErrMap := terminateChildNodes(spec, supChildrenSpecs, children)
-			// Is important we stop the children before we finish the supervisor
-			return nil, &SupervisorError{
+			var terminationErr *SupervisorTerminationError
+			if len(nodeErrMap) > 0 {
+				terminationErr = &SupervisorTerminationError{
+					supRuntimeName: supRuntimeName,
+					nodeErrMap:     nodeErrMap,
+					rscCleanupErr:  nil,
+				}
+			}
+
+			return nil, &SupervisorStartError{
 				supRuntimeName: supRuntimeName,
+				nodeName:       chSpec.GetName(),
 				nodeErr:        chStartErr,
-				nodeErrMap:     nodeErrMap,
+				terminationErr: terminationErr,
 			}
 		}
 		children[chSpec.GetName()] = ch
 	}
+
 	return children, nil
 }
 
@@ -249,7 +262,7 @@ func terminateSupervisor(
 	onTerminate func(error),
 	restartErr *c.ErrorToleranceReached,
 ) error {
-	var terminateErr *SupervisorError
+	var terminateErr *SupervisorTerminationError
 	supNodeErrMap := terminateChildNodes(supSpec, supChildrenSpecs, supChildren)
 	supRscCleanupErr := supRscCleanup()
 
@@ -259,7 +272,7 @@ func terminateSupervisor(
 
 		// On async strategy, we notify that the spawner terminated with an
 		// error
-		terminateErr = &SupervisorError{
+		terminateErr = &SupervisorTerminationError{
 			supRuntimeName: supRuntimeName,
 			nodeErrMap:     supNodeErrMap,
 			rscCleanupErr:  supRscCleanupErr,
@@ -271,8 +284,8 @@ func terminateSupervisor(
 	if restartErr != nil && terminateErr != nil {
 		supErr := &SupervisorRestartError{
 			supRuntimeName: supRuntimeName,
-			terminateErr:   terminateErr,
 			nodeErr:        restartErr,
+			terminationErr: terminateErr,
 		}
 		onTerminate(supErr)
 		return supErr
@@ -283,6 +296,7 @@ func terminateSupervisor(
 		supErr := &SupervisorRestartError{
 			supRuntimeName: supRuntimeName,
 			nodeErr:        restartErr,
+			terminationErr: nil,
 		}
 		onTerminate(supErr)
 		return supErr

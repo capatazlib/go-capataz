@@ -1,7 +1,6 @@
 package c
 
 import (
-	"fmt"
 	"time"
 )
 
@@ -18,15 +17,17 @@ type ErrorToleranceReached struct {
 // KVs returns a data bag map that may be used in structured logging
 func (err *ErrorToleranceReached) KVs() map[string]interface{} {
 	kvs := make(map[string]interface{})
-	kvs["child.name"] = err.failedChildName
-	kvs["child.error"] = err.err.Error()
-	kvs["child.error.count"] = err.failedChildErrCount
-	kvs["child.error.duration"] = err.failedChildErrDuration
+	kvs["node.name"] = err.failedChildName
+	if err.err != nil {
+		kvs["node.error.msg"] = err.err.Error()
+		kvs["node.error.count"] = err.failedChildErrCount
+		kvs["node.error.duration"] = err.failedChildErrDuration
+	}
 	return kvs
 }
 
 func (err *ErrorToleranceReached) Error() string {
-	return fmt.Sprintf("Child failures surpassed error tolerance")
+	return "node failures surpassed error tolerance"
 }
 
 // Unwrap returns the last error that caused the creation of an

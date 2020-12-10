@@ -3,169 +3,167 @@ package cap
 import (
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/capatazlib/go-capataz/internal/c"
 )
 
-// startError is the error reported back to a Supervisor when the start of a
-// worker fails
-type startError = error
+// terminateNodeError is the error reported back to a Supervisor when the
+// termination of a node fails
+type terminateNodeError = error
 
-// terminateError is the error reported back to a Supervisor when the
-// termination of a worker fails
-type terminateError = error
+// startNodeError is the error reported back to a Supervisor when the start of a
+// node fails
+type startNodeError = error
 
-// SupervisorError wraps an error from a supervised
-// worker, enhancing it with supervisor information and possible shutdown errors
-// on other siblings
-type SupervisorError struct {
+// ErrKVs is an utility interface used to get key-values out of Capataz errors
+type ErrKVs interface {
+	KVs() map[string]interface{}
+}
+
+// SupervisorTerminationError wraps errors returned by a child node that failed
+// to terminate (io errors, timeouts, etc.), enhancing it with supervisor
+// information. Note, the only way to have a valid SupervisorTerminationError is
+// for one of the child nodes to fail or the supervisor cleanup operation fails.
+type SupervisorTerminationError struct {
 	supRuntimeName string
-	rscCleanupErr  error
-	nodeErr        error
 	nodeErrMap     map[string]error
-}
-
-// Unwrap returns anj error from a supervised goroutine (if any)
-func (se *SupervisorError) Unwrap() error {
-	return se.nodeErr
-}
-
-// Cause returns an error from a supervised goroutine (if any)
-func (se *SupervisorError) Cause() error {
-	return se.nodeErr
-}
-
-// GetRuntimeName returns the name of the supervisor that failed
-func (se *SupervisorError) GetRuntimeName() string {
-	return se.supRuntimeName
-}
-
-// NodeFailCount returns the number of nodes that failed to terminate correctly.
-// Note if a goroutine fails to terminate because of a shutdown timeout, the
-// failed goroutines may leak. This happens because go doesn't offer any true
-// way to kill a goroutine.
-func (se *SupervisorError) NodeFailCount() int {
-	return len(se.nodeErrMap)
-}
-
-// KVs returns a data bag map that may be used in structured logging
-func (se *SupervisorError) KVs() map[string]interface{} {
-	kvs := make(map[string]interface{})
-	kvs["supervisor.name"] = se.supRuntimeName
-	for chKey, chErr := range se.nodeErrMap {
-		kvs[fmt.Sprintf("supervisor.node.%v.stop.error", chKey)] = chErr.Error()
-	}
-	if se.nodeErr != nil {
-		kvs["supervisor.termination.error"] = se.nodeErr.Error()
-	}
-	if se.rscCleanupErr != nil {
-		kvs["supervisor.cleanup.error"] = se.rscCleanupErr.Error()
-	}
-	return kvs
+	rscCleanupErr  error
 }
 
 // Error returns an error message
-func (se *SupervisorError) Error() string {
-	sections := make([]string, 0, 5)
-	sections = append(sections, "\nsupervision tree termination failed")
+func (err *SupervisorTerminationError) Error() string {
+	return "supervisor terminated with failures"
+}
 
-	if se.nodeErr != nil {
-		var buffer strings.Builder
-		buffer.WriteString("* cause error\n\n")
-		buffer.WriteString(fmt.Sprintf("\t%v\n", se.nodeErr))
-		sections = append(sections, buffer.String())
+// KVs returns a metadata map for structured logging
+func (err *SupervisorTerminationError) KVs() map[string]interface{} {
+	nodeNames := make([]string, 0, len(err.nodeErrMap))
+	for nodeName := range err.nodeErrMap {
+		nodeNames = append(nodeNames, nodeName)
 	}
+	sort.Strings(nodeNames)
 
-	if se.rscCleanupErr != nil {
-		var buffer strings.Builder
-		buffer.WriteString("* resource cleanup error\n\n")
-		buffer.WriteString(fmt.Sprintf("\t%v\n", se.rscCleanupErr))
-		sections = append(sections, buffer.String())
-	}
+	acc := make(map[string]interface{})
+	acc["supervisor.name"] = err.supRuntimeName
 
-	if len(se.nodeErrMap) > 0 {
-		var buffer strings.Builder
-		buffer.WriteString("* children with termination errors\n\n")
-		for siblingName, siblingErr := range se.nodeErrMap {
-			buffer.WriteString(fmt.Sprintf("\t- %s: %v\n", siblingName, siblingErr))
+	for i, nodeName := range nodeNames {
+		nodeErr := err.nodeErrMap[nodeName]
+		var subTreeError ErrKVs
+		if errors.As(nodeErr, &subTreeError) {
+			for k0, v := range subTreeError.KVs() {
+				k := strings.TrimPrefix(k0, "supervisor.")
+				acc[fmt.Sprintf("supervisor.subtree.%d.%s", i, k)] = v
+			}
+		} else {
+			acc[fmt.Sprintf("supervisor.termination.node.%d.name", i)] = nodeName
+			acc[fmt.Sprintf("supervisor.termination.node.%d.error", i)] = nodeErr
 		}
-		sections = append(sections, buffer.String())
+
 	}
 
-	sections = append(sections, "")
+	if err.rscCleanupErr != nil {
+		acc["supervisor.termination.cleanup.error"] = err.rscCleanupErr
+	}
 
-	return strings.Join(sections, "\n\n")
+	return acc
+}
+
+// SupervisorBuildError wraps errors returned from a client provided function
+// that builds the supervisor nodes, enhancing it with supervisor information
+type SupervisorBuildError struct {
+	supRuntimeName string
+	buildNodesErr  error
+}
+
+func (err *SupervisorBuildError) Error() string {
+	return "supervisor build nodes function failed"
+}
+
+// KVs returns a metadata map for structured logging
+func (err *SupervisorBuildError) KVs() map[string]interface{} {
+	acc := make(map[string]interface{})
+	acc["supervisor.name"] = err.supRuntimeName
+	acc["supervisor.build.error"] = err.buildNodesErr
+	return acc
+}
+
+// SupervisorStartError wraps an error reported on the initialization of a child
+// node, enhancing it with supervisor information and possible termination errors
+// on other siblings
+type SupervisorStartError struct {
+	supRuntimeName string
+	nodeName       string
+	nodeErr        error
+	// terminationErr is non-nil when the abort process triggered by a supervisor
+	// start error produced new errors. A SupervisorTerminationError value will
+	// only exists when at least one supervisor node failed to terminate.
+	terminationErr *SupervisorTerminationError
+}
+
+// Error returns an error message
+func (err *SupervisorStartError) Error() string {
+	return "supervisor node failed to start"
+}
+
+// KVs returns a metadata map for structured logging
+func (err *SupervisorStartError) KVs() map[string]interface{} {
+	acc := make(map[string]interface{})
+	acc["supervisor.name"] = err.supRuntimeName
+
+	if err.nodeErr != nil {
+		var subTreeError ErrKVs
+		if errors.As(err.nodeErr, &subTreeError) {
+			for k0, v := range subTreeError.KVs() {
+				k := strings.TrimPrefix(k0, "supervisor.")
+				acc[fmt.Sprintf("supervisor.subtree.%s", k)] = v
+			}
+		} else {
+			acc["supervisor.start.node.name"] = err.nodeName
+			acc["supervisor.start.node.error"] = err.nodeErr
+		}
+	}
+
+	if err.terminationErr != nil {
+		for k, v := range err.terminationErr.KVs() {
+			acc[k] = v
+		}
+	}
+
+	return acc
 }
 
 // SupervisorRestartError wraps an error tolerance surpassed error from a child
-// node, enhancing it with supervisor information and possible shutdown errors
+// node, enhancing it with supervisor information and possible termination errors
 // on other siblings
 type SupervisorRestartError struct {
 	supRuntimeName string
 	nodeErr        *c.ErrorToleranceReached
-	terminateErr   *SupervisorError
-}
-
-// KVs returns a data bag map that may be used in structured logging
-func (se *SupervisorRestartError) KVs() map[string]interface{} {
-	kvs := make(map[string]interface{})
-	terminateKvs := se.terminateErr.KVs()
-	childErrKvs := se.nodeErr.KVs()
-
-	for k, v := range terminateKvs {
-		kvs[k] = v
-	}
-
-	for k, v := range childErrKvs {
-		kvs[k] = v
-	}
-
-	return kvs
+	terminationErr *SupervisorTerminationError
 }
 
 // Error returns an error message
-func (se *SupervisorRestartError) Error() string {
-	// NOTE: We are not reporting error details on the string given we want to
-	// rely on structured logging via KVs
-	if se.nodeErr != nil && se.terminateErr != nil {
-		return fmt.Sprintf(
-			"worker surpassed error threshold, " +
-				"(and other nodes failed to terminate as well)",
-		)
-	} else if se.nodeErr != nil {
-		return "worker surpassed error tolerance"
-	} else if se.terminateErr != nil {
-		return "supervisor nodes failed to terminate"
-	}
-	// NOTE: this case never happens, an invariant condition of this type is that
-	// it only hold values with a nodeErr. If we are here, it means we manually
-	// created a wrong SupervisorRestartError value (implementation error).
-	panic(
-		errors.New("invalid SupervisorRestartError was created"),
-	)
+func (err *SupervisorRestartError) Error() string {
+	return "supervisor crashed due to error tolerance surpassed"
 }
 
-// Unwrap returns a child node error or a termination error
-func (se *SupervisorRestartError) Unwrap() error {
-	// it should never be nil
-	if se.nodeErr != nil {
-		return se.nodeErr.Unwrap()
-	}
-	if se.terminateErr != nil {
-		return se.terminateErr
-	}
-	return nil
-}
+// KVs returns a metadata map for structured logging
+func (err *SupervisorRestartError) KVs() map[string]interface{} {
+	acc := make(map[string]interface{})
+	acc["supervisor.name"] = err.supRuntimeName
 
-// Cause returns a child node error or a termination error
-func (se *SupervisorRestartError) Cause() error {
-	// it should never be nil
-	if se.nodeErr != nil {
-		return se.nodeErr.Unwrap()
+	if err.nodeErr != nil {
+		for k, v := range err.nodeErr.KVs() {
+			acc[fmt.Sprintf("supervisor.restart.%s", k)] = v
+		}
 	}
-	if se.terminateErr != nil {
-		return se.terminateErr
+
+	if err.terminationErr != nil {
+		for k, v := range err.terminationErr.KVs() {
+			acc[k] = v
+		}
 	}
-	return nil
+
+	return acc
 }

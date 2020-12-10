@@ -7,6 +7,7 @@ package cap_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -217,6 +218,14 @@ func TestTransientOneForOneSingleFailingWorkerReachThreshold(t *testing.T) {
 	// This should return an error given there is no other supervisor that will
 	// rescue us when error threshold reached in a child.
 	assert.Error(t, err)
+	errKVs := err.(cap.ErrKVs)
+	kvs := errKVs.KVs()
+	assert.Equal(t, "supervisor crashed due to error tolerance surpassed", err.Error())
+	assert.Equal(t, "root", kvs["supervisor.name"])
+	assert.Equal(t, "root/worker1", kvs["supervisor.restart.node.name"])
+	assert.Equal(t, "Failing child (3 out of 3)", fmt.Sprint(kvs["supervisor.restart.node.error.msg"]))
+	assert.Equal(t, 10*time.Second, kvs["supervisor.restart.node.error.duration"])
+	assert.Equal(t, uint32(2), kvs["supervisor.restart.node.error.count"])
 
 	AssertExactMatch(t, events,
 		[]EventP{

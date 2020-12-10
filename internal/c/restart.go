@@ -1,6 +1,6 @@
 package c
 
-func (ch Child) assertErrorTolerance() (uint32, *ErrorToleranceReached) {
+func (ch Child) assertErrorTolerance(err error) (uint32, *ErrorToleranceReached) {
 	errTolerance := ch.spec.ErrTolerance
 	switch errTolerance.check(ch.restartCount, ch.createdAt) {
 	case errToleranceSurpassed:
@@ -8,6 +8,7 @@ func (ch Child) assertErrorTolerance() (uint32, *ErrorToleranceReached) {
 			failedChildName:        ch.GetRuntimeName(),
 			failedChildErrCount:    errTolerance.MaxErrCount,
 			failedChildErrDuration: errTolerance.ErrWindow,
+			err:                    err,
 		}
 	case increaseErrCount:
 		return ch.restartCount + uint32(1), nil
@@ -24,6 +25,7 @@ func (ch Child) Restart(
 	supParentName string,
 	supNotifyCh chan<- ChildNotification,
 	wasComplete bool,
+	prevErr error,
 ) (Child, error) {
 	chSpec := ch.GetSpec()
 
@@ -36,7 +38,7 @@ func (ch Child) Restart(
 			return Child{}, startErr
 		}
 	} else {
-		restartCount, toleranceErr := ch.assertErrorTolerance()
+		restartCount, toleranceErr := ch.assertErrorTolerance(prevErr)
 		if toleranceErr != nil {
 			return Child{}, toleranceErr
 		}

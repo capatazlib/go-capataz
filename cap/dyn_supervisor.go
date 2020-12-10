@@ -25,7 +25,7 @@ type ctrlMsg interface {
 
 type startChildResult struct {
 	childName string
-	startErr  startError
+	startErr  startNodeError
 }
 
 // startChildMsg is a message sent from clients to tell a supervisor to spawn
@@ -95,7 +95,7 @@ var _ ctrlMsg = startChildMsg{}
 // previously spawned worker routine.
 type terminateChildMsg struct {
 	nodeName   string
-	resultChan chan<- terminateError
+	resultChan chan<- terminateNodeError
 }
 
 func (tcm terminateChildMsg) processMsg(
@@ -177,7 +177,7 @@ func (dyn *DynSupervisor) terminateNode(nodeName string) func() error {
 
 	// we initialize the resultCh with a buffer of 1, we may store the result
 	// before the client is ready to read it.
-	resultCh := make(chan terminateError, 1)
+	resultCh := make(chan terminateNodeError, 1)
 	msg := terminateChildMsg{
 		nodeName:   nodeName,
 		resultChan: resultCh,

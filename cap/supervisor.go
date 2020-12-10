@@ -72,7 +72,7 @@ type Supervisor struct {
 	spec     SupervisorSpec
 	children map[string]c.Child
 	cancel   func()
-	wait     func(time.Time, startError) error
+	wait     func(time.Time, startNodeError) error
 }
 
 ////////////////////////////////////////////////////////////////////////////////
