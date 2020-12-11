@@ -99,17 +99,12 @@ func sendNotificationToSup(
 // ChildSpec, this function will block until the spawned goroutine notifies it
 // has been initialized.
 //
-// ### The notifyResult callback
+// ### The supNotifyCh value
 //
-// This callback notifies this child's supervisor that the goroutine has
-// finished (either with or without an error). The runtime name of the child is
-// also given so that the supervisor can use the spec for that child when
-// restarting.
-//
-// #### Why a callback?
-//
-// By using a callback we avoid coupling the Supervisor types to the Child
-// logic.
+// Messages sent to this channel notify the supervisor that the child's
+// goroutine has finished (either with or without an error). The runtime name of
+// the child is also given so that the supervisor can use the spec for that
+// child when restarting.
 //
 func (chSpec ChildSpec) DoStart(
 	supName string,
