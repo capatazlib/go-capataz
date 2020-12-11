@@ -8,6 +8,9 @@ import (
 	"time"
 )
 
+// workerNameKey is an internal representation of the worker name in the
+// worker context. If you reverse engineer, you are on your own.
+//
 var workerNameKey = "__capataz.worker.runtime_name__"
 
 // GetWorkerName gets a capataz worker name from a context
@@ -19,7 +22,7 @@ func GetWorkerName(ctx context.Context) string {
 }
 
 // setWorkerName allows to add a capataz worker name to a context
-func SetWorkerName(ctx context.Context, name string) context.Context {
+func setWorkerName(ctx context.Context, name string) context.Context {
 	return context.WithValue(ctx, workerNameKey, name)
 }
 
@@ -117,7 +120,7 @@ func (chSpec ChildSpec) DoStart(
 	// events with it's full name
 
 	childCtx, cancelFn := context.WithCancel(
-		SetWorkerName(context.Background(), chRuntimeName),
+		setWorkerName(context.Background(), chRuntimeName),
 	)
 
 	startCh := make(chan startError)
