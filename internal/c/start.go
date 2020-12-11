@@ -8,6 +8,27 @@ import (
 	"time"
 )
 
+// capatazKey is an internal type for the capataz keys
+type capatazKey string
+
+// workerNameKey is an internal representation of the worker name in the
+// worker context. If you reverse engineer, you are on your own.
+//
+var workerNameKey capatazKey = "__capataz.worker.runtime_name__"
+
+// GetWorkerName gets a capataz worker name from a context
+func GetWorkerName(ctx context.Context) string {
+	if val := ctx.Value(workerNameKey); val != nil {
+		return val.(string)
+	}
+	return ""
+}
+
+// setWorkerName allows to add a capataz worker name to a context
+func setWorkerName(ctx context.Context, name string) context.Context {
+	return context.WithValue(ctx, workerNameKey, name)
+}
+
 // waitTimeout is the internal function used by Child to wait for the execution
 // of it's thread to stop.
 func waitTimeout(
@@ -84,17 +105,12 @@ func sendNotificationToSup(
 // ChildSpec, this function will block until the spawned goroutine notifies it
 // has been initialized.
 //
-// ### The notifyResult callback
+// ### The supNotifyCh value
 //
-// This callback notifies this child's supervisor that the goroutine has
-// finished (either with or without an error). The runtime name of the child is
-// also given so that the supervisor can use the spec for that child when
-// restarting.
-//
-// #### Why a callback?
-//
-// By using a callback we avoid coupling the Supervisor types to the Child
-// logic.
+// Messages sent to this channel notify the supervisor that the child's
+// goroutine has finished (either with or without an error). The runtime name of
+// the child is also given so that the supervisor can use the spec for that
+// child when restarting.
 //
 func (chSpec ChildSpec) DoStart(
 	supName string,
@@ -102,7 +118,13 @@ func (chSpec ChildSpec) DoStart(
 ) (Child, error) {
 
 	chRuntimeName := strings.Join([]string{supName, chSpec.GetName()}, "/")
-	childCtx, cancelFn := context.WithCancel(context.Background())
+
+	// we allow a worker to know it's name so as to allow subtrees to report
+	// events with it's full name
+
+	childCtx, cancelFn := context.WithCancel(
+		setWorkerName(context.Background(), chRuntimeName),
+	)
 
 	startCh := make(chan startError)
 	terminateCh := make(chan ChildNotification)
