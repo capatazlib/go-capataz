@@ -8,6 +8,7 @@ package cap_test
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -361,4 +362,54 @@ func TestFailedTerminationOnOneLevelTree(t *testing.T) {
 				SupervisorFailed("root"),
 			})
 	})
+}
+
+var alphabet = func() []string {
+	result := make([]string, 26)
+	for i := range result {
+		result[i] = string('a' + byte(i))
+	}
+	return result
+}()
+
+// buildTreeAndAssertions dynamically builds a supervision tree with
+// a basic started/terminated predicate matching
+func buildTreeAndAssertions(prefix string, i int) ([]EventP, []EventP, cap.Node) {
+	name := string(alphabet[i])
+	fullName := strings.Join([]string{prefix, name}, "/")
+
+	if i == 0 {
+		return []EventP{WorkerStarted(fullName)},
+			[]EventP{WorkerTerminated(fullName)},
+			WaitDoneWorker(name)
+	}
+
+	start, stop, node := buildTreeAndAssertions(fullName, i-1)
+
+	start = append(start, SupervisorStarted(fullName))
+	stop = append(stop, SupervisorTerminated(fullName))
+
+	return start, stop, cap.Subtree(cap.NewSupervisorSpec(name, cap.WithNodes(node)))
+}
+
+func TestNamesOnDeeplyNestedTrees(t *testing.T) {
+	// we are going to build a subtree like
+	// root/z/x/y/.../c/b/a
+	subtreeCount := 25
+	start, stop, subtree := buildTreeAndAssertions("root", subtreeCount)
+	start = append(start, SupervisorStarted("root"))
+	stop = append(stop, SupervisorTerminated("root"))
+
+	expectedEvents := append(start, stop...)
+
+	events, err := ObserveSupervisor(
+		context.TODO(),
+		"root",
+		cap.WithNodes(subtree),
+		[]cap.Opt{},
+		func(em EventManager) {},
+	)
+	assert.NoError(t, err)
+
+	AssertExactMatch(t, events, expectedEvents)
 }

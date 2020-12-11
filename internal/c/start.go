@@ -8,6 +8,21 @@ import (
 	"time"
 )
 
+var workerNameKey = "__capataz.worker.runtime_name__"
+
+// GetWorkerName gets a capataz worker name from a context
+func GetWorkerName(ctx context.Context) string {
+	if val := ctx.Value(workerNameKey); val != nil {
+		return val.(string)
+	}
+	return ""
+}
+
+// setWorkerName allows to add a capataz worker name to a context
+func SetWorkerName(ctx context.Context, name string) context.Context {
+	return context.WithValue(ctx, workerNameKey, name)
+}
+
 // waitTimeout is the internal function used by Child to wait for the execution
 // of it's thread to stop.
 func waitTimeout(
@@ -102,7 +117,13 @@ func (chSpec ChildSpec) DoStart(
 ) (Child, error) {
 
 	chRuntimeName := strings.Join([]string{supName, chSpec.GetName()}, "/")
-	childCtx, cancelFn := context.WithCancel(context.Background())
+
+	// we allow a worker to know it's name so as to allow subtrees to report
+	// events with it's full name
+
+	childCtx, cancelFn := context.WithCancel(
+		SetWorkerName(context.Background(), chRuntimeName),
+	)
 
 	startCh := make(chan startError)
 	terminateCh := make(chan ChildNotification)

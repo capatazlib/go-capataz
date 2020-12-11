@@ -20,11 +20,9 @@ import (
 //
 func (spec SupervisorSpec) run(
 	ctx context.Context,
-	parentName string,
+	supRuntimeName string,
 	onStart c.NotifyStartFn,
 ) error {
-	supRuntimeName := buildRuntimeName(spec, parentName)
-
 	// Build childrenSpec and resource cleanup
 	supChildrenSpecs, supRscCleanup, rscAllocError := spec.buildChildrenSpecs(supRuntimeName)
 
@@ -62,7 +60,6 @@ func (spec SupervisorSpec) run(
 // subtreeMain contains the main logic of the Child spec that runs a supervision
 // sub-tree. It returns an error if the child supervisor fails to start.
 func subtreeMain(
-	parentName string,
 	supSpec SupervisorSpec,
 ) func(context.Context, c.NotifyStartFn) error {
 	// we use the start version that receives the notifyChildStart callback, this
@@ -71,9 +68,10 @@ func subtreeMain(
 	return func(parentCtx context.Context, notifyChildStart c.NotifyStartFn) error {
 		// in this function we use the private versions of run given we don't want
 		// to spawn yet another goroutine
+		supRuntimeName := c.GetWorkerName(parentCtx)
 		ctx, cancelFn := context.WithCancel(parentCtx)
 		defer cancelFn()
-		return supSpec.run(ctx, parentName, notifyChildStart)
+		return supSpec.run(ctx, supRuntimeName, notifyChildStart)
 	}
 }
 
@@ -98,7 +96,7 @@ func (spec SupervisorSpec) subtree(
 
 	return c.NewWithNotifyStart(
 		subtreeSpec.GetName(),
-		subtreeMain(spec.name, subtreeSpec),
+		subtreeMain(subtreeSpec),
 		copts...,
 	)
 }
