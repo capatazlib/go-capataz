@@ -8,10 +8,13 @@ import (
 	"time"
 )
 
+// capatazKey is an internal type for the capataz keys
+type capatazKey string
+
 // workerNameKey is an internal representation of the worker name in the
 // worker context. If you reverse engineer, you are on your own.
 //
-var workerNameKey = "__capataz.worker.runtime_name__"
+var workerNameKey capatazKey = "__capataz.worker.runtime_name__"
 
 // GetWorkerName gets a capataz worker name from a context
 func GetWorkerName(ctx context.Context) string {
