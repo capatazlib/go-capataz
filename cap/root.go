@@ -72,11 +72,11 @@ func getEventNotifier(ctx context.Context) (EventNotifier, bool) {
 // 4) it monitors and reacts to errors reported by the supervised children
 //
 func (spec SupervisorSpec) rootStart(
-	parentCtx context.Context,
+	startCtx context.Context,
 	parentName string,
 ) (Supervisor, error) {
 	// cancelFn is used when Terminate is requested
-	ctx, cancelFn := context.WithCancel(parentCtx)
+	supCtx, cancelFn := context.WithCancel(startCtx)
 
 	// notifyCh is used to keep track of errors from children
 	notifyCh := make(chan c.ChildNotification)
@@ -93,6 +93,7 @@ func (spec SupervisorSpec) rootStart(
 	supRuntimeName := buildRuntimeName(spec, parentName)
 
 	eventNotifier := spec.getEventNotifier()
+	supCtx = withEventNotifier(supCtx, eventNotifier)
 
 	// Build childrenSpec and resource cleanup
 	childrenSpecs, supRscCleanup, rscAllocError := spec.buildChildrenSpecs(supRuntimeName)
@@ -170,7 +171,7 @@ func (spec SupervisorSpec) rootStart(
 		// onStart and onTerminate callbacks
 		startTime := time.Now()
 		_ = runMonitorLoop(
-			ctx,
+			supCtx,
 			spec,
 			childrenSpecs,
 			supRuntimeName,

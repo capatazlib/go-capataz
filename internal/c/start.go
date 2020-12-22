@@ -114,6 +114,7 @@ func sendNotificationToSup(
 // child when restarting.
 //
 func (chSpec ChildSpec) DoStart(
+	startCtx context.Context,
 	supName string,
 	supNotifyCh chan<- ChildNotification,
 ) (Child, error) {

@@ -16,6 +16,7 @@ const nodeSepToken = "/"
 ////////////////////////////////////////////////////////////////////////////////
 
 func handleChildNodeError(
+	supCtx context.Context,
 	eventNotifier EventNotifier,
 	supRuntimeName string,
 	supChildren map[string]c.Child,
@@ -32,6 +33,7 @@ func handleChildNodeError(
 		// On error scenarios, Permanent and Transient try as much as possible
 		// to restart the failing child
 		return oneForOneRestartLoop(
+			supCtx,
 			eventNotifier,
 			supRuntimeName,
 			supChildren,
@@ -49,6 +51,7 @@ func handleChildNodeError(
 }
 
 func handleChildNodeCompletion(
+	supCtx context.Context,
 	eventNotifier EventNotifier,
 	supRuntimeName string,
 	supChildren map[string]c.Child,
@@ -72,6 +75,7 @@ func handleChildNodeCompletion(
 		// On child completion, the supervisor still restart the child when the
 		// c.Restart is Permanent
 		return oneForOneRestartLoop(
+			supCtx,
 			eventNotifier,
 			supRuntimeName,
 			supChildren,
@@ -84,6 +88,7 @@ func handleChildNodeCompletion(
 }
 
 func handleChildNodeNotification(
+	supCtx context.Context,
 	eventNotifier EventNotifier,
 	supRuntimeName string,
 	supChildren map[string]c.Child,
@@ -97,6 +102,7 @@ func handleChildNodeNotification(
 		// if the notification contains an error, we send a notification
 		// saying that the process failed
 		return handleChildNodeError(
+			supCtx,
 			eventNotifier,
 			supRuntimeName,
 			supChildren,
@@ -107,6 +113,7 @@ func handleChildNodeNotification(
 	}
 
 	return handleChildNodeCompletion(
+		supCtx,
 		eventNotifier,
 		supRuntimeName,
 		supChildren,
@@ -121,6 +128,7 @@ func handleChildNodeNotification(
 // deal with the child lifecycle notification. It will return an error if
 // something goes wrong with the initialization of this child.
 func startChildNode(
+	startCtx context.Context,
 	spec SupervisorSpec,
 	supRuntimeName string,
 	notifyCh chan c.ChildNotification,
@@ -128,7 +136,7 @@ func startChildNode(
 ) (c.Child, error) {
 	eventNotifier := spec.getEventNotifier()
 	startedTime := time.Now()
-	ch, chStartErr := chSpec.DoStart(supRuntimeName, notifyCh)
+	ch, chStartErr := chSpec.DoStart(startCtx, supRuntimeName, notifyCh)
 
 	// NOTE: The error handling code bellow gets executed when the children
 	// fails at start time
@@ -155,6 +163,7 @@ func startChildNode(
 // fails to start, the supervisor start operation will be aborted and all the
 // started children so far will be stopped in the reverse order.
 func startChildNodes(
+	startCtx context.Context,
 	spec SupervisorSpec,
 	supChildrenSpecs []c.ChildSpec,
 	supRuntimeName string,
@@ -166,6 +175,7 @@ func startChildNodes(
 	for _, chSpec := range spec.order.sortStart(supChildrenSpecs) {
 		// the function above will modify the children internally
 		ch, chStartErr := startChildNode(
+			startCtx,
 			spec,
 			supRuntimeName,
 			notifyCh,
@@ -328,7 +338,7 @@ func terminateSupervisor(
 // error, note this implementation returns the result of the callback calls
 //
 func runMonitorLoop(
-	ctx context.Context,
+	supCtx context.Context,
 	supSpec SupervisorSpec,
 	supChildrenSpecs []c.ChildSpec,
 	supRuntimeName string,
@@ -341,6 +351,7 @@ func runMonitorLoop(
 ) error {
 	// Start children
 	supChildren, restartErr := startChildNodes(
+		supCtx,
 		supSpec,
 		supChildrenSpecs,
 		supRuntimeName,
@@ -368,7 +379,7 @@ func runMonitorLoop(
 	for {
 		select {
 		// parent context is done
-		case <-ctx.Done():
+		case <-supCtx.Done():
 			return terminateSupervisor(
 				supSpec,
 				supChildrenSpecs,
@@ -395,6 +406,7 @@ func runMonitorLoop(
 			}
 
 			restartErr := handleChildNodeNotification(
+				supCtx,
 				eventNotifier,
 				supRuntimeName,
 				supChildren,
@@ -417,6 +429,7 @@ func runMonitorLoop(
 
 		case msg := <-ctrlCh:
 			supChildrenSpecs, supChildren = handleCtrlMsg(
+				supCtx,
 				eventNotifier,
 				supSpec,
 				supChildrenSpecs,
