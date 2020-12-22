@@ -120,3 +120,7 @@ var WithTag = c.WithTag
 //   //
 //   WithTolerance(10, 5 * time.Second)
 var WithTolerance = c.WithTolerance
+
+// GetWorkerName returns the runtime name of a supervised goroutine by plucking it
+// up from the given context.
+var GetWorkerName = c.GetNodeName

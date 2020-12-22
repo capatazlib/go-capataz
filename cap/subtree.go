@@ -4,6 +4,7 @@ package cap
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/capatazlib/go-capataz/internal/c"
@@ -68,7 +69,10 @@ func subtreeMain(
 	return func(parentCtx context.Context, notifyChildStart c.NotifyStartFn) error {
 		// in this function we use the private versions of run given we don't want
 		// to spawn yet another goroutine
-		supRuntimeName := c.GetWorkerName(parentCtx)
+		supRuntimeName, ok := c.GetNodeName(parentCtx)
+		if !ok {
+			return fmt.Errorf("library bug: subtree context does not have a name")
+		}
 		ctx, cancelFn := context.WithCancel(parentCtx)
 		defer cancelFn()
 		return supSpec.run(ctx, supRuntimeName, notifyChildStart)
