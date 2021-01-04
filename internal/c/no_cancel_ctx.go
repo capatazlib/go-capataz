@@ -6,15 +6,14 @@ import (
 )
 
 type noCancel struct {
-	ctx context.Context
+	context.Context
 }
 
-func (c noCancel) Deadline() (time.Time, bool)       { return time.Time{}, false }
-func (c noCancel) Done() <-chan struct{}             { return nil }
-func (c noCancel) Err() error                        { return nil }
-func (c noCancel) Value(key interface{}) interface{} { return c.ctx.Value(key) }
+func (c noCancel) Deadline() (time.Time, bool) { return time.Time{}, false }
+func (c noCancel) Done() <-chan struct{}       { return nil }
+func (c noCancel) Err() error                  { return nil }
 
 // WithoutCancel returns a context that is never canceled.
 func WithoutCancel(ctx context.Context) context.Context {
-	return noCancel{ctx: ctx}
+	return noCancel{ctx}
 }
