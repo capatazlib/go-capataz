@@ -14,6 +14,7 @@ type ctrlMsg interface {
 	// processMsg receives all the required supervisor state to fullfill
 	// its purpose
 	processMsg(
+		supCtx context.Context,
 		evNotifier EventNotifier,
 		spec SupervisorSpec,
 		specChildren []c.ChildSpec,
@@ -37,6 +38,7 @@ type startChildMsg struct {
 }
 
 func (scm startChildMsg) processMsg(
+	supCtx context.Context,
 	evNotifier EventNotifier,
 	spec SupervisorSpec,
 	specChildren []c.ChildSpec,
@@ -48,7 +50,7 @@ func (scm startChildMsg) processMsg(
 
 	childSpec := scm.node(spec)
 
-	ch, startErr := startChildNode(spec, supRuntimeName, supNotifyCh, childSpec)
+	ch, startErr := startChildNode(supCtx, spec, supRuntimeName, supNotifyCh, childSpec)
 	if startErr != nil {
 		// When we fail, we send an error to the supNotifyCh and return the error,
 		// this doesn't have any detrimental consequence in static supervisors,
@@ -99,6 +101,7 @@ type terminateChildMsg struct {
 }
 
 func (tcm terminateChildMsg) processMsg(
+	supCtx context.Context,
 	evNotifier EventNotifier,
 	spec SupervisorSpec,
 	specChildren []c.ChildSpec,
@@ -154,6 +157,7 @@ type DynSupervisor struct {
 // handleCtrlMsg is used in the supervisor monitor loop to operator over public
 // API calls like Spawn or Cancel a child node.
 func handleCtrlMsg(
+	supCtx context.Context,
 	eventNotifier EventNotifier,
 	spec SupervisorSpec,
 	specChildren []c.ChildSpec,
@@ -163,6 +167,7 @@ func handleCtrlMsg(
 	msg ctrlMsg,
 ) ([]c.ChildSpec, map[string]c.Child) {
 	return msg.processMsg(
+		supCtx,
 		eventNotifier,
 		spec,
 		specChildren,

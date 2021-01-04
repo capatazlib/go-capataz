@@ -1,6 +1,7 @@
 package cap
 
 import (
+	"context"
 	"errors"
 	"time"
 
@@ -8,6 +9,7 @@ import (
 )
 
 func oneForOneRestart(
+	supCtx context.Context,
 	eventNotifier EventNotifier,
 	supRuntimeName string,
 	supChildren map[string]c.Child,
@@ -20,7 +22,7 @@ func oneForOneRestart(
 	chName := chSpec.GetName()
 
 	startTime := time.Now()
-	newCh, chRestartErr := prevCh.Restart(supRuntimeName, supNotifyCh, wasComplete, prevErr)
+	newCh, chRestartErr := prevCh.Restart(supCtx, supRuntimeName, supNotifyCh, wasComplete, prevErr)
 
 	if chRestartErr != nil {
 		return c.Child{}, chRestartErr
@@ -37,6 +39,7 @@ func oneForOneRestart(
 }
 
 func oneForOneRestartLoop(
+	supCtx context.Context,
 	eventNotifier EventNotifier,
 	supRuntimeName string,
 	supChildren map[string]c.Child,
@@ -47,6 +50,7 @@ func oneForOneRestartLoop(
 ) *c.ErrorToleranceReached {
 	for {
 		newCh, restartErr := oneForOneRestart(
+			supCtx,
 			eventNotifier,
 			supRuntimeName,
 			supChildren,

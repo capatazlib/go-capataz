@@ -36,6 +36,29 @@ func buildRuntimeName(spec SupervisorSpec, parentName string) string {
 	return runtimeName
 }
 
+type capatazSupKey string
+
+var eventNotifierKey capatazSupKey = "__capataz.node.event_notifier__"
+
+// withEventNotifier sets the Capataz EventNotifier in the context that is
+// thread-through across all capataz logic
+func withEventNotifier(ctx context.Context, evNotifier EventNotifier) context.Context {
+	return context.WithValue(ctx, eventNotifierKey, evNotifier)
+}
+
+// getEventNotifier returns the EventNotifier that is thread-through all the
+// capataz API
+func getEventNotifier(ctx context.Context) (EventNotifier, bool) {
+	val := ctx.Value(eventNotifierKey)
+	if val != nil {
+		if evNotifier, ok := val.(EventNotifier); ok {
+			return evNotifier, true
+		}
+		return nil, false
+	}
+	return nil, false
+}
+
 // rootStart is routine that contains the main logic of a Supervisor. This
 // function:
 //
@@ -49,11 +72,11 @@ func buildRuntimeName(spec SupervisorSpec, parentName string) string {
 // 4) it monitors and reacts to errors reported by the supervised children
 //
 func (spec SupervisorSpec) rootStart(
-	parentCtx context.Context,
+	startCtx context.Context,
 	parentName string,
 ) (Supervisor, error) {
 	// cancelFn is used when Terminate is requested
-	ctx, cancelFn := context.WithCancel(parentCtx)
+	supCtx, cancelFn := context.WithCancel(startCtx)
 
 	// notifyCh is used to keep track of errors from children
 	notifyCh := make(chan c.ChildNotification)
@@ -70,6 +93,7 @@ func (spec SupervisorSpec) rootStart(
 	supRuntimeName := buildRuntimeName(spec, parentName)
 
 	eventNotifier := spec.getEventNotifier()
+	supCtx = withEventNotifier(supCtx, eventNotifier)
 
 	// Build childrenSpec and resource cleanup
 	childrenSpecs, supRscCleanup, rscAllocError := spec.buildChildrenSpecs(supRuntimeName)
@@ -147,7 +171,7 @@ func (spec SupervisorSpec) rootStart(
 		// onStart and onTerminate callbacks
 		startTime := time.Now()
 		_ = runMonitorLoop(
-			ctx,
+			supCtx,
 			spec,
 			childrenSpecs,
 			supRuntimeName,

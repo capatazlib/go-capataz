@@ -1,5 +1,7 @@
 package c
 
+import "context"
+
 func (ch Child) assertErrorTolerance(err error) (uint32, *ErrorToleranceReached) {
 	errTolerance := ch.spec.ErrTolerance
 	switch errTolerance.check(ch.restartCount, ch.createdAt) {
@@ -22,6 +24,7 @@ func (ch Child) assertErrorTolerance(err error) (uint32, *ErrorToleranceReached)
 
 // Restart spawns a new Child and keeps track of the restart count.
 func (ch Child) Restart(
+	startCtx context.Context,
 	supParentName string,
 	supNotifyCh chan<- ChildNotification,
 	wasComplete bool,
@@ -33,7 +36,7 @@ func (ch Child) Restart(
 	var startErr error
 
 	if wasComplete {
-		newCh, startErr = chSpec.DoStart(supParentName, supNotifyCh)
+		newCh, startErr = chSpec.DoStart(startCtx, supParentName, supNotifyCh)
 		if startErr != nil {
 			return Child{}, startErr
 		}
@@ -42,7 +45,7 @@ func (ch Child) Restart(
 		if toleranceErr != nil {
 			return Child{}, toleranceErr
 		}
-		newCh, startErr = chSpec.DoStart(supParentName, supNotifyCh)
+		newCh, startErr = chSpec.DoStart(startCtx, supParentName, supNotifyCh)
 		if startErr != nil {
 			return Child{}, startErr
 		}

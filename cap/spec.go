@@ -286,8 +286,8 @@ func NewSupervisorSpec(name string, buildNodes BuildNodesFn, opts ...Opt) Superv
 // in reverse order all the child nodes that have been started, finally
 // returning an error value.
 //
-func (spec SupervisorSpec) Start(parentCtx context.Context) (Supervisor, error) {
-	sup, err := spec.rootStart(parentCtx, rootSupervisorName)
+func (spec SupervisorSpec) Start(startCtx context.Context) (Supervisor, error) {
+	sup, err := spec.rootStart(startCtx, rootSupervisorName)
 	if err != nil {
 		return Supervisor{}, err
 	}

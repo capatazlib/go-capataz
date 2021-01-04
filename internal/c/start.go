@@ -11,22 +11,23 @@ import (
 // capatazKey is an internal type for the capataz keys
 type capatazKey string
 
-// workerNameKey is an internal representation of the worker name in the
+// nodeNameKey is an internal representation of the worker name in the
 // worker context. If you reverse engineer, you are on your own.
 //
-var workerNameKey capatazKey = "__capataz.worker.runtime_name__"
+var nodeNameKey capatazKey = "__capataz.node.runtime_name__"
 
-// GetWorkerName gets a capataz worker name from a context
-func GetWorkerName(ctx context.Context) string {
-	if val := ctx.Value(workerNameKey); val != nil {
-		return val.(string)
+// GetNodeName gets a capataz worker name from a context
+func GetNodeName(ctx context.Context) (string, bool) {
+	if val := ctx.Value(nodeNameKey); val != nil {
+		result, ok := val.(string)
+		return result, ok
 	}
-	return ""
+	return "", false
 }
 
-// setWorkerName allows to add a capataz worker name to a context
-func setWorkerName(ctx context.Context, name string) context.Context {
-	return context.WithValue(ctx, workerNameKey, name)
+// setNodeName allows to add a capataz worker name to a context
+func setNodeName(ctx context.Context, name string) context.Context {
+	return context.WithValue(ctx, nodeNameKey, name)
 }
 
 // waitTimeout is the internal function used by Child to wait for the execution
@@ -113,18 +114,20 @@ func sendNotificationToSup(
 // child when restarting.
 //
 func (chSpec ChildSpec) DoStart(
+	startCtx context.Context,
 	supName string,
 	supNotifyCh chan<- ChildNotification,
 ) (Child, error) {
 
 	chRuntimeName := strings.Join([]string{supName, chSpec.GetName()}, "/")
 
-	// we allow a worker to know it's name so as to allow subtrees to report
-	// events with it's full name
+	// we remove the cancel from the context received on the start call so that we
+	// don't end up canceling the children at a non-appropiate time
+	ctx := WithoutCancel(startCtx)
 
-	childCtx, cancelFn := context.WithCancel(
-		setWorkerName(context.Background(), chRuntimeName),
-	)
+	// we allow a node to know it's name so as to allow subtrees to report
+	// events with it's full name
+	childCtx, cancelFn := context.WithCancel(setNodeName(ctx, chRuntimeName))
 
 	startCh := make(chan startError)
 	terminateCh := make(chan ChildNotification)
