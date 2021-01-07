@@ -279,6 +279,10 @@ func (dyn *DynSupervisor) Spawn(nodeFn Node) (func() error, error) {
 // Terminate is a synchronous procedure that halts the execution of the whole
 // supervision tree.
 func (dyn *DynSupervisor) Terminate() error {
+	if dyn.terminated {
+		return dyn.terminationErr
+	}
+
 	dyn.terminationErr = dyn.sup.Terminate()
 	dyn.terminated = true
 	return dyn.terminationErr
@@ -287,7 +291,13 @@ func (dyn *DynSupervisor) Terminate() error {
 // Wait blocks the execution of the current goroutine until the Supervisor
 // finishes it execution.
 func (dyn DynSupervisor) Wait() error {
-	return dyn.sup.Wait()
+	if dyn.terminated {
+		return dyn.terminationErr
+	}
+
+	dyn.terminationErr = dyn.sup.Wait()
+	dyn.terminated = true
+	return dyn.terminationErr
 }
 
 // GetName returns the name of the Spec used to start this Supervisor
