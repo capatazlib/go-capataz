@@ -68,7 +68,6 @@ func (scm startChildMsg) processMsg(
 		}
 
 		return specChildren, supChildren
-
 	}
 
 	// We store the child to the spec list because we need to terminate them
@@ -177,7 +176,7 @@ func handleCtrlMsg(
 	)
 }
 
-func (dyn *DynSupervisor) terminateNode(nodeName string) func() error {
+func (dyn *DynSupervisor) buildTerminateNodeCallback(nodeName string) func() error {
 	// REMEMBER: WE ARE RUNNING ON THE CLIENT API THREAD
 
 	// we initialize the resultCh with a buffer of 1, we may store the result
@@ -269,7 +268,7 @@ func (dyn *DynSupervisor) Spawn(nodeFn Node) (func() error, error) {
 		if result.startErr != nil {
 			return nil, result.startErr
 		}
-		return dyn.terminateNode(result.childName), nil
+		return dyn.buildTerminateNodeCallback(result.childName), nil
 	case <-time.After(1 * time.Second):
 		// Paranoid timeout. Better to not hang if this ever happens; to be honest,
 		// not sure when this is the case :shrug:
