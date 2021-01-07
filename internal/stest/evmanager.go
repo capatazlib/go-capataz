@@ -9,10 +9,38 @@ import (
 
 ////////////////////////////////////////////////////////////////////////////////
 
+// eventMsg is an envelope for supervision events, it is used to ensure the
+// events are stored on the EventManager buffer in the expected order (no
+// concurrency jitter).
+type eventMsg struct {
+	ev     cap.Event
+	doneCh chan struct{}
+}
+
+func newEventMsg(ev cap.Event) eventMsg {
+	doneCh := make(chan struct{})
+	return eventMsg{
+		ev:     ev,
+		doneCh: doneCh,
+	}
+}
+
+func (msg eventMsg) getEvent() cap.Event {
+	return msg.ev
+}
+
+func (msg eventMsg) eventProcessed() {
+	close(msg.doneCh)
+}
+
+func (msg eventMsg) waitForProcessing() {
+	<-msg.doneCh
+}
+
 // EventManager provides an API that allows to block a goroutine for particular
 // events in a test system
 type EventManager struct {
-	evCh         chan cap.Event
+	evCh         chan eventMsg
 	evDone       bool
 	evBufferCond *sync.Cond
 	evBuffer     *[]cap.Event
@@ -51,13 +79,15 @@ func (em EventManager) StartCollector(ctx context.Context) {
 			// if context is done, return
 			case <-ctx.Done():
 				return
-			case ev, ok := <-em.evCh:
+			case evMsg, ok := <-em.evCh:
 				// if the channel was closed, return
 				if !ok {
 					em.evDone = true
+					defer evMsg.eventProcessed()
 					return
 				}
-				em.storeEvent(ev)
+				em.storeEvent(evMsg.getEvent())
+				evMsg.eventProcessed()
 			}
 		}
 	}()
@@ -68,9 +98,13 @@ func (em EventManager) EventCollector(ctx context.Context) func(ev cap.Event) {
 	return func(ev cap.Event) {
 		// NOTE: DO NOT REMOVE LINE BELLOW (DEBUG tool)
 		// fmt.Printf("%+v\n", ev)
+		evMsg := newEventMsg(ev)
 		select {
 		case <-ctx.Done():
-		case em.evCh <- ev:
+		case em.evCh <- evMsg:
+			// we are going to block until we know for sure that it was inserted in
+			// the buffer of events
+			evMsg.waitForProcessing()
 		}
 	}
 }
@@ -175,7 +209,7 @@ func (em EventManager) GetEventIx(evIx int) (cap.Event, bool) {
 // events to happen on the observed supervision system
 func NewEventManager() EventManager {
 	var evBufferMux sync.Mutex
-	evCh := make(chan cap.Event)
+	evCh := make(chan eventMsg)
 	evBuffer := make([]cap.Event, 0, 1000)
 	em := EventManager{
 		evCh:         evCh,
