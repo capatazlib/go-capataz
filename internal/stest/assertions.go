@@ -130,12 +130,15 @@ func AssertPartialMatch(t *testing.T, evs []cap.Event, preds []EventP) {
 // are testing). This function returns the list of events that happened in the monitored
 // supervised tree, as well as any crash errors.
 func ObserveDynSupervisor(
-	ctx context.Context,
+	ctx0 context.Context,
 	rootName string,
 	childNodes []cap.Node,
 	opts0 []cap.Opt,
 	callback func(cap.DynSupervisor, EventManager),
 ) ([]cap.Event, []error) {
+	ctx, done := context.WithCancel(ctx0)
+	defer done()
+
 	evManager := NewEventManager()
 	// Accumulate the events as they happen
 	evManager.StartCollector(ctx)
@@ -247,13 +250,16 @@ func mergeNotifiers(notifiers []cap.EventNotifier) cap.EventNotifier {
 // are testing). This function returns the list of events that happened in the
 // monitored supervised tree, as well as any crash errors.
 func ObserveSupervisorWithNotifiers(
-	ctx context.Context,
+	ctx0 context.Context,
 	rootName string,
 	buildNodes cap.BuildNodesFn,
 	opts0 []cap.Opt,
 	notifiers []cap.EventNotifier,
 	callback func(EventManager),
 ) ([]cap.Event, error) {
+	ctx, stop := context.WithCancel(ctx0)
+	defer stop()
+
 	evManager := NewEventManager()
 	// Accumulate the events as they happen
 	evManager.StartCollector(ctx)
