@@ -2,7 +2,7 @@ package cap_test
 
 //
 // NOTE: If you feel it is counter-intuitive to have workers start before
-// supervisors in the assertions bellow, check stest/README.md
+// supervisors in the assertions below, check stest/README.md
 //
 
 import (

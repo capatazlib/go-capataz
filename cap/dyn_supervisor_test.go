@@ -2,7 +2,7 @@ package cap_test
 
 //
 // NOTE: If you feel it is counter-intuitive to have workers start before
-// supervisors in the assertions bellow, check stest/README.md
+// supervisors in the assertions below, check stest/README.md
 //
 
 import (
@@ -57,7 +57,7 @@ func TestDynStartMutlipleChildrenLeftToRight(t *testing.T) {
 		AssertExactMatch(t, events,
 			[]EventP{
 				SupervisorStarted("root"),
-				// ^^^ root starts first because we add workers bellow in a procedural
+				// ^^^ root starts first because we add workers below in a procedural
 				// fashion
 				WorkerStarted("root/child0"),
 				WorkerStarted("root/child1"),
@@ -97,7 +97,7 @@ func TestDynStartMutlipleChildrenRightToLeft(t *testing.T) {
 		AssertExactMatch(t, events,
 			[]EventP{
 				SupervisorStarted("root"),
-				// ^^^ root starts first because we add workers bellow in a procedural
+				// ^^^ root starts first because we add workers below in a procedural
 				// fashion
 				WorkerStarted("root/child0"),
 				WorkerStarted("root/child1"),

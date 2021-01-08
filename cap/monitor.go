@@ -138,7 +138,7 @@ func startChildNode(
 	startedTime := time.Now()
 	ch, chStartErr := chSpec.DoStart(startCtx, supRuntimeName, notifyCh)
 
-	// NOTE: The error handling code bellow gets executed when the children
+	// NOTE: The error handling code below gets executed when the children
 	// fails at start time
 	if chStartErr != nil {
 		cRuntimeName := strings.Join(
