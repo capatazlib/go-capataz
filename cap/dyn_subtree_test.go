@@ -7,6 +7,7 @@ package cap_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -31,15 +32,15 @@ func TestDynSubtreeStartSingleChild(t *testing.T) {
 
 	AssertExactMatch(t, events,
 		[]EventP{
-			// The subtree-spawner starts first, as it is the initial logic
+			// The spawner starts first, as it is the initial logic
 			// of the DynSubTree worker
-			SupervisorStarted("root/one/subtree-spawner"),
-			WorkerStarted("root/one/subtree-spawner/uno"),
-			// Every spawn call for the subtree-spawner blocks until it is received
+			SupervisorStarted("root/one/spawner"),
+			WorkerStarted("root/one/spawner/uno"),
+			// Every spawn call for the spawner blocks until it is received
 			WorkerStarted("root/one"),
 			SupervisorStarted("root"),
-			WorkerTerminated("root/one/subtree-spawner/uno"),
-			SupervisorTerminated("root/one/subtree-spawner"),
+			WorkerTerminated("root/one/spawner/uno"),
+			SupervisorTerminated("root/one/spawner"),
 			WorkerTerminated("root/one"),
 			SupervisorTerminated("root"),
 		})
@@ -81,11 +82,11 @@ func TestDynSubtreeFailing(t *testing.T) {
 		[]EventP{
 			// dynamic supervisor will start before the worker that
 			// contains it
-			SupervisorStarted("root/one/subtree-spawner"),
+			SupervisorStarted("root/one/spawner"),
 			// then the dyn supervisor children
-			WorkerStarted("root/one/subtree-spawner/uno"),
-			WorkerStarted("root/one/subtree-spawner/dos"),
-			WorkerStarted("root/one/subtree-spawner/tres"),
+			WorkerStarted("root/one/spawner/uno"),
+			WorkerStarted("root/one/spawner/dos"),
+			WorkerStarted("root/one/spawner/tres"),
 			// then dyn subtree worker
 			WorkerStarted("root/one"),
 			// finally the root supervisor
@@ -94,28 +95,69 @@ func TestDynSubtreeFailing(t *testing.T) {
 			// *signal of error starts here*
 
 			// dyn subtree terminates in reverse order
-			WorkerTerminated("root/one/subtree-spawner/tres"),
-			WorkerTerminated("root/one/subtree-spawner/dos"),
-			WorkerTerminated("root/one/subtree-spawner/uno"),
-			SupervisorTerminated("root/one/subtree-spawner"),
+			WorkerTerminated("root/one/spawner/tres"),
+			WorkerTerminated("root/one/spawner/dos"),
+			WorkerTerminated("root/one/spawner/uno"),
+			SupervisorTerminated("root/one/spawner"),
 
 			// then sub tree worker terminated
 			WorkerFailed("root/one"),
 
 			// * restart starts here *
-			SupervisorStarted("root/one/subtree-spawner"),
-			WorkerStarted("root/one/subtree-spawner/uno"),
-			WorkerStarted("root/one/subtree-spawner/dos"),
-			WorkerStarted("root/one/subtree-spawner/tres"),
+			SupervisorStarted("root/one/spawner"),
+			WorkerStarted("root/one/spawner/uno"),
+			WorkerStarted("root/one/spawner/dos"),
+			WorkerStarted("root/one/spawner/tres"),
 			WorkerStarted("root/one"),
 
 			// After 1st (re)start we stop
-			WorkerTerminated("root/one/subtree-spawner/tres"),
-			WorkerTerminated("root/one/subtree-spawner/dos"),
-			WorkerTerminated("root/one/subtree-spawner/uno"),
-			SupervisorTerminated("root/one/subtree-spawner"),
+			WorkerTerminated("root/one/spawner/tres"),
+			WorkerTerminated("root/one/spawner/dos"),
+			WorkerTerminated("root/one/spawner/uno"),
+			SupervisorTerminated("root/one/spawner"),
 			WorkerTerminated("root/one"),
 			SupervisorTerminated("root"),
 		},
 	)
+}
+
+func TestDynSubtreeFailedTermination(t *testing.T) {
+	events, err := ObserveSupervisor(
+		context.TODO(),
+		"root",
+		cap.WithNodes(
+			WaitDoneDynSubtree(
+				"one",
+				[]cap.Opt{},
+				[]cap.WorkerOpt{},
+				WaitDoneWorker("child0"),
+				FailTerminationWorker("child1", fmt.Errorf("child1 failed")),
+				WaitDoneWorker("child2"),
+			),
+		),
+		[]cap.Opt{},
+		func(EventManager) {},
+	)
+
+	// assert that error contains all information required to assess what went wrong
+	assert.Error(t, err)
+	assert.Equal(t, "supervisor terminated with failures", err.Error())
+
+	t.Run("starts and stops routines in the correct order", func(t *testing.T) {
+		AssertExactMatch(t, events,
+			[]EventP{
+				SupervisorStarted("root/one/spawner"),
+				WorkerStarted("root/one/spawner/child0"),
+				WorkerStarted("root/one/spawner/child1"),
+				WorkerStarted("root/one/spawner/child2"),
+				WorkerStarted("root/one"),
+				SupervisorStarted("root"),
+				WorkerTerminated("root/one/spawner/child2"),
+				WorkerFailedWith("root/one/spawner/child1", "child1 failed"),
+				WorkerTerminated("root/one/spawner/child0"),
+				SupervisorFailed("root/one/spawner"),
+				WorkerFailed("root/one"),
+				SupervisorFailed("root"),
+			})
+	})
 }

@@ -51,39 +51,41 @@ func NewDynSubtreeWithNotifyStart(
 		return c.NewWithNotifyStart(
 			name,
 			func(parentCtx context.Context, notifyChildStart c.NotifyStartFn) error {
-				workerRuntimeName, ok := c.GetNodeName(parentCtx)
+				supRuntimeName, ok := c.GetNodeName(parentCtx)
 				if !ok {
 					return fmt.Errorf("library bug: subtree context does not have a name")
 				}
 
-				spawnerName := strings.Join([]string{workerRuntimeName, "subtree-spawner"}, "/")
+				spawnerName := strings.Join([]string{supRuntimeName, "spawner"}, "/")
 
 				spawnerOpts = append(spawnerOpts, WithNotifier(supSpec.eventNotifier))
-				dynSup, dynSupErr := NewDynSupervisor(parentCtx, spawnerName, spawnerOpts...)
-				if dynSupErr != nil {
-					notifyChildStart(dynSupErr)
-					return dynSupErr
+				spawnerSup, spawnerSupErr := NewDynSupervisor(
+					parentCtx, spawnerName, spawnerOpts...,
+				)
+				if spawnerSupErr != nil {
+					notifyChildStart(spawnerSupErr)
+					return spawnerSupErr
 				}
 
 				// ensure supervisor is terminated if startFn raises a panic.
-				defer dynSup.Terminate()
+				defer spawnerSup.Terminate()
 
-				workerErr := startFn(parentCtx, notifyChildStart, &dynSup)
+				workerErr := startFn(parentCtx, notifyChildStart, &spawnerSup)
 
 				// we can call Terminate multiple times as it is idempotent
-				terminationErr := dynSup.Terminate()
+				terminationErr := spawnerSup.Terminate()
 
 				// when the spawner fails to terminate, we want to report the error of
 				// this worker as a supervisor error
 				if terminationErr != nil {
 					nodeErrMap := map[string]error{}
 					nodeErrMap[spawnerName] = terminationErr
-					dynSubtreeErr := &SupervisorTerminationError{
-						supRuntimeName: workerRuntimeName,
+					spawnerErr := &SupervisorTerminationError{
+						supRuntimeName: supRuntimeName,
 						nodeErrMap:     nodeErrMap,
 						rscCleanupErr:  nil,
 					}
-					return dynSubtreeErr
+					return spawnerErr
 				}
 
 				// otherwise, return the error as if you were a worker
