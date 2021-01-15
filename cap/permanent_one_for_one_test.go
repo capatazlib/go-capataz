@@ -167,7 +167,6 @@ func TestPermanentOneForOneSingleFailingWorkerReachThreshold(t *testing.T) {
 		3,
 		"child1",
 		cap.WithRestart(cap.Permanent),
-		cap.WithTolerance(2, 10*time.Second),
 	)
 	child2 := WaitDoneWorker("child2")
 
@@ -175,7 +174,9 @@ func TestPermanentOneForOneSingleFailingWorkerReachThreshold(t *testing.T) {
 		context.TODO(),
 		parentName,
 		cap.WithNodes(child1, child2),
-		[]cap.Opt{},
+		[]cap.Opt{
+			cap.WithErrTolerance(2, 10*time.Second),
+		},
 		func(em EventManager) {
 			evIt := em.Iterator()
 
@@ -236,10 +237,14 @@ func TestPermanentOneForOneNestedFailingWorkerReachThreshold(t *testing.T) {
 		3, // 3 errors, 2 tolerance
 		"child1",
 		cap.WithRestart(cap.Permanent),
-		cap.WithTolerance(2, 10*time.Second),
 	)
 	child2 := WaitDoneWorker("child2")
-	tree1 := cap.NewSupervisorSpec("subtree1", cap.WithNodes(child1, child2))
+
+	tree1 := cap.NewSupervisorSpec(
+		"subtree1",
+		cap.WithNodes(child1, child2),
+		cap.WithErrTolerance(2, 10*time.Second),
+	)
 
 	events, err := ObserveSupervisor(
 		context.TODO(),
@@ -324,10 +329,13 @@ func TestPermanentOneForOneNestedFailingWorkerErrorCountResets(t *testing.T) {
 		2, // 3 errors, 2 tolerance
 		"child1",
 		cap.WithRestart(cap.Permanent),
-		cap.WithTolerance(1, 100*time.Microsecond),
 	)
 	child2 := WaitDoneWorker("child2")
-	tree1 := cap.NewSupervisorSpec("subtree1", cap.WithNodes(child1, child2))
+	tree1 := cap.NewSupervisorSpec(
+		"subtree1",
+		cap.WithNodes(child1, child2),
+		cap.WithErrTolerance(1, 100*time.Microsecond),
+	)
 
 	events, err := ObserveSupervisor(
 		context.TODO(),

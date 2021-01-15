@@ -14,6 +14,20 @@ type ErrorToleranceReached struct {
 	err                    error
 }
 
+// NewErrorToleranceReached creates an ErrorToleranceReached record
+func NewErrorToleranceReached(
+	tolerance ErrTolerance,
+	err error,
+	ch Child,
+) *ErrorToleranceReached {
+	return &ErrorToleranceReached{
+		failedChildName:        ch.GetRuntimeName(),
+		failedChildErrCount:    tolerance.MaxErrCount,
+		failedChildErrDuration: tolerance.ErrWindow,
+		err:                    err,
+	}
+}
+
 // KVs returns a data bag map that may be used in structured logging
 func (err *ErrorToleranceReached) KVs() map[string]interface{} {
 	kvs := make(map[string]interface{})

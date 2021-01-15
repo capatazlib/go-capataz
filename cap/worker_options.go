@@ -108,17 +108,7 @@ var WithTag = c.WithTag
 // WithTolerance is a WorkerOpt that specifies how many errors the supervisor
 // should be willing to tolerate before giving up restarting and fail.
 //
-// If the tolerance is met, the parent supervisor is going to fail, if this is a
-// sub-tree, this error is going to be handled by a grand-parent supervisor,
-// restarting the tolerance again.
-//
-// Example
-//
-//   // Tolerate 10 errors every 5 seconds
-//   //
-//   // - if there is 11 errors in a 5 second window, it makes the supervisor fail
-//   //
-//   WithTolerance(10, 5 * time.Second)
+// Deprecated: Use WithErrTolerance instead.
 var WithTolerance = c.WithTolerance
 
 // GetWorkerName returns the runtime name of a supervised goroutine by plucking it

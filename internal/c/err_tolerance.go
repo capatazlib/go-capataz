@@ -1,23 +1,29 @@
 package c
 
-import "time"
-
-type errToleranceResult uint32
-
-const (
-	errToleranceSurpassed = iota
-	increaseErrCount
-	resetErrCount
+import (
+	"time"
 )
 
-func (etr errToleranceResult) String() string {
+// ErrToleranceResult indicates the result of a error tolerance check
+type ErrToleranceResult uint32
+
+const (
+	// ErrToleranceSurpassed indicates the error tolerance has been surpassed
+	ErrToleranceSurpassed = iota
+	// IncreaseErrCount indicates that we should allow the error to happen
+	IncreaseErrCount
+	// ResetErrCount indicates to reset the error count and time window
+	ResetErrCount
+)
+
+func (etr ErrToleranceResult) String() string {
 	switch etr {
-	case errToleranceSurpassed:
-		return "errToleranceSurpassed"
-	case increaseErrCount:
-		return "increaseErrCount"
-	case resetErrCount:
-		return "resetErrCount"
+	case ErrToleranceSurpassed:
+		return "ErrToleranceSurpassed"
+	case IncreaseErrCount:
+		return "IncreaseErrCount"
+	case ResetErrCount:
+		return "ResetErrCount"
 	default:
 		return "<Unknown errToleranceResult>"
 	}
@@ -38,12 +44,13 @@ func (et ErrTolerance) didSurpassErrorCount(restartCount uint32) bool {
 	return et.MaxErrCount < restartCount
 }
 
-func (et ErrTolerance) check(restartCount uint32, createdAt time.Time) errToleranceResult {
-	if et.isWithinErrorWindow(createdAt) {
-		if et.didSurpassErrorCount(restartCount + 1) {
-			return errToleranceSurpassed
+// Check verifies if the error tolerance has been reached with the given input values
+func (et ErrTolerance) Check(restartCount uint32, createdAt time.Time) ErrToleranceResult {
+	if createdAt == (time.Time{}) || et.isWithinErrorWindow(createdAt) {
+		if et.MaxErrCount == 0 || et.didSurpassErrorCount(restartCount+1) {
+			return ErrToleranceSurpassed
 		}
-		return increaseErrCount
+		return IncreaseErrCount
 	}
-	return resetErrCount
+	return ResetErrCount
 }

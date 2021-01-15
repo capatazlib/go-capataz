@@ -50,7 +50,7 @@ func TestCapturePanic(t *testing.T) {
 
 				// *** Supervisor termination process (via ObserveSupervisor) ***
 
-				// When supervisor is termianted, it starts with it's child nodes, and
+				// When supervisor is terminated, it starts with it's child nodes, and
 				// then itself.
 				WorkerTerminated("root/child1"),
 				SupervisorTerminated("root"),
