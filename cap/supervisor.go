@@ -59,7 +59,7 @@ func (tm *terminationManager) setTerminationErr(err error) {
 // errToleranceManager contains the information required to lear if a surpervisor
 // surpassed error tolerance
 type errToleranceManager struct {
-	errTolerance     c.ErrTolerance
+	errTolerance     ErrTolerance
 	restartCount     uint32
 	failingStartTime time.Time
 }
@@ -76,12 +76,12 @@ func (mgr *errToleranceManager) checkTolerance() bool {
 	check := errTolerance.Check(mgr.restartCount, mgr.failingStartTime)
 
 	switch check {
-	case c.ErrToleranceSurpassed:
+	case ErrToleranceSurpassed:
 		return false
-	case c.IncreaseErrCount:
+	case IncreaseErrCount:
 		mgr.restartCount++
 		return true
-	case c.ResetErrCount:
+	case ResetErrCount:
 		// not zero given we need to account for the error that just happened
 		mgr.restartCount = 1
 		mgr.failingStartTime = time.Now()

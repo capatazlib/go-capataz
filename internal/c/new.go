@@ -74,11 +74,6 @@ func NewWithNotifyStart(
 		// the goroutine running in memory (e.g. memory leak).
 		Shutdown: Timeout(5 * time.Second),
 
-		// Children will have a tolerance of 1 error every 5 seconds before telling
-		// the supervisor to give up, this is insipired by Erlang OTP documentation.
-		// http://erlang.org/doc/design_principles/sup_princ.html#maximum-restart-intensity
-		ErrTolerance: ErrTolerance{MaxErrCount: 1, ErrWindow: 5 * time.Second},
-
 		// All panics are going to be supervised by default
 		CapturePanic: true,
 	}

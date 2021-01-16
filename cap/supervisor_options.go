@@ -2,8 +2,6 @@ package cap
 
 import (
 	"time"
-
-	"github.com/capatazlib/go-capataz/internal/c"
 )
 
 // Opt is a type used to configure a SupervisorSpec
@@ -92,7 +90,7 @@ func WithNodes(nodes ...Node) BuildNodesFn {
 //
 func WithErrTolerance(maxErrCount uint32, errWindow time.Duration) Opt {
 	return func(spec *SupervisorSpec) {
-		spec.errTolerance = c.ErrTolerance{
+		spec.errTolerance = ErrTolerance{
 			MaxErrCount: maxErrCount,
 			ErrWindow:   errWindow,
 		}

@@ -24,7 +24,7 @@ func handleChildNodeError(
 	supNotifyCh chan c.ChildNotification,
 	prevCh c.Child,
 	prevChErr error,
-) *c.ErrorToleranceReached {
+) *ErrorToleranceReached {
 	chSpec := prevCh.GetSpec()
 
 	eventNotifier.processFailed(chSpec.GetTag(), prevCh.GetRuntimeName(), prevChErr)
@@ -59,7 +59,7 @@ func handleChildNodeCompletion(
 	supChildren map[string]c.Child,
 	supNotifyCh chan c.ChildNotification,
 	prevCh c.Child,
-) *c.ErrorToleranceReached {
+) *ErrorToleranceReached {
 
 	if prevCh.IsWorker() {
 		eventNotifier.workerCompleted(prevCh.GetRuntimeName())
@@ -98,7 +98,7 @@ func handleChildNodeNotification(
 	supNotifyCh chan c.ChildNotification,
 	prevCh c.Child,
 	chNotification c.ChildNotification,
-) *c.ErrorToleranceReached {
+) *ErrorToleranceReached {
 	chErr := chNotification.Unwrap()
 
 	if chErr != nil {
@@ -275,7 +275,7 @@ func terminateSupervisor(
 	supRscCleanup CleanupResourcesFn,
 	supChildren map[string]c.Child,
 	onTerminate func(error),
-	restartErr *c.ErrorToleranceReached,
+	restartErr *ErrorToleranceReached,
 ) error {
 	var terminateErr *SupervisorTerminationError
 	supNodeErrMap := terminateChildNodes(supSpec, supChildrenSpecs, supChildren)

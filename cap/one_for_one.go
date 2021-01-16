@@ -43,14 +43,14 @@ func oneForOneRestartLoop(
 	supNotifyCh chan<- c.ChildNotification,
 	prevCh c.Child,
 	prevErr error,
-) *c.ErrorToleranceReached {
+) *ErrorToleranceReached {
 	for {
 		if prevErr != nil {
 			ok := supTolerance.checkTolerance()
 			if !ok {
 				// Remove children from runtime child map to skip terminate procedure
 				delete(supChildren, prevCh.GetName())
-				return c.NewErrorToleranceReached(supTolerance.errTolerance, prevErr, prevCh)
+				return NewErrorToleranceReached(supTolerance.errTolerance, prevErr, prevCh)
 			}
 		}
 
