@@ -56,38 +56,38 @@ func (tm *terminationManager) setTerminationErr(err error) {
 	tm.terminateErr = err
 }
 
-// errToleranceManager contains the information required to lear if a surpervisor
+// restartToleranceManager contains the information required to lear if a surpervisor
 // surpassed error tolerance
-type errToleranceManager struct {
-	errTolerance     ErrTolerance
+type restartToleranceManager struct {
+	restartTolerance restartTolerance
 	restartCount     uint32
-	failingStartTime time.Time
+	restartBeginTime time.Time
 }
 
 // checkTolerance adds a new failure on the error tolerance calculation, if the
 // number of errors is enough to surpass tolerance, it will return false,
 // otherwise it will modify it's restart count and return true.
-func (mgr *errToleranceManager) checkTolerance() bool {
-	if mgr.failingStartTime == (time.Time{}) {
-		mgr.failingStartTime = time.Now()
+func (mgr *restartToleranceManager) checkTolerance() bool {
+	if mgr.restartBeginTime == (time.Time{}) {
+		mgr.restartBeginTime = time.Now()
 	}
 
-	errTolerance := mgr.errTolerance
-	check := errTolerance.Check(mgr.restartCount, mgr.failingStartTime)
+	restartTolerance := mgr.restartTolerance
+	check := restartTolerance.check(mgr.restartCount, mgr.restartBeginTime)
 
 	switch check {
-	case ErrToleranceSurpassed:
+	case restartToleranceSurpassed:
 		return false
-	case IncreaseErrCount:
+	case incRestartCount:
 		mgr.restartCount++
 		return true
-	case ResetErrCount:
+	case resetRestartCount:
 		// not zero given we need to account for the error that just happened
 		mgr.restartCount = 1
-		mgr.failingStartTime = time.Now()
+		mgr.restartBeginTime = time.Now()
 		return true
 	default:
-		panic("Invalid implementation of errTolerance values")
+		panic("Invalid implementation of restartTolerance values")
 	}
 }
 
@@ -102,8 +102,8 @@ type Supervisor struct {
 	ctrlCh      chan ctrlMsg
 	terminateCh chan error
 
-	terminateManager    *terminationManager
-	errToleranceManager *errToleranceManager
+	terminateManager        *terminationManager
+	restartToleranceManager *restartToleranceManager
 
 	spec     SupervisorSpec
 	children map[string]c.Child

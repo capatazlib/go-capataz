@@ -1,6 +1,6 @@
 # pre-release v0.1.0 (breaking changes)
 
-* Deprecate `WithTolerance` worker option with `WithErrTolerance` supervisor option
+* Deprecate `WithTolerance` worker option with `WithRestartTolerance` supervisor option
 
 # v0.0.0
 

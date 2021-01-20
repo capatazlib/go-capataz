@@ -19,12 +19,12 @@ func handleChildNodeError(
 	supCtx context.Context,
 	eventNotifier EventNotifier,
 	supRuntimeName string,
-	supTolerance *errToleranceManager,
+	supTolerance *restartToleranceManager,
 	supChildren map[string]c.Child,
 	supNotifyCh chan c.ChildNotification,
 	prevCh c.Child,
 	prevChErr error,
-) *ErrorToleranceReached {
+) *RestartToleranceReached {
 	chSpec := prevCh.GetSpec()
 
 	eventNotifier.processFailed(chSpec.GetTag(), prevCh.GetRuntimeName(), prevChErr)
@@ -55,11 +55,11 @@ func handleChildNodeCompletion(
 	supCtx context.Context,
 	eventNotifier EventNotifier,
 	supRuntimeName string,
-	supTolerance *errToleranceManager,
+	supTolerance *restartToleranceManager,
 	supChildren map[string]c.Child,
 	supNotifyCh chan c.ChildNotification,
 	prevCh c.Child,
-) *ErrorToleranceReached {
+) *RestartToleranceReached {
 
 	if prevCh.IsWorker() {
 		eventNotifier.workerCompleted(prevCh.GetRuntimeName())
@@ -93,12 +93,12 @@ func handleChildNodeNotification(
 	supCtx context.Context,
 	eventNotifier EventNotifier,
 	supRuntimeName string,
-	supTolerance *errToleranceManager,
+	supTolerance *restartToleranceManager,
 	supChildren map[string]c.Child,
 	supNotifyCh chan c.ChildNotification,
 	prevCh c.Child,
 	chNotification c.ChildNotification,
-) *ErrorToleranceReached {
+) *RestartToleranceReached {
 	chErr := chNotification.Unwrap()
 
 	if chErr != nil {
@@ -275,7 +275,7 @@ func terminateSupervisor(
 	supRscCleanup CleanupResourcesFn,
 	supChildren map[string]c.Child,
 	onTerminate func(error),
-	restartErr *ErrorToleranceReached,
+	restartErr *RestartToleranceReached,
 ) error {
 	var terminateErr *SupervisorTerminationError
 	supNodeErrMap := terminateChildNodes(supSpec, supChildrenSpecs, supChildren)
@@ -347,7 +347,7 @@ func runMonitorLoop(
 	supSpec SupervisorSpec,
 	supChildrenSpecs []c.ChildSpec,
 	supRuntimeName string,
-	supTolerance *errToleranceManager,
+	supTolerance *restartToleranceManager,
 	supRscCleanup CleanupResourcesFn,
 	supNotifyCh chan c.ChildNotification,
 	ctrlCh chan ctrlMsg,

@@ -14,7 +14,7 @@ func TestErrTolerance(t *testing.T) {
 		errWindow   time.Duration
 		errCount    uint32
 		createdAt   time.Time
-		result      ErrToleranceResult
+		result      restartToleranceResult
 	}{
 		{
 			desc: "zero window tolerance means we never forget errors",
@@ -25,7 +25,7 @@ func TestErrTolerance(t *testing.T) {
 			errCount:  2,
 			createdAt: time.Now(),
 
-			result: ErrToleranceSurpassed,
+			result: restartToleranceSurpassed,
 		},
 		{
 			desc: "when err count is >= than maxErrCount after window has passed",
@@ -36,7 +36,7 @@ func TestErrTolerance(t *testing.T) {
 			errCount:  2,
 			createdAt: time.Now().Add(time.Duration(-6) * time.Second), /* 6 seconds ago */
 
-			result: ResetErrCount,
+			result: resetRestartCount,
 		},
 		{
 			desc: "when err count is <= than maxErrCount whithin err window count",
@@ -47,12 +47,12 @@ func TestErrTolerance(t *testing.T) {
 			errCount:  1,
 			createdAt: time.Now().Add(time.Duration(4) * time.Second), /* 4 seconds ago */
 
-			result: IncreaseErrCount,
+			result: incRestartCount,
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			et := ErrTolerance{MaxErrCount: tc.maxErrCount, ErrWindow: tc.errWindow}
-			result := et.Check(tc.errCount, tc.createdAt)
+			et := restartTolerance{MaxRestartCount: tc.maxErrCount, RestartWindow: tc.errWindow}
+			result := et.check(tc.errCount, tc.createdAt)
 			require.True(t, tc.result == result, result.String())
 		})
 	}

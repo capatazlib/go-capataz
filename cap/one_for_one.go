@@ -38,19 +38,24 @@ func oneForOneRestartLoop(
 	supCtx context.Context,
 	eventNotifier EventNotifier,
 	supRuntimeName string,
-	supTolerance *errToleranceManager,
+	supTolerance *restartToleranceManager,
 	supChildren map[string]c.Child,
 	supNotifyCh chan<- c.ChildNotification,
 	prevCh c.Child,
-	prevErr error,
-) *ErrorToleranceReached {
+	prevChErr error,
+) *RestartToleranceReached {
+	// we initialize prevErr with the original child error that caused this logic
+	// to get executed. It could happen that this error gets eclipsed by a restart
+	// error later on
+	prevErr := prevChErr
+
 	for {
-		if prevErr != nil {
+		if prevChErr != nil {
 			ok := supTolerance.checkTolerance()
 			if !ok {
 				// Remove children from runtime child map to skip terminate procedure
 				delete(supChildren, prevCh.GetName())
-				return NewErrorToleranceReached(supTolerance.errTolerance, prevErr, prevCh)
+				return NewRestartToleranceReached(supTolerance.restartTolerance, prevErr, prevCh)
 			}
 		}
 
@@ -63,12 +68,12 @@ func oneForOneRestartLoop(
 			prevCh,
 		)
 
-		// if we don't get start errors, break the loop
+		// if we don't get restart errors, break the loop
 		if restartErr == nil {
 			return nil
 		}
 
-		// otherwise, repeat until error threshold is met
+		// otherwise, repeat until restart tolerance is reached
 		prevCh = newCh
 		prevErr = restartErr
 	}

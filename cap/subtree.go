@@ -42,7 +42,7 @@ func (spec SupervisorSpec) run(
 
 	onTerminate := func(err terminateNodeError) {}
 
-	supTolerance := &errToleranceManager{errTolerance: spec.errTolerance}
+	supTolerance := &restartToleranceManager{restartTolerance: spec.restartTolerance}
 
 	startTime := time.Now()
 	// spawn goroutine with supervisor monitorLoop

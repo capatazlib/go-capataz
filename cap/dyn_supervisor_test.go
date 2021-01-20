@@ -251,7 +251,7 @@ func TestDynSpawnAfterCrashedSupervisor(t *testing.T) {
 		"root",
 		[]cap.Node{},
 		[]cap.Opt{
-			cap.WithErrTolerance(0, 1*time.Millisecond),
+			cap.WithRestartTolerance(0, 1*time.Millisecond),
 		},
 		func(sup cap.DynSupervisor, em EventManager) {
 			_, err := sup.Spawn(failingNode)

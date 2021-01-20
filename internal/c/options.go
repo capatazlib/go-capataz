@@ -30,7 +30,7 @@ func WithShutdown(s Shutdown) Opt {
 // errors it should be willing to tolerate before giving up restarting it and
 // fail.
 //
-// Deprecated: Use WithErrTolerance instead.
+// Deprecated: Use WithRestartTolerance instead.
 func WithTolerance(maxErrCount uint32, errWindow time.Duration) Opt {
 	return func(spec *ChildSpec) {}
 }

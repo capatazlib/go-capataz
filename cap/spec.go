@@ -99,13 +99,13 @@ type BuildNodesFn = func() ([]Node, CleanupResourcesFn, error)
 // * Notifies the supervisor to restart a child node (and, if specified all its
 // siblings as well) when the node fails in unexpected ways.
 type SupervisorSpec struct {
-	name            string
-	errTolerance    ErrTolerance
-	buildNodes      BuildNodesFn
-	order           Order
-	strategy        Strategy
-	shutdownTimeout time.Duration
-	eventNotifier   EventNotifier
+	name             string
+	restartTolerance restartTolerance
+	buildNodes       BuildNodesFn
+	order            Order
+	strategy         Strategy
+	shutdownTimeout  time.Duration
+	eventNotifier    EventNotifier
 }
 
 // reliableBuildNodes capture panics returned from the buildNodes client
@@ -249,10 +249,10 @@ func NewSupervisorSpec(name string, buildNodes BuildNodesFn, opts ...Opt) Superv
 		// Children will have a tolerance of 1 error every 5 seconds before telling
 		// the supervisor to give up, this is insipired by Erlang OTP documentation.
 		// http://erlang.org/doc/design_principles/sup_princ.html#maximum-restart-intensity
-		errTolerance:    ErrTolerance{MaxErrCount: 1, ErrWindow: 5 * time.Second},
-		buildNodes:      buildNodes,
-		shutdownTimeout: defaultSupShutdownTimeout,
-		eventNotifier:   emptyEventNotifier,
+		restartTolerance: restartTolerance{MaxRestartCount: 1, RestartWindow: 5 * time.Second},
+		buildNodes:       buildNodes,
+		shutdownTimeout:  defaultSupShutdownTimeout,
+		eventNotifier:    emptyEventNotifier,
 	}
 
 	// Check name cannot be empty

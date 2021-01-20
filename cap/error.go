@@ -140,7 +140,7 @@ func (err *SupervisorStartError) KVs() map[string]interface{} {
 // on other siblings
 type SupervisorRestartError struct {
 	supRuntimeName string
-	nodeErr        *ErrorToleranceReached
+	nodeErr        *RestartToleranceReached
 	terminationErr *SupervisorTerminationError
 }
 
@@ -169,32 +169,32 @@ func (err *SupervisorRestartError) KVs() map[string]interface{} {
 	return acc
 }
 
-// ErrorToleranceReached is an error that gets reported when a supervisor has
+// RestartToleranceReached is an error that gets reported when a supervisor has
 // restarted a child so many times over a period of time that it does not make
 // sense to keep restarting.
-type ErrorToleranceReached struct {
+type RestartToleranceReached struct {
 	failedChildName        string
 	failedChildErrCount    uint32
 	failedChildErrDuration time.Duration
 	err                    error
 }
 
-// NewErrorToleranceReached creates an ErrorToleranceReached record
-func NewErrorToleranceReached(
-	tolerance ErrTolerance,
+// NewRestartToleranceReached creates an ErrorToleranceReached record
+func NewRestartToleranceReached(
+	tolerance restartTolerance,
 	err error,
 	ch c.Child,
-) *ErrorToleranceReached {
-	return &ErrorToleranceReached{
+) *RestartToleranceReached {
+	return &RestartToleranceReached{
 		failedChildName:        ch.GetRuntimeName(),
-		failedChildErrCount:    tolerance.MaxErrCount,
-		failedChildErrDuration: tolerance.ErrWindow,
+		failedChildErrCount:    tolerance.MaxRestartCount,
+		failedChildErrDuration: tolerance.RestartWindow,
 		err:                    err,
 	}
 }
 
 // KVs returns a data bag map that may be used in structured logging
-func (err *ErrorToleranceReached) KVs() map[string]interface{} {
+func (err *RestartToleranceReached) KVs() map[string]interface{} {
 	kvs := make(map[string]interface{})
 	kvs["node.name"] = err.failedChildName
 	if err.err != nil {
@@ -205,12 +205,12 @@ func (err *ErrorToleranceReached) KVs() map[string]interface{} {
 	return kvs
 }
 
-func (err *ErrorToleranceReached) Error() string {
-	return "node failures surpassed error tolerance"
+func (err *RestartToleranceReached) Error() string {
+	return "node failures surpassed restart tolerance"
 }
 
 // Unwrap returns the last error that caused the creation of an
 // ErrorToleranceReached error
-func (err *ErrorToleranceReached) Unwrap() error {
+func (err *RestartToleranceReached) Unwrap() error {
 	return err.err
 }

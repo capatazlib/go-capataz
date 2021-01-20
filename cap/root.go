@@ -165,7 +165,7 @@ func (spec SupervisorSpec) rootStart(
 		close(terminateCh)
 	}
 
-	supTolerance := &errToleranceManager{errTolerance: spec.errTolerance}
+	supTolerance := &restartToleranceManager{restartTolerance: spec.restartTolerance}
 
 	// spawn goroutine with supervisor monitorLoop
 	go func() {

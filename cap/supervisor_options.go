@@ -73,7 +73,7 @@ func WithNodes(nodes ...Node) BuildNodesFn {
 	}
 }
 
-// WithErrTolerance is a Opt that specifies how many errors the supervisor
+// WithRestartTolerance is a Opt that specifies how many errors the supervisor
 // should be willing to tolerate before giving up restarting and fail.
 //
 // If the tolerance is met, the supervisor is going to fail, if this is a
@@ -86,13 +86,13 @@ func WithNodes(nodes ...Node) BuildNodesFn {
 //   //
 //   // - if there is 11 errors in a 5 second window, it makes the supervisor fail
 //   //
-//   WithErrTolerance(10, 5 * time.Second)
+//   WithRestartTolerance(10, 5 * time.Second)
 //
-func WithErrTolerance(maxErrCount uint32, errWindow time.Duration) Opt {
+func WithRestartTolerance(maxErrCount uint32, errWindow time.Duration) Opt {
 	return func(spec *SupervisorSpec) {
-		spec.errTolerance = ErrTolerance{
-			MaxErrCount: maxErrCount,
-			ErrWindow:   errWindow,
+		spec.restartTolerance = restartTolerance{
+			MaxRestartCount: maxErrCount,
+			RestartWindow:   errWindow,
 		}
 	}
 }
