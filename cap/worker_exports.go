@@ -6,12 +6,16 @@ import (
 )
 
 // Restart specifies when a goroutine gets restarted
+//
+// Since: 0.0.0
 type Restart = c.Restart
 
 // Permanent specifies that a goroutine should be restarted whether or not there
 // are errors.
 //
 // You can specify this option using the WithRestart function
+//
+// Since: 0.0.0
 var Permanent = c.Permanent
 
 // Transient specifies that a goroutine should be restarted if and only if the
@@ -19,22 +23,29 @@ var Permanent = c.Permanent
 // is not restarted again.
 //
 // You can specify this option using the WithRestart function
+//
+// Since: 0.0.0
 var Transient = c.Transient
 
 // Temporary specifies that the goroutine should not be restarted under any
 // circumstances
 //
 // You can specify this option using the WithRestart function
+//
+// Since: 0.0.0
 var Temporary = c.Temporary
 
 // Shutdown is an enum type that indicates how the parent supervisor will handle
 // the stoppping of the worker goroutine
 //
+// Since: 0.0.0
 type Shutdown = c.Shutdown
 
 // Indefinitely is a Shutdown value that specifies the parent supervisor must
 // wait indefinitely for the worker goroutine to stop executing. You can specify
 // this option using the WithShutdown function
+//
+// Since: 0.0.0
 var Indefinitely = c.Indefinitely
 
 // Timeout is a Shutdown function that returns a value that indicates the time
@@ -54,21 +65,31 @@ var Indefinitely = c.Indefinitely
 // goroutine is not using the offered context value), the supervisor will
 // continue with the shutdown procedure (reporting a shutdown error), possibly
 // leaving the goroutine running in memory (e.g. memory leak)
+//
+// Since: 0.0.0
 var Timeout = c.Timeout
 
 // NodeTag specifies the type of node that is running. This is a closed set
 // given we will only support workers and supervisors
+//
+// Since: 0.0.0
 type NodeTag = c.ChildTag
 
 // WorkerT is a NodeTag used to indicate a goroutine is a worker that run some
 // business-logic
+//
+// Since: 0.0.0
 var WorkerT = c.Worker
 
 // SupervisorT is a NodeTag used to indicate a goroutine is running another
 // supervision tree
+//
+// Since: 0.0.0
 var SupervisorT = c.Supervisor
 
 // WorkerOpt is used to configure a Worker node spec
+//
+// Since: 0.0.0
 type WorkerOpt = c.Opt
 
 // WithRestart is a WorkerOpt that specifies how the parent supervisor should
@@ -82,6 +103,7 @@ type WorkerOpt = c.Opt
 //
 // * Temporary -- Never restart a worker goroutine (go keyword behavior)
 //
+// Since: 0.0.0
 var WithRestart = c.WithRestart
 
 // WithShutdown is a WorkerOpt that specifies how the shutdown of the worker is
@@ -95,25 +117,34 @@ var WithRestart = c.WithRestart
 // * Timeout(time.Duration) -- Wait for a duration of time before giving up
 // shuting down this worker goroutine
 //
+// Since: 0.0.0
 var WithShutdown = c.WithShutdown
 
 // WithCapturePanic is a WorkerOpt that specifies if panics raised by
 // this worker should be treated as errors.
+//
+// Since: 0.0.0
 var WithCapturePanic = c.WithCapturePanic
 
 // WithTag is a WorkerOpt that sets the given NodeTag on Worker.
 //
 // Do not use this function if you are not extending capataz' API.
+//
+// Since: 0.0.0
 var WithTag = c.WithTag
 
 // WithTolerance is a WorkerOpt that specifies how many errors the supervisor
 // should be willing to tolerate before giving up restarting and fail.
 //
 // Deprecated: Use WithRestartTolerance instead.
+//
+// Since: 0.0.0
 var WithTolerance = c.WithTolerance
 
 // GetWorkerName returns the runtime name of a supervised goroutine by plucking it
 // up from the given context.
+//
+// Since: 0.0.0
 var GetWorkerName = c.GetNodeName
 
 // NotifyStartFn is a function given to worker nodes that allows them to notify
@@ -122,6 +153,8 @@ var GetWorkerName = c.GetNodeName
 // The argument contains an error if there was a failure, nil otherwise.
 //
 // See the documentation of NewWorkerWithNotifyStart for more details
+//
+// Since: 0.0.0
 type NotifyStartFn = c.NotifyStartFn
 
 // NewWorker creates a Node that represents a worker goroutine. It requires two
@@ -173,4 +206,5 @@ var NewWorker = s.NewWorker
 // NotifyStartFn function with the impending error as a parameter. This will
 // cause the whole supervision system start procedure to abort.
 //
+// Since: 0.0.0
 var NewWorkerWithNotifyStart = s.NewWorkerWithNotifyStart

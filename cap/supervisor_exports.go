@@ -6,35 +6,51 @@ import (
 
 // Node represents a tree node in a supervision tree, it could either be a
 // Subtree or a Worker
+//
+// Since: 0.0.0
 type Node = s.Node
 
 // Order specifies the order in which a supervisor is going to start its node
 // children. The stop order is the reverse of the start order.
+//
+// Since: 0.0.0
 type Order = s.Order
 
 // LeftToRight is an Order that specifies children start from left to right
+//
+// Since: 0.0.0
 var LeftToRight = s.LeftToRight
 
 // RightToLeft is an Order that specifies children start from right to left
+//
+// Since: 0.0.0
 var RightToLeft = s.RightToLeft
 
 // Strategy specifies how children get restarted when one of them reports an
 // error
+//
+// Since: 0.0.0
 type Strategy = s.Strategy
 
 // OneForOne is an Strategy that tells the Supervisor to only restart the
 // child process that errored
+//
+// Since: 0.0.0
 var OneForOne = s.OneForOne
 
 // CleanupResourcesFn is a function that cleans up resources that were
 // allocated in a BuildNodesFn function.
 //
 // Check the documentation of NewSupervisorSpec for more details and examples
+//
+// Since: 0.0.0
 type CleanupResourcesFn = s.CleanupResourcesFn
 
 // BuildNodesFn is a function that returns a list of nodes
 //
 // Check the documentation of NewSupervisorSpec for more details and examples.
+//
+// Since: 0.0.0
 type BuildNodesFn = s.BuildNodesFn
 
 // SupervisorSpec represents the specification of a static supervisor; it serves
@@ -48,6 +64,8 @@ type BuildNodesFn = s.BuildNodesFn
 //
 // * Notifies the supervisor to restart a child node (and, if specified all its
 // siblings as well) when the node fails in unexpected ways.
+//
+// Since: 0.0.0
 type SupervisorSpec = s.SupervisorSpec
 
 // NewSupervisorSpec creates a SupervisorSpec. It requires the name of the
@@ -150,9 +168,12 @@ type SupervisorSpec = s.SupervisorSpec
 // of the API to implement start timeouts and cleanup timeouts inside the given
 // BuildNodesFn and CleanupResourcesFn functions.
 //
+// Since: 0.0.0
 var NewSupervisorSpec = s.NewSupervisorSpec
 
 // Opt is a type used to configure a SupervisorSpec
+//
+// Since: 0.0.0
 type Opt = s.Opt
 
 // WithStartOrder is an Opt that specifies the start/stop order of a supervisor's
@@ -166,6 +187,8 @@ type Opt = s.Opt
 // * RightToLeft -- Start children nodes from right to left, stop them from left
 // to right
 //
+//
+// Since: 0.0.0
 var WithStartOrder = s.WithStartOrder
 
 // WithOrder is a backwards compatible alias to WithStartOrder
@@ -186,6 +209,7 @@ var WithOrder = WithStartOrder
 // [*] This option may come handy when all the other siblings depend on one another
 // to work correctly.
 //
+// Since: 0.0.0
 var WithStrategy = s.WithStrategy
 
 // WithNotifier is an Opt that specifies a callback that gets called whenever
@@ -195,6 +219,7 @@ var WithStrategy = s.WithStrategy
 // the systems, and it is a great place to hook in monitoring services like
 // logging, error tracing and metrics gatherers
 //
+// Since: 0.0.0
 var WithNotifier = s.WithNotifier
 
 // WithNodes allows the registration of child nodes in a SupervisorSpec. Node
@@ -219,6 +244,7 @@ var WithNodes = s.WithNodes
 //   //
 //   WithRestartTolerance(10, 5 * time.Second)
 //
+// Since: 0.1.0
 var WithRestartTolerance = s.WithRestartTolerance
 
 // Subtree transforms SupervisorSpec into a Node. This function allows you to
@@ -244,9 +270,12 @@ var WithRestartTolerance = s.WithRestartTolerance
 //    ),
 //   )
 //
+// Since: 0.0.0
 var Subtree = s.Subtree
 
 // DynSupervisor is a supervisor that can spawn workers in a procedural way.
+//
+// Since: 0.0.0
 type DynSupervisor = s.DynSupervisor
 
 // NewDynSupervisor creates a DynamicSupervisor which can start workers at
@@ -271,6 +300,7 @@ type DynSupervisor = s.DynSupervisor
 // * In case of a hard crash and following restart, it will start with an empty
 //   list of children
 //
+// Since: 0.0.0
 var NewDynSupervisor = s.NewDynSupervisor
 
 // Supervisor represents the root of a tree of goroutines. A Supervisor may have
@@ -278,4 +308,6 @@ var NewDynSupervisor = s.NewDynSupervisor
 // goroutine that gets automatic restart abilities as soon as the parent
 // supervisor detects an error has occured. A Supervisor will always be
 // generated from a SupervisorSpec
+//
+// Since: 0.0.0
 type Supervisor = s.Supervisor
