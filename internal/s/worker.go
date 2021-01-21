@@ -1,4 +1,4 @@
-package cap
+package s
 
 import (
 	"context"
@@ -46,7 +46,7 @@ func childToNode(chSpec c.ChildSpec) Node {
 // parent supervisor will either block forever or leak goroutines after a
 // timeout has been reached.
 //
-func NewWorker(name string, startFn func(context.Context) error, opts ...WorkerOpt) Node {
+func NewWorker(name string, startFn func(context.Context) error, opts ...c.Opt) Node {
 	return childToNode(c.New(name, startFn, opts...))
 }
 
@@ -75,7 +75,7 @@ func NewWorker(name string, startFn func(context.Context) error, opts ...WorkerO
 func NewWorkerWithNotifyStart(
 	name string,
 	startFn func(context.Context, NotifyStartFn) error,
-	opts ...WorkerOpt,
+	opts ...c.Opt,
 ) Node {
 	return childToNode(c.NewWithNotifyStart(name, startFn, opts...))
 }

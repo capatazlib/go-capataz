@@ -1,4 +1,4 @@
-package cap
+package s
 
 // This file contains logic on supervision sub-trees
 
@@ -131,7 +131,7 @@ func (spec SupervisorSpec) subtree(
 //    ),
 //   )
 //
-func Subtree(subtreeSpec SupervisorSpec, opts ...WorkerOpt) Node {
+func Subtree(subtreeSpec SupervisorSpec, opts ...c.Opt) Node {
 	return func(supSpec SupervisorSpec) c.ChildSpec {
 		return supSpec.subtree(subtreeSpec, opts...)
 	}
