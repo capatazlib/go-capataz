@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/capatazlib/go-capataz/internal/c"
 )
@@ -139,7 +140,7 @@ func (err *SupervisorStartError) KVs() map[string]interface{} {
 // on other siblings
 type SupervisorRestartError struct {
 	supRuntimeName string
-	nodeErr        *c.ErrorToleranceReached
+	nodeErr        *RestartToleranceReached
 	terminationErr *SupervisorTerminationError
 }
 
@@ -166,4 +167,50 @@ func (err *SupervisorRestartError) KVs() map[string]interface{} {
 	}
 
 	return acc
+}
+
+// RestartToleranceReached is an error that gets reported when a supervisor has
+// restarted a child so many times over a period of time that it does not make
+// sense to keep restarting.
+type RestartToleranceReached struct {
+	failedChildName        string
+	failedChildErrCount    uint32
+	failedChildErrDuration time.Duration
+	err                    error
+}
+
+// NewRestartToleranceReached creates an ErrorToleranceReached record
+func NewRestartToleranceReached(
+	tolerance restartTolerance,
+	err error,
+	ch c.Child,
+) *RestartToleranceReached {
+	return &RestartToleranceReached{
+		failedChildName:        ch.GetRuntimeName(),
+		failedChildErrCount:    tolerance.MaxRestartCount,
+		failedChildErrDuration: tolerance.RestartWindow,
+		err:                    err,
+	}
+}
+
+// KVs returns a data bag map that may be used in structured logging
+func (err *RestartToleranceReached) KVs() map[string]interface{} {
+	kvs := make(map[string]interface{})
+	kvs["node.name"] = err.failedChildName
+	if err.err != nil {
+		kvs["node.error.msg"] = err.err.Error()
+		kvs["node.error.count"] = err.failedChildErrCount
+		kvs["node.error.duration"] = err.failedChildErrDuration
+	}
+	return kvs
+}
+
+func (err *RestartToleranceReached) Error() string {
+	return "node failures surpassed restart tolerance"
+}
+
+// Unwrap returns the last error that caused the creation of an
+// ErrorToleranceReached error
+func (err *RestartToleranceReached) Unwrap() error {
+	return err.err
 }

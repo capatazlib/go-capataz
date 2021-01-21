@@ -1,5 +1,9 @@
 package cap
 
+import (
+	"time"
+)
+
 // Opt is a type used to configure a SupervisorSpec
 type Opt func(*SupervisorSpec)
 
@@ -66,5 +70,29 @@ func WithNodes(nodes ...Node) BuildNodesFn {
 	emptyCleanupResources := func() error { return nil }
 	return func() ([]Node, CleanupResourcesFn, error) {
 		return nodes, emptyCleanupResources, nil
+	}
+}
+
+// WithRestartTolerance is a Opt that specifies how many errors the supervisor
+// should be willing to tolerate before giving up restarting and fail.
+//
+// If the tolerance is met, the supervisor is going to fail, if this is a
+// sub-tree, this error is going to be handled by a grand-parent supervisor,
+// restarting the tolerance again.
+//
+// Example
+//
+//   // Tolerate 10 errors every 5 seconds
+//   //
+//   // - if there is 11 errors in a 5 second window, it makes the supervisor fail
+//   //
+//   WithRestartTolerance(10, 5 * time.Second)
+//
+func WithRestartTolerance(maxErrCount uint32, errWindow time.Duration) Opt {
+	return func(spec *SupervisorSpec) {
+		spec.restartTolerance = restartTolerance{
+			MaxRestartCount: maxErrCount,
+			RestartWindow:   errWindow,
+		}
 	}
 }

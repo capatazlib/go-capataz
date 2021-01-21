@@ -132,7 +132,6 @@ type ChildSpec struct {
 	Tag          ChildTag
 	Shutdown     Shutdown
 	Restart      Restart
-	ErrTolerance ErrTolerance
 	CapturePanic bool
 
 	Start func(context.Context, NotifyStartFn) error

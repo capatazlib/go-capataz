@@ -244,15 +244,15 @@ func TestDynSpawnAfterTerminate(t *testing.T) {
 }
 
 func TestDynSpawnAfterCrashedSupervisor(t *testing.T) {
-	failingNode, failWorker := FailOnSignalWorker(
-		1, "failing", cap.WithTolerance(0, 1*time.Millisecond),
-	)
+	failingNode, failWorker := FailOnSignalWorker(1, "failing")
 
 	events, errs := ObserveDynSupervisor(
 		context.TODO(),
 		"root",
 		[]cap.Node{},
-		[]cap.Opt{},
+		[]cap.Opt{
+			cap.WithRestartTolerance(0, 1*time.Millisecond),
+		},
 		func(sup cap.DynSupervisor, em EventManager) {
 			_, err := sup.Spawn(failingNode)
 			assert.NoError(t, err)

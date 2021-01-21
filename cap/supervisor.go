@@ -56,6 +56,41 @@ func (tm *terminationManager) setTerminationErr(err error) {
 	tm.terminateErr = err
 }
 
+// restartToleranceManager contains the information required to lear if a surpervisor
+// surpassed error tolerance
+type restartToleranceManager struct {
+	restartTolerance restartTolerance
+	restartCount     uint32
+	restartBeginTime time.Time
+}
+
+// checkTolerance adds a new failure on the error tolerance calculation, if the
+// number of errors is enough to surpass tolerance, it will return false,
+// otherwise it will modify it's restart count and return true.
+func (mgr *restartToleranceManager) checkTolerance() bool {
+	if mgr.restartBeginTime == (time.Time{}) {
+		mgr.restartBeginTime = time.Now()
+	}
+
+	restartTolerance := mgr.restartTolerance
+	check := restartTolerance.check(mgr.restartCount, mgr.restartBeginTime)
+
+	switch check {
+	case restartToleranceSurpassed:
+		return false
+	case incRestartCount:
+		mgr.restartCount++
+		return true
+	case resetRestartCount:
+		// not zero given we need to account for the error that just happened
+		mgr.restartCount = 1
+		mgr.restartBeginTime = time.Now()
+		return true
+	default:
+		panic("Invalid implementation of restartTolerance values")
+	}
+}
+
 // Supervisor represents the root of a tree of goroutines. A Supervisor may have
 // leaf or sub-tree children, where each of the nodes in the tree represent a
 // goroutine that gets automatic restart abilities as soon as the parent
@@ -67,7 +102,8 @@ type Supervisor struct {
 	ctrlCh      chan ctrlMsg
 	terminateCh chan error
 
-	terminateManager *terminationManager
+	terminateManager        *terminationManager
+	restartToleranceManager *restartToleranceManager
 
 	spec     SupervisorSpec
 	children map[string]c.Child

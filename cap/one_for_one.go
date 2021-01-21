@@ -2,7 +2,6 @@ package cap
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	"github.com/capatazlib/go-capataz/internal/c"
@@ -14,24 +13,21 @@ func oneForOneRestart(
 	supRuntimeName string,
 	supChildren map[string]c.Child,
 	supNotifyCh chan<- c.ChildNotification,
-	wasComplete bool,
 	prevCh c.Child,
-	prevErr error,
 ) (c.Child, error) {
 	chSpec := prevCh.GetSpec()
 	chName := chSpec.GetName()
 
 	startTime := time.Now()
-	newCh, chRestartErr := prevCh.Restart(supCtx, supRuntimeName, supNotifyCh, wasComplete, prevErr)
+	newCh, chRestartErr := chSpec.DoStart(supCtx, supRuntimeName, supNotifyCh)
 
 	if chRestartErr != nil {
 		return c.Child{}, chRestartErr
 	}
 
-	// We want to keep track of the updated restartCount which is in the newCh
-	// record, we must override the child independently of the outcome.
 	supChildren[chName] = newCh
 
+	// notify event only for workers, supervisors are responsible of their own
 	if newCh.GetTag() == c.Worker {
 		eventNotifier.workerStarted(newCh.GetRuntimeName(), startTime)
 	}
@@ -42,40 +38,43 @@ func oneForOneRestartLoop(
 	supCtx context.Context,
 	eventNotifier EventNotifier,
 	supRuntimeName string,
+	supTolerance *restartToleranceManager,
 	supChildren map[string]c.Child,
 	supNotifyCh chan<- c.ChildNotification,
-	wasComplete bool,
 	prevCh c.Child,
-	prevErr error,
-) *c.ErrorToleranceReached {
+	prevChErr error,
+) *RestartToleranceReached {
+	// we initialize prevErr with the original child error that caused this logic
+	// to get executed. It could happen that this error gets eclipsed by a restart
+	// error later on
+	prevErr := prevChErr
+
 	for {
+		if prevChErr != nil {
+			ok := supTolerance.checkTolerance()
+			if !ok {
+				// Remove children from runtime child map to skip terminate procedure
+				delete(supChildren, prevCh.GetName())
+				return NewRestartToleranceReached(supTolerance.restartTolerance, prevErr, prevCh)
+			}
+		}
+
 		newCh, restartErr := oneForOneRestart(
 			supCtx,
 			eventNotifier,
 			supRuntimeName,
 			supChildren,
 			supNotifyCh,
-			wasComplete,
 			prevCh,
-			prevErr,
 		)
-		// if we don't get start errors, break the loop
+
+		// if we don't get restart errors, break the loop
 		if restartErr == nil {
 			return nil
 		}
 
-		// The restartError could be that the error threshold was reached
-		// or that there was a start error
-
-		// in case of error tolerance reached, just fail
-		var toleranceErr *c.ErrorToleranceReached
-		if errors.As(restartErr, &toleranceErr) {
-			// Remove children from runtime child map to skip terminate procedure
-			delete(supChildren, prevCh.GetName())
-			return toleranceErr
-		}
-
-		// otherwise, repeat until error threshold is met
+		// otherwise, repeat until restart tolerance is reached
 		prevCh = newCh
+		prevErr = restartErr
 	}
 }

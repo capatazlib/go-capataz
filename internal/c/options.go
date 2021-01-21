@@ -29,10 +29,10 @@ func WithShutdown(s Shutdown) Opt {
 // WithTolerance specifies to the supervisor monitor of this worker how many
 // errors it should be willing to tolerate before giving up restarting it and
 // fail.
+//
+// Deprecated: Use WithRestartTolerance instead.
 func WithTolerance(maxErrCount uint32, errWindow time.Duration) Opt {
-	return func(spec *ChildSpec) {
-		spec.ErrTolerance = ErrTolerance{MaxErrCount: maxErrCount, ErrWindow: errWindow}
-	}
+	return func(spec *ChildSpec) {}
 }
 
 // WithTag sets the given c.ChildTag on a c.ChildSpec
