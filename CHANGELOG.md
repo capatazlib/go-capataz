@@ -1,6 +1,10 @@
 # pre-release v0.1.0 (breaking changes)
 
-* Deprecate `WithTolerance` worker option with `WithRestartTolerance` supervisor option
+* Deprecate `WithTolerance` worker option with `WithRestartTolerance` supervisor
+  option (#55)
+
+* Move all files in the `cap` folder to `internal/s` and do an explicit export
+  list of symbols (#56)
 
 # v0.0.0
 
