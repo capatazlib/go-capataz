@@ -48,6 +48,7 @@ func (hr HealthReport) IsHealthyReport() bool {
 //                            an unhealthy environment. Any process that fails
 //                            to restart under the threshold results in an
 //                            unhealthy report
+//
 func NewHealthcheckMonitor(
 	maxAllowedFailures uint32,
 	maxAllowedRestartDuration time.Duration,
