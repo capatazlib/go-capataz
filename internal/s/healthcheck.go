@@ -1,4 +1,4 @@
-package cap
+package s
 
 import (
 	"sync"
@@ -40,12 +40,15 @@ func (hr HealthReport) IsHealthyReport() bool {
 
 // NewHealthcheckMonitor offers a way to monitor a supervision tree health from
 // events emitted by it.
-// MaxAllowedFailures: the threshold beyond which the environment is considered
+//
+// maxAllowedFailures: the threshold beyond which the environment is considered
 //                     unhealthy.
-// MaxAllowedRestartDuration: the restart threshold, which if exceeded, indicates
+//
+// maxAllowedRestartDuration: the restart threshold, which if exceeded, indicates
 //                            an unhealthy environment. Any process that fails
 //                            to restart under the threshold results in an
 //                            unhealthy report
+//
 func NewHealthcheckMonitor(
 	maxAllowedFailures uint32,
 	maxAllowedRestartDuration time.Duration,

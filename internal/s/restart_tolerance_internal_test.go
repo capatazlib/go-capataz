@@ -1,4 +1,4 @@
-package cap
+package s
 
 import (
 	"testing"

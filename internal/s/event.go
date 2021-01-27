@@ -1,4 +1,4 @@
-package cap
+package s
 
 import (
 	"fmt"
@@ -51,7 +51,7 @@ func (tag EventTag) String() string {
 // supervision system.
 type Event struct {
 	tag                EventTag
-	nodeTag            NodeTag
+	nodeTag            c.ChildTag
 	processRuntimeName string
 	err                error
 	created            time.Time
@@ -63,8 +63,8 @@ func (e Event) GetTag() EventTag {
 	return e.tag
 }
 
-// GetNodeTag returns the NodeTag from an Event
-func (e Event) GetNodeTag() NodeTag {
+// GetNodeTag returns the c.ChildTag from an Event
+func (e Event) GetNodeTag() c.ChildTag {
 	return e.nodeTag
 }
 
@@ -106,7 +106,7 @@ type EventNotifier func(Event)
 
 // processTerminated reports an event with an EventTag of ProcessTerminated
 func (en EventNotifier) processTerminated(
-	nodeTag NodeTag,
+	nodeTag c.ChildTag,
 	name string,
 	stopTime time.Time,
 ) {
@@ -139,7 +139,7 @@ func (en EventNotifier) workerCompleted(name string) {
 
 // processFailed reports an event with an EventTag of ProcessFailed
 func (en EventNotifier) processFailed(
-	nodeTag NodeTag,
+	nodeTag c.ChildTag,
 	name string,
 	err error,
 ) {
@@ -169,7 +169,7 @@ func (en EventNotifier) workerFailed(name string, err error) {
 
 // processStartFailed reports an event with an EventTag of ProcessStartFailed
 func (en EventNotifier) processStartFailed(
-	nodeTag NodeTag,
+	nodeTag c.ChildTag,
 	name string,
 	err error,
 ) {
@@ -191,7 +191,7 @@ func (en EventNotifier) supervisorStartFailed(name string, err error) {
 //	en.processStartFailed(c.Worker, name, err)
 // }
 
-func processStarted(en EventNotifier, nodeTag NodeTag, name string, startTime time.Time) {
+func processStarted(en EventNotifier, nodeTag c.ChildTag, name string, startTime time.Time) {
 	createdTime := time.Now()
 	startDuration := createdTime.Sub(startTime)
 	en(Event{
