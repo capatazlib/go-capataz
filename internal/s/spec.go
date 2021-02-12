@@ -67,15 +67,6 @@ const (
 	// RestForOne
 )
 
-// getEventNotifier returns the configured EventNotifier or emptyEventNotifier
-// (if none is given via WithEventNotifier)
-func (spec SupervisorSpec) getEventNotifier() EventNotifier {
-	if spec.eventNotifier == nil {
-		return emptyEventNotifier
-	}
-	return spec.eventNotifier
-}
-
 // CleanupResourcesFn is a function that cleans up resources that were
 // allocated in a BuildNodesFn function.
 //
@@ -105,7 +96,7 @@ type SupervisorSpec struct {
 	order            Order
 	strategy         Strategy
 	shutdownTimeout  time.Duration
-	eventNotifier    EventNotifier
+	eventNotifiers   EventNotifiers
 }
 
 // reliableBuildNodes capture panics returned from the buildNodes client
@@ -252,7 +243,7 @@ func NewSupervisorSpec(name string, buildNodes BuildNodesFn, opts ...Opt) Superv
 		restartTolerance: restartTolerance{MaxRestartCount: 1, RestartWindow: 5 * time.Second},
 		buildNodes:       buildNodes,
 		shutdownTimeout:  defaultSupShutdownTimeout,
-		eventNotifier:    emptyEventNotifier,
+		eventNotifiers:   []EventNotifier{emptyEventNotifier},
 	}
 
 	// Check name cannot be empty

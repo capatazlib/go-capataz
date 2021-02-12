@@ -327,6 +327,116 @@ func TestDoubleTermination(t *testing.T) {
 	)
 }
 
+func TestMultipleNotifiers(t *testing.T) {
+	ctx := context.TODO()
+	evManager1 := NewEventManager()
+	evManager1.StartCollector(ctx)
+	evManager2 := NewEventManager()
+	evManager2.StartCollector(ctx)
+
+	supSpec := cap.NewSupervisorSpec(
+		"root",
+		cap.WithNodes(WaitDoneWorker("one")),
+		cap.WithNotifier(evManager1.EventCollector(ctx)),
+		cap.WithNotifier(evManager2.EventCollector(ctx)),
+	)
+
+	// We always want to start the supervisor for test purposes, so this is
+	// embedded in the ObserveSupervisor call
+	sup, startErr := supSpec.Start(ctx)
+	assert.NoError(t, startErr)
+
+	evIt1 := evManager1.Iterator()
+	evIt1.SkipTill(SupervisorStarted("root"))
+	evIt2 := evManager1.Iterator()
+	evIt2.SkipTill(SupervisorStarted("root"))
+
+	sup.Terminate()
+
+	evIt1.SkipTill(SupervisorTerminated("root"))
+	evIt2.SkipTill(SupervisorTerminated("root"))
+
+	AssertExactMatch(
+		t,
+		evManager1.Snapshot(),
+		[]EventP{
+			WorkerStarted("root/one"),
+			SupervisorStarted("root"),
+			WorkerTerminated("root/one"),
+			SupervisorTerminated("root"),
+		},
+	)
+	AssertExactMatch(
+		t,
+		evManager2.Snapshot(),
+		[]EventP{
+			WorkerStarted("root/one"),
+			SupervisorStarted("root"),
+			WorkerTerminated("root/one"),
+			SupervisorTerminated("root"),
+		},
+	)
+}
+
+func TestSubtreeNotifier(t *testing.T) {
+	ctx := context.TODO()
+	evManagerRoot := NewEventManager()
+	evManagerRoot.StartCollector(ctx)
+	evManagerSubtree := NewEventManager()
+	evManagerSubtree.StartCollector(ctx)
+
+	supSpec := cap.NewSupervisorSpec(
+		"root",
+		cap.WithNodes(
+			cap.Subtree(
+				cap.NewSupervisorSpec(
+					"subtree",
+					cap.WithNodes(WaitDoneWorker("worker")),
+					cap.WithNotifier(evManagerSubtree.EventCollector(ctx)),
+				),
+			),
+		),
+		cap.WithNotifier(evManagerRoot.EventCollector(ctx)),
+	)
+
+	// We always want to start the supervisor for test purposes, so this is
+	// embedded in the ObserveSupervisor call
+	sup, startErr := supSpec.Start(ctx)
+	assert.NoError(t, startErr)
+
+	evItRoot := evManagerRoot.Iterator()
+	evItRoot.SkipTill(SupervisorStarted("root"))
+	evItSubtree := evManagerRoot.Iterator()
+	evItSubtree.SkipTill(SupervisorStarted("root/subtree"))
+
+	sup.Terminate()
+
+	evItRoot.SkipTill(SupervisorTerminated("root"))
+	evItSubtree.SkipTill(SupervisorTerminated("root/subtree"))
+
+	AssertExactMatch(
+		t,
+		evManagerRoot.Snapshot(),
+		[]EventP{
+			WorkerStarted("root/subtree/worker"),
+			SupervisorStarted("root/subtree"),
+			SupervisorStarted("root"),
+			WorkerTerminated("root/subtree/worker"),
+			SupervisorTerminated("root/subtree"),
+			SupervisorTerminated("root"),
+		},
+	)
+	AssertExactMatch(
+		t,
+		evManagerSubtree.Snapshot(),
+		[]EventP{
+			WorkerStarted("root/subtree/worker"),
+			SupervisorStarted("root/subtree"),
+			WorkerTerminated("root/subtree/worker"),
+		},
+	)
+}
+
 func TestFailedTerminationOnOneLevelTree(t *testing.T) {
 	events, err := ObserveSupervisor(
 		context.TODO(),

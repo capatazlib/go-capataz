@@ -9,7 +9,7 @@ import (
 
 func oneForOneRestart(
 	supCtx context.Context,
-	eventNotifier EventNotifier,
+	eventNotifiers EventNotifiers,
 	supRuntimeName string,
 	supChildren map[string]c.Child,
 	supNotifyCh chan<- c.ChildNotification,
@@ -29,14 +29,14 @@ func oneForOneRestart(
 
 	// notify event only for workers, supervisors are responsible of their own
 	if newCh.GetTag() == c.Worker {
-		eventNotifier.workerStarted(newCh.GetRuntimeName(), startTime)
+		eventNotifiers.workerStarted(newCh.GetRuntimeName(), startTime)
 	}
 	return newCh, nil
 }
 
 func oneForOneRestartLoop(
 	supCtx context.Context,
-	eventNotifier EventNotifier,
+	eventNotifiers EventNotifiers,
 	supRuntimeName string,
 	supTolerance *restartToleranceManager,
 	supChildren map[string]c.Child,
@@ -61,7 +61,7 @@ func oneForOneRestartLoop(
 
 		newCh, restartErr := oneForOneRestart(
 			supCtx,
-			eventNotifier,
+			eventNotifiers,
 			supRuntimeName,
 			supChildren,
 			supNotifyCh,

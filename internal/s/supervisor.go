@@ -139,7 +139,7 @@ func (sup Supervisor) GetName() string {
 // storeTerminationError is responsible of registering the final state of the
 // supervisor and to signal the event notifications system
 func storeTerminationErr(
-	eventNotifier EventNotifier,
+	eventNotifiers EventNotifiers,
 	supRuntimeName string,
 	tm *terminationManager,
 	err error,
@@ -147,7 +147,7 @@ func storeTerminationErr(
 ) {
 	tm.setTerminationErr(err)
 	if err != nil {
-		eventNotifier.supervisorFailed(supRuntimeName, err)
+		eventNotifiers.supervisorFailed(supRuntimeName, err)
 		return
 	}
 
@@ -157,14 +157,14 @@ func storeTerminationErr(
 	if stopingTime == (time.Time{}) {
 		stopingTime = time.Now()
 	}
-	eventNotifier.supervisorTerminated(supRuntimeName, stopingTime)
+	eventNotifiers.supervisorTerminated(supRuntimeName, stopingTime)
 }
 
 // getCrashError will return an error if the supervisor crashed, otherwise
 // returns nil.
 func getCrashError(
 	block bool,
-	eventNotifier EventNotifier,
+	eventNotifiers EventNotifiers,
 	supRuntimeName string,
 	terminateCh <-chan error,
 	tm *terminationManager,
@@ -178,7 +178,7 @@ func getCrashError(
 	if block {
 		terminateErr := <-terminateCh
 		storeTerminationErr(
-			eventNotifier,
+			eventNotifiers,
 			supRuntimeName,
 			tm,
 			terminateErr,
@@ -190,7 +190,7 @@ func getCrashError(
 	select {
 	case terminateErr := <-terminateCh:
 		storeTerminationErr(
-			eventNotifier,
+			eventNotifiers,
 			supRuntimeName,
 			tm,
 			terminateErr,
@@ -209,7 +209,7 @@ func getCrashError(
 func (sup Supervisor) GetCrashError(block bool) (bool, error) {
 	return getCrashError(
 		false, /* block */
-		sup.spec.eventNotifier,
+		sup.spec.eventNotifiers,
 		sup.runtimeName,
 		sup.terminateCh,
 		sup.terminateManager,

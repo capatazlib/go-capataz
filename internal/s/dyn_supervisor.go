@@ -15,7 +15,7 @@ type ctrlMsg interface {
 	// its purpose
 	processMsg(
 		supCtx context.Context,
-		evNotifier EventNotifier,
+		evNotifiers EventNotifiers,
 		spec SupervisorSpec,
 		specChildren []c.ChildSpec,
 		supRuntimeName string,
@@ -39,7 +39,7 @@ type startChildMsg struct {
 
 func (scm startChildMsg) processMsg(
 	supCtx context.Context,
-	evNotifier EventNotifier,
+	evNotifiers EventNotifiers,
 	spec SupervisorSpec,
 	specChildren []c.ChildSpec,
 	supRuntimeName string,
@@ -102,7 +102,7 @@ type terminateChildMsg struct {
 
 func (tcm terminateChildMsg) processMsg(
 	supCtx context.Context,
-	evNotifier EventNotifier,
+	evNotifiers EventNotifiers,
 	spec SupervisorSpec,
 	specChildren []c.ChildSpec,
 	supRuntimeName string,
@@ -125,7 +125,7 @@ func (tcm terminateChildMsg) processMsg(
 
 	// we call our basic terminateChildNode function that is found in the
 	// monitor.go file
-	terminateErr := terminateChildNode(evNotifier, ch)
+	terminateErr := terminateChildNode(evNotifiers, ch)
 
 	// do not block waiting for a read
 	select {
@@ -158,7 +158,7 @@ type DynSupervisor struct {
 // API calls like Spawn or Cancel a child node.
 func handleCtrlMsg(
 	supCtx context.Context,
-	eventNotifier EventNotifier,
+	eventNotifiers EventNotifiers,
 	spec SupervisorSpec,
 	specChildren []c.ChildSpec,
 	supRuntimeName string,
@@ -168,7 +168,7 @@ func handleCtrlMsg(
 ) ([]c.ChildSpec, map[string]c.Child) {
 	return msg.processMsg(
 		supCtx,
-		eventNotifier,
+		eventNotifiers,
 		spec,
 		specChildren,
 		supRuntimeName,

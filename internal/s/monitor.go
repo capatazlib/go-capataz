@@ -17,7 +17,7 @@ const nodeSepToken = "/"
 
 func handleChildNodeError(
 	supCtx context.Context,
-	eventNotifier EventNotifier,
+	eventNotifiers EventNotifiers,
 	supRuntimeName string,
 	supTolerance *restartToleranceManager,
 	supChildren map[string]c.Child,
@@ -27,7 +27,7 @@ func handleChildNodeError(
 ) *RestartToleranceReached {
 	chSpec := prevCh.GetSpec()
 
-	eventNotifier.processFailed(chSpec.GetTag(), prevCh.GetRuntimeName(), prevChErr)
+	eventNotifiers.processFailed(chSpec.GetTag(), prevCh.GetRuntimeName(), prevChErr)
 
 	switch chSpec.GetRestart() {
 	case c.Permanent, c.Transient:
@@ -35,7 +35,7 @@ func handleChildNodeError(
 		// to restart the failing child
 		return oneForOneRestartLoop(
 			supCtx,
-			eventNotifier,
+			eventNotifiers,
 			supRuntimeName,
 			supTolerance,
 			supChildren,
@@ -53,7 +53,7 @@ func handleChildNodeError(
 
 func handleChildNodeCompletion(
 	supCtx context.Context,
-	eventNotifier EventNotifier,
+	eventNotifiers EventNotifiers,
 	supRuntimeName string,
 	supTolerance *restartToleranceManager,
 	supChildren map[string]c.Child,
@@ -62,7 +62,7 @@ func handleChildNodeCompletion(
 ) *RestartToleranceReached {
 
 	if prevCh.IsWorker() {
-		eventNotifier.workerCompleted(prevCh.GetRuntimeName())
+		eventNotifiers.workerCompleted(prevCh.GetRuntimeName())
 	}
 
 	chSpec := prevCh.GetSpec()
@@ -78,7 +78,7 @@ func handleChildNodeCompletion(
 		// c.Restart is Permanent
 		return oneForOneRestartLoop(
 			supCtx,
-			eventNotifier,
+			eventNotifiers,
 			supRuntimeName,
 			supTolerance,
 			supChildren,
@@ -91,7 +91,7 @@ func handleChildNodeCompletion(
 
 func handleChildNodeNotification(
 	supCtx context.Context,
-	eventNotifier EventNotifier,
+	eventNotifiers EventNotifiers,
 	supRuntimeName string,
 	supTolerance *restartToleranceManager,
 	supChildren map[string]c.Child,
@@ -106,7 +106,7 @@ func handleChildNodeNotification(
 		// saying that the process failed
 		return handleChildNodeError(
 			supCtx,
-			eventNotifier,
+			eventNotifiers,
 			supRuntimeName,
 			supTolerance,
 			supChildren,
@@ -118,7 +118,7 @@ func handleChildNodeNotification(
 
 	return handleChildNodeCompletion(
 		supCtx,
-		eventNotifier,
+		eventNotifiers,
 		supRuntimeName,
 		supTolerance,
 		supChildren,
@@ -139,7 +139,6 @@ func startChildNode(
 	notifyCh chan c.ChildNotification,
 	chSpec c.ChildSpec,
 ) (c.Child, error) {
-	eventNotifier := spec.getEventNotifier()
 	startedTime := time.Now()
 	ch, chStartErr := chSpec.DoStart(startCtx, supRuntimeName, notifyCh)
 
@@ -150,14 +149,14 @@ func startChildNode(
 			[]string{supRuntimeName, chSpec.GetName()},
 			nodeSepToken,
 		)
-		eventNotifier.processStartFailed(chSpec.GetTag(), cRuntimeName, chStartErr)
+		spec.eventNotifiers.processStartFailed(chSpec.GetTag(), cRuntimeName, chStartErr)
 		return c.Child{}, chStartErr
 	}
 
 	// NOTE: we only notify when child is a worker because sub-trees supervisors
 	// are responsible of their own notification
 	if chSpec.IsWorker() {
-		eventNotifier.workerStarted(ch.GetRuntimeName(), startedTime)
+		spec.eventNotifiers.workerStarted(ch.GetRuntimeName(), startedTime)
 	}
 	return ch, nil
 }
@@ -214,7 +213,7 @@ func startChildNodes(
 // terminateChildNode executes the Terminate procedure on the given child, in case
 // there is an error on termination it notifies the event system
 func terminateChildNode(
-	eventNotifier EventNotifier,
+	eventNotifiers EventNotifiers,
 	ch c.Child,
 ) error {
 	chSpec := ch.GetSpec()
@@ -223,11 +222,11 @@ func terminateChildNode(
 
 	if terminationErr != nil {
 		// we also notify that the process failed
-		eventNotifier.processFailed(chSpec.GetTag(), ch.GetRuntimeName(), terminationErr)
+		eventNotifiers.processFailed(chSpec.GetTag(), ch.GetRuntimeName(), terminationErr)
 		return terminationErr
 	}
 	// we need to notify that the process stopped
-	eventNotifier.processTerminated(chSpec.GetTag(), ch.GetRuntimeName(), stoppingTime)
+	eventNotifiers.processTerminated(chSpec.GetTag(), ch.GetRuntimeName(), stoppingTime)
 	return nil
 }
 
@@ -238,7 +237,6 @@ func terminateChildNodes(
 	supChildrenSpecs0 []c.ChildSpec,
 	supChildren map[string]c.Child,
 ) map[string]error {
-	eventNotifier := spec.eventNotifier
 	supChildrenSpecs := spec.order.sortTermination(supChildrenSpecs0)
 	supNodeErrMap := make(map[string]error)
 
@@ -254,7 +252,7 @@ func terminateChildNodes(
 		// * On stop, there may be a Transient child that completed, or a Temporary child
 		// that completed or failed.
 		if ok {
-			terminationErr := terminateChildNode(eventNotifier, ch)
+			terminationErr := terminateChildNode(spec.eventNotifiers, ch)
 			if terminationErr != nil {
 				// if a child fails to stop (either because of a legit failure or a
 				// timeout), we store the terminationError so that we can report all of them
@@ -374,8 +372,7 @@ func runMonitorLoop(
 	// important because only the supervisor goroutine nows the exact time it gets
 	// started (we would get race-conditions if we notify from the parent
 	// otherwise).
-	eventNotifier := supSpec.getEventNotifier()
-	eventNotifier.supervisorStarted(supRuntimeName, supStartTime)
+	supSpec.eventNotifiers.supervisorStarted(supRuntimeName, supStartTime)
 
 	/// Once children have been spawned, we notify to the caller thread that the
 	// main loop has started without errors.
@@ -413,7 +410,7 @@ func runMonitorLoop(
 
 			restartErr := handleChildNodeNotification(
 				supCtx,
-				eventNotifier,
+				supSpec.eventNotifiers,
 				supRuntimeName,
 				supTolerance,
 				supChildren,
@@ -437,7 +434,7 @@ func runMonitorLoop(
 		case msg := <-ctrlCh:
 			supChildrenSpecs, supChildren = handleCtrlMsg(
 				supCtx,
-				eventNotifier,
+				supSpec.eventNotifiers,
 				supSpec,
 				supChildrenSpecs,
 				supRuntimeName,

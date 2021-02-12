@@ -104,6 +104,11 @@ func (e Event) String() string {
 // Check the documentation of WithNotifier for more details.
 type EventNotifier func(Event)
 
+// EventNotifiers is a collection of notifiers.
+//
+// See EventNotifier.
+type EventNotifiers []EventNotifier
+
 // processTerminated reports an event with an EventTag of ProcessTerminated
 func (en EventNotifier) processTerminated(
 	nodeTag c.ChildTag,
@@ -212,6 +217,76 @@ func (en EventNotifier) supervisorStarted(name string, startTime time.Time) {
 // workerStarted reports an event with an EventTag of ProcessStarted
 func (en EventNotifier) workerStarted(name string, startTime time.Time) {
 	processStarted(en, c.Worker, name, startTime)
+}
+
+// processTerminated reports an event with an EventTag of ProcessTerminated
+func (ens EventNotifiers) processTerminated(nodeTag c.ChildTag, name string, stopTime time.Time) {
+	for _, en := range ens {
+		en.processTerminated(nodeTag, name, stopTime)
+	}
+}
+
+// supervisorTerminated reports an event with an EventTag of ProcessTerminated
+func (ens EventNotifiers) supervisorTerminated(name string, stopTime time.Time) {
+	for _, en := range ens {
+		en.supervisorTerminated(name, stopTime)
+	}
+}
+
+// workerCompleted reports an event with an EventTag of ProcessCompleted
+func (ens EventNotifiers) workerCompleted(name string) {
+	for _, en := range ens {
+		en.workerCompleted(name)
+	}
+}
+
+// processFailed reports an event with an EventTag of ProcessFailed
+func (ens EventNotifiers) processFailed(nodeTag c.ChildTag, name string, err error) {
+	for _, en := range ens {
+		en.processFailed(nodeTag, name, err)
+	}
+}
+
+// supervisorFailed reports a supervisor event with an EventTag of ProcessFailed
+func (ens EventNotifiers) supervisorFailed(name string, err error) {
+	for _, en := range ens {
+		en.supervisorFailed(name, err)
+	}
+}
+
+// workerFailed reports a worker event with an EventTag of ProcessFailed
+func (ens EventNotifiers) workerFailed(name string, err error) {
+	for _, en := range ens {
+		en.workerFailed(name, err)
+	}
+}
+
+// processStartFailed reports an event with an EventTag of ProcessStartFailed
+func (ens EventNotifiers) processStartFailed(nodeTag c.ChildTag, name string, err error) {
+	for _, en := range ens {
+		en.processStartFailed(nodeTag, name, err)
+	}
+}
+
+// supervisorStartFailed reports an event with an EventTag of ProcessFailed
+func (ens EventNotifiers) supervisorStartFailed(name string, err error) {
+	for _, en := range ens {
+		en.supervisorStartFailed(name, err)
+	}
+}
+
+// supervisorStarted reports an event with an EventTag of ProcessStarted
+func (ens EventNotifiers) supervisorStarted(name string, startTime time.Time) {
+	for _, en := range ens {
+		en.supervisorStarted(name, startTime)
+	}
+}
+
+// workerStarted reports an event with an EventTag of ProcessStarted
+func (ens EventNotifiers) workerStarted(name string, startTime time.Time) {
+	for _, en := range ens {
+		en.workerStarted(name, startTime)
+	}
 }
 
 // emptyEventNotifier is an utility function that works as a default value

@@ -38,21 +38,21 @@ func buildRuntimeName(spec SupervisorSpec, parentName string) string {
 
 type capatazSupKey string
 
-var eventNotifierKey capatazSupKey = "__capataz.node.event_notifier__"
+var eventNotifiersKey capatazSupKey = "__capataz.node.event_notifiers__"
 
-// withEventNotifier sets the Capataz EventNotifier in the context that is
+// withEventNotifiers sets the Capataz EventNotifiers in the context that is
 // thread-through across all capataz logic
-func withEventNotifier(ctx context.Context, evNotifier EventNotifier) context.Context {
-	return context.WithValue(ctx, eventNotifierKey, evNotifier)
+func withEventNotifiers(ctx context.Context, evNotifiers EventNotifiers) context.Context {
+	return context.WithValue(ctx, eventNotifiersKey, evNotifiers)
 }
 
-// getEventNotifier returns the EventNotifier that is thread-through all the
+// getEventNotifiers returns the EventNotifiers that is thread-through all the
 // capataz API
-func getEventNotifier(ctx context.Context) (EventNotifier, bool) {
-	val := ctx.Value(eventNotifierKey)
+func getEventNotifiers(ctx context.Context) (EventNotifiers, bool) {
+	val := ctx.Value(eventNotifiersKey)
 	if val != nil {
-		if evNotifier, ok := val.(EventNotifier); ok {
-			return evNotifier, true
+		if evNotifiers, ok := val.(EventNotifiers); ok {
+			return evNotifiers, true
 		}
 		return nil, false
 	}
@@ -92,8 +92,8 @@ func (spec SupervisorSpec) rootStart(
 
 	supRuntimeName := buildRuntimeName(spec, parentName)
 
-	eventNotifier := spec.getEventNotifier()
-	supCtx = withEventNotifier(supCtx, eventNotifier)
+	eventNotifiers := spec.eventNotifiers
+	supCtx = withEventNotifiers(supCtx, eventNotifiers)
 
 	// Build childrenSpec and resource cleanup
 	childrenSpecs, supRscCleanup, rscAllocError := spec.buildChildrenSpecs(supRuntimeName)
@@ -102,7 +102,7 @@ func (spec SupervisorSpec) rootStart(
 	// allocation logic
 	if rscAllocError != nil {
 		cancelFn()
-		eventNotifier.supervisorStartFailed(supRuntimeName, rscAllocError)
+		spec.eventNotifiers.supervisorStartFailed(supRuntimeName, rscAllocError)
 		return Supervisor{}, rscAllocError
 	}
 
@@ -125,7 +125,7 @@ func (spec SupervisorSpec) rootStart(
 			// We check if there was an start error reported, if this is the case, we
 			// notify that the supervisor start failed
 			if startErr != nil {
-				eventNotifier.supervisorStartFailed(supRuntimeName, startErr)
+				spec.eventNotifiers.supervisorStartFailed(supRuntimeName, startErr)
 				return startErr
 			}
 
@@ -135,7 +135,7 @@ func (spec SupervisorSpec) rootStart(
 			// otherwise it will return nil
 			_, supErr := getCrashError(
 				true, /* block */
-				eventNotifier,
+				spec.eventNotifiers,
 				supRuntimeName,
 				terminateCh,
 				tm,

@@ -57,7 +57,7 @@ func WithStrategy(s Strategy) Opt {
 //
 func WithNotifier(en EventNotifier) Opt {
 	return func(spec *SupervisorSpec) {
-		spec.eventNotifier = en
+		spec.eventNotifiers = append(spec.eventNotifiers, en)
 	}
 }
 

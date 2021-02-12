@@ -89,7 +89,9 @@ func (spec SupervisorSpec) subtree(
 	subtreeSpec SupervisorSpec,
 	copts0 ...c.Opt,
 ) c.ChildSpec {
-	subtreeSpec.eventNotifier = spec.eventNotifier
+	for _, en := range spec.eventNotifiers {
+		subtreeSpec.eventNotifiers = append(subtreeSpec.eventNotifiers, en)
+	}
 
 	// NOTE: Child goroutines that are running a sub-tree supervisor must always
 	// have a timeout of Infinity, as specified in the documentation from OTP
