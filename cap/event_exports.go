@@ -82,3 +82,56 @@ var WithNotifierTimeout = n.WithNotifierTimeout
 //
 // Since: 0.1.0
 var WithOnReliableNotifierFailure = n.WithOnReliableNotifierFailure
+
+// EventCriteria is an utility that allows us to specify a matching criteria to
+// a specific supervision event
+//
+// Since: 0.1.0
+type EventCriteria = n.EventCriteria
+
+// EAnd joins a slice of EventCriteria with an and statement
+//
+// Since: 0.1.0
+var EAnd = n.EAnd
+
+// EOr joins a slice of EventCriteria with an or statement
+//
+// Since: 0.1.0
+var EOr = n.EOr
+
+// ENot negates the result from a given EventCriteria
+//
+// Since: 0.1.0
+var ENot = n.ENot
+
+// EInSubtree allows to filter s.Event that were sent from an specific subtree
+//
+// Since: 0.1.0
+var EInSubtree = n.EInSubtree
+
+// EIsFailure returns true if the event represent a node failure
+//
+// Since: 0.1.0
+var EIsFailure = n.EIsFailure
+
+// EIsWorkerFailure returns true if the event represents a worker failure
+//
+// Since: 0.1.0
+var EIsWorkerFailure = n.EIsWorkerFailure
+
+// EIsSupervisorRestartError returns true if the event represents a restart
+// tolerance reached error
+//
+// Since: 0.1.0
+var EIsSupervisorRestartError = n.EIsSupervisorRestartError
+
+// EHasName returns true if the runtime name of the node that emitted the event
+//
+// Since: 0.1.0
+var EHasName = n.EHasName
+
+// SelectEventByCriteria forwards Event records that match positively the given
+// criteria to the given EventNotifier
+//
+// Since: 0.1.0
+var SelectEventByCriteria = n.SelectEventByCriteria
