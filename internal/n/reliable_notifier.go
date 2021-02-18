@@ -72,7 +72,7 @@ func newNotifierSubTree(
 }
 
 // runEntrypointListener listens to a channel for events, and it then broadcast
-// in a non-blockin fashion the same event across multiple workers.
+// in a non-blocking fashion the same event across multiple workers.
 func runEntrypointListener(
 	ctx context.Context,
 	settings notifierSettings,
