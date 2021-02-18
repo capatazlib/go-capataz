@@ -23,7 +23,7 @@ func TestEAnd(t *testing.T) {
 			counter++
 		}
 		crit := n.EAnd(alwaysTrue, alwaysTrue, alwaysTrue)
-		evNotifier := n.SelectEventByCriteria(crit, evNotifier0)
+		evNotifier := n.ApplyEventCriteria(crit, evNotifier0)
 		evNotifier(s.Event{})
 		assert.Equal(t, 1, counter)
 	})
@@ -34,7 +34,7 @@ func TestEAnd(t *testing.T) {
 			counter++
 		}
 		crit := n.EAnd(alwaysTrue, alwaysFalse, alwaysTrue)
-		evNotifier := n.SelectEventByCriteria(crit, evNotifier0)
+		evNotifier := n.ApplyEventCriteria(crit, evNotifier0)
 		evNotifier(s.Event{})
 		assert.Equal(t, 0, counter)
 	})
@@ -47,7 +47,7 @@ func TestEOr(t *testing.T) {
 			counter++
 		}
 		crit := n.EOr(alwaysFalse, alwaysFalse, alwaysFalse)
-		evNotifier := n.SelectEventByCriteria(crit, evNotifier0)
+		evNotifier := n.ApplyEventCriteria(crit, evNotifier0)
 		evNotifier(s.Event{})
 		assert.Equal(t, 0, counter)
 	})
@@ -58,7 +58,7 @@ func TestEOr(t *testing.T) {
 			counter++
 		}
 		crit := n.EOr(alwaysFalse, alwaysTrue, alwaysFalse)
-		evNotifier := n.SelectEventByCriteria(crit, evNotifier0)
+		evNotifier := n.ApplyEventCriteria(crit, evNotifier0)
 		evNotifier(s.Event{})
 		assert.Equal(t, 1, counter)
 	})
@@ -73,11 +73,11 @@ func TestENot(t *testing.T) {
 		counter++
 	}
 
-	evNotifier1 := n.SelectEventByCriteria(crit1, evNotifier0)
+	evNotifier1 := n.ApplyEventCriteria(crit1, evNotifier0)
 	evNotifier1(s.Event{})
 	assert.Equal(t, 0, counter)
 
-	evNotifier2 := n.SelectEventByCriteria(crit2, evNotifier0)
+	evNotifier2 := n.ApplyEventCriteria(crit2, evNotifier0)
 	evNotifier2(s.Event{})
 	assert.Equal(t, 1, counter)
 }
@@ -92,7 +92,7 @@ func TestEInSubtree(t *testing.T) {
 	b0n := "branch0"
 	b1n := "branch1"
 
-	evNotifier := n.SelectEventByCriteria(n.EInSubtree("root/branch0"), evNotifier0)
+	evNotifier := n.ApplyEventCriteria(n.EInSubtree("root/branch0"), evNotifier0)
 
 	b0 := s.NewSupervisorSpec(b0n, s.WithNodes(WaitDoneWorker("child0")))
 	b1 := s.NewSupervisorSpec(b1n, s.WithNodes(WaitDoneWorker("child1")))
@@ -144,8 +144,8 @@ func TestEIsFailure(t *testing.T) {
 		counter1++
 	}
 
-	evNotifierA := n.SelectEventByCriteria(n.EIsFailure, evNotifier0)
-	evNotifierB := n.SelectEventByCriteria(n.EIsWorkerFailure, evNotifier1)
+	evNotifierA := n.ApplyEventCriteria(n.EIsFailure, evNotifier0)
+	evNotifierB := n.ApplyEventCriteria(n.EIsWorkerFailure, evNotifier1)
 
 	rootName := "root"
 	// Fail only one time

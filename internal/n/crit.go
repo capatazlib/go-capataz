@@ -90,9 +90,9 @@ func EHasName(rawName string) EventCriteria {
 	}
 }
 
-// SelectEventByCriteria forwards Event records that match positively the given
+// ApplyEventCriteria forwards Event records that match positively the given
 // criteria to the given EventNotifier
-func SelectEventByCriteria(crit EventCriteria, notifier s.EventNotifier) s.EventNotifier {
+func ApplyEventCriteria(crit EventCriteria, notifier s.EventNotifier) s.EventNotifier {
 	return func(ev s.Event) {
 		if crit(ev) {
 			notifier(ev)
