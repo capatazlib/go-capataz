@@ -16,14 +16,12 @@ type EventCriteria func(s.Event) bool
 // arguments will accept all given events.
 func EAnd(crits ...EventCriteria) EventCriteria {
 	return func(ev s.Event) bool {
-		result := true
 		for _, crit := range crits {
-			result = result && crit(ev)
-			if !result {
-				return result
+			if !crit(ev) {
+				return false
 			}
 		}
-		return result
+		return true
 	}
 }
 
@@ -31,14 +29,12 @@ func EAnd(crits ...EventCriteria) EventCriteria {
 // arguments wil reject all given events.
 func EOr(crits ...EventCriteria) EventCriteria {
 	return func(ev s.Event) bool {
-		result := false
 		for _, crit := range crits {
-			result = result || crit(ev)
-			if result {
-				return result
+			if crit(ev) {
+				return true
 			}
 		}
-		return result
+		return false
 	}
 }
 
