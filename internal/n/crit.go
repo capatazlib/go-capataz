@@ -74,15 +74,27 @@ var EIsSupervisorRestartError EventCriteria = func(ev s.Event) bool {
 	return false
 }
 
-// EHasName returns true if the runtime name of the node that emitted the event
+// EHasRuntimeName returns true if the runtime name of the node that emitted the event
 // matches the given name
-func EHasName(rawName string) EventCriteria {
+func EHasRuntimeName(runtimeName string) EventCriteria {
 	// ensure internal token is not coupled to this API
-	tokens := strings.Split(rawName, "/")
+	tokens := strings.Split(runtimeName, "/")
 	name := strings.Join(tokens, s.NodeSepToken)
 
 	return func(ev s.Event) bool {
 		return ev.GetProcessRuntimeName() == name
+	}
+}
+
+// EHasNameSuffix returns true if the runtime name of the node that emitted the
+// event matches the given suffix
+func EHasNameSuffix(rawSuffix string) EventCriteria {
+	// ensure internal token is not coupled to this API
+	tokens := strings.Split(rawSuffix, "/")
+	suffix := strings.Join(tokens, s.NodeSepToken)
+
+	return func(ev s.Event) bool {
+		return strings.HasSuffix(ev.GetProcessRuntimeName(), suffix)
 	}
 }
 

@@ -127,11 +127,17 @@ var EIsWorkerFailure = n.EIsWorkerFailure
 // Since: 0.1.0
 var EIsSupervisorRestartError = n.EIsSupervisorRestartError
 
-// EHasName returns true if the runtime name of the node that emitted the event
+// EHasRuntimeName returns true if the runtime name of the node that emitted the event
 // matches the given name
 //
 // Since: 0.1.0
-var EHasName = n.EHasName
+var EHasRuntimeName = n.EHasRuntimeName
+
+// EHasNameSuffix returnes true if the runtime name of the node that emitted the event
+// matches the given suffix
+//
+// Since: 0.1.0
+var EHasNameSuffix = n.EHasNameSuffix
 
 // ApplyEventCriteria forwards Event records that match positively the given
 // criteria to the given EventNotifier
