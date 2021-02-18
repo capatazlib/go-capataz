@@ -16,29 +16,29 @@ type EventCriteria func(s.Event) bool
 // arguments will accept all given events.
 func EAnd(crits ...EventCriteria) EventCriteria {
 	return func(ev s.Event) bool {
-		result := true
 		for _, crit := range crits {
-			result = result && crit(ev)
-			if !result {
-				return result
+			if !crit(ev) {
+				return false
 			}
 		}
-		return result
+		return true
 	}
 }
 
 // EOr joins a slice of EventCriteria with an "or" statement. A call without
-// arguments wil reject all given events.
+// arguments wil accept all given events.
 func EOr(crits ...EventCriteria) EventCriteria {
 	return func(ev s.Event) bool {
-		result := false
+		if len(crits) == 0 {
+			return true
+		}
+
 		for _, crit := range crits {
-			result = result || crit(ev)
-			if result {
-				return result
+			if crit(ev) {
+				return true
 			}
 		}
-		return result
+		return false
 	}
 }
 
@@ -78,15 +78,27 @@ var EIsSupervisorRestartError EventCriteria = func(ev s.Event) bool {
 	return false
 }
 
-// EHasName returns true if the runtime name of the node that emitted the event
+// EHasRuntimeName returns true if the runtime name of the node that emitted the event
 // matches the given name
-func EHasName(rawName string) EventCriteria {
+func EHasRuntimeName(runtimeName string) EventCriteria {
 	// ensure internal token is not coupled to this API
-	tokens := strings.Split(rawName, "/")
+	tokens := strings.Split(runtimeName, "/")
 	name := strings.Join(tokens, s.NodeSepToken)
 
 	return func(ev s.Event) bool {
 		return ev.GetProcessRuntimeName() == name
+	}
+}
+
+// EHasNameSuffix returns true if the runtime name of the node that emitted the
+// event matches the given suffix
+func EHasNameSuffix(rawSuffix string) EventCriteria {
+	// ensure internal token is not coupled to this API
+	tokens := strings.Split(rawSuffix, "/")
+	suffix := strings.Join(tokens, s.NodeSepToken)
+
+	return func(ev s.Event) bool {
+		return strings.HasSuffix(ev.GetProcessRuntimeName(), suffix)
 	}
 }
 

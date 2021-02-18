@@ -72,7 +72,7 @@ func newNotifierSubTree(
 }
 
 // runEntrypointListener listens to a channel for events, and it then broadcast
-// in a non-blockin fashion the same event across multiple workers.
+// in a non-blocking fashion the same event across multiple workers.
 func runEntrypointListener(
 	ctx context.Context,
 	settings notifierSettings,
@@ -103,15 +103,17 @@ func runEntrypointListener(
 }
 
 // WithOnNotifierTimeout sets callback that gets executed when a given notifier
-// is so slow to get an event that it gets skipped.
+// is so slow to get an event that it gets skipped. You need to ensure the given
+// callback does not block.
 func WithOnNotifierTimeout(cb func(string)) ReliableNotifierOpt {
 	return func(settings *notifierSettings) {
 		settings.onNotifierTimeout = cb
 	}
 }
 
-// WithOnReliableNotifierFailure sets a callback that gets executed when a failure
-// occurs on the event broadcasting logic
+// WithOnReliableNotifierFailure sets a callback that gets executed when a
+// failure occurs on the event broadcasting logic. You need to ensure the given
+// callback does not block.
 func WithOnReliableNotifierFailure(cb func(error)) ReliableNotifierOpt {
 	return func(settings *notifierSettings) {
 		settings.onReliableNotifierFailure = cb

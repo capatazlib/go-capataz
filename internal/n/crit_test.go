@@ -188,3 +188,58 @@ func TestEIsFailure(t *testing.T) {
 	assert.Equal(t, 1, counter1)
 
 }
+
+func TestEHasNameSuffix(t *testing.T) {
+	counter := 0
+	evNotifier0 := func(s.Event) {
+		counter++
+	}
+
+	rootName := "root"
+	b0n := "branch0"
+	b00n := "branch00"
+	b1n := "branch1"
+
+	evNotifier := n.ApplyEventCriteria(n.EHasNameSuffix("branch00/child0"), evNotifier0)
+
+	b00 := s.NewSupervisorSpec(b00n, s.WithNodes(WaitDoneWorker("child0")))
+	b0 := s.NewSupervisorSpec(b0n, s.WithNodes(s.Subtree(b00), WaitDoneWorker("child0")))
+	b1 := s.NewSupervisorSpec(b1n, s.WithNodes(WaitDoneWorker("child2")))
+
+	events, err := ObserveSupervisorWithNotifiers(
+		context.TODO(),
+		rootName,
+		s.WithNodes(
+			s.Subtree(b0),
+			s.Subtree(b1),
+		),
+		[]s.Opt{},
+		[]s.EventNotifier{evNotifier},
+		func(EventManager) {},
+	)
+
+	assert.NoError(t, err)
+
+	AssertExactMatch(t, events,
+		[]EventP{
+
+			WorkerStarted("root/branch0/branch00/child0"), /* 1 */
+			SupervisorStarted("root/branch0/branch00"),
+			WorkerStarted("root/branch0/child0"),
+			SupervisorStarted("root/branch0"),
+			WorkerStarted("root/branch1/child2"),
+			SupervisorStarted("root/branch1"),
+			SupervisorStarted("root"),
+			WorkerTerminated("root/branch1/child2"),
+			SupervisorTerminated("root/branch1"),
+			WorkerTerminated("root/branch0/child0"),
+
+			WorkerTerminated("root/branch0/branch00/child0"), /* 2 */
+			SupervisorTerminated("root/branch0/branch00"),
+			SupervisorTerminated("root/branch0"),
+			SupervisorTerminated("root"),
+		},
+	)
+
+	assert.Equal(t, 2, counter)
+}
