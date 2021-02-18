@@ -65,8 +65,9 @@ type ReliableNotifierOpt = n.ReliableNotifierOpt
 // Since: 0.1.0
 var NewReliableNotifier = n.NewReliableNotifier
 
-// WithOnNotifierTimeout sets callback that gets executed when a given notifier drops
-// an event because it cannot process it.
+// WithOnNotifierTimeout sets callback that gets executed when a given notifier
+// is so slow to get an event that it gets skipped. You need to ensure the given
+// callback does not block.
 //
 // Since: 0.1.0
 var WithOnNotifierTimeout = n.WithOnNotifierTimeout
@@ -77,8 +78,9 @@ var WithOnNotifierTimeout = n.WithOnNotifierTimeout
 // since: 0.1.0
 var WithNotifierTimeout = n.WithNotifierTimeout
 
-// WithOnReliableNotifierFailure sets a callback that gets executed when a failure
-// occurs on the event broadcasting logic
+// WithOnReliableNotifierFailure sets a callback that gets executed when a
+// failure occurs on the event broadcasting logic. You need to ensure the given
+// callback does not block.
 //
 // Since: 0.1.0
 var WithOnReliableNotifierFailure = n.WithOnReliableNotifierFailure

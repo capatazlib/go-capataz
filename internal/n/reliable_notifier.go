@@ -92,9 +92,7 @@ func runEntrypointListener(
 				)
 				select {
 				case <-notifyCtx.Done():
-					// execute this callback on a goroutine to not hang this notification
-					// system
-					go settings.onNotifierTimeout(name)
+					settings.onNotifierTimeout(name)
 
 				case ch <- ev:
 				}
@@ -105,15 +103,17 @@ func runEntrypointListener(
 }
 
 // WithOnNotifierTimeout sets callback that gets executed when a given notifier
-// is so slow to get an event that it gets skipped.
+// is so slow to get an event that it gets skipped. You need to ensure the given
+// callback does not block.
 func WithOnNotifierTimeout(cb func(string)) ReliableNotifierOpt {
 	return func(settings *notifierSettings) {
 		settings.onNotifierTimeout = cb
 	}
 }
 
-// WithOnReliableNotifierFailure sets a callback that gets executed when a failure
-// occurs on the event broadcasting logic
+// WithOnReliableNotifierFailure sets a callback that gets executed when a
+// failure occurs on the event broadcasting logic. You need to ensure the given
+// callback does not block.
 func WithOnReliableNotifierFailure(cb func(error)) ReliableNotifierOpt {
 	return func(settings *notifierSettings) {
 		settings.onReliableNotifierFailure = cb
@@ -134,9 +134,7 @@ func notifyRootFailure(settings notifierSettings) s.EventNotifier {
 	failingNode := strings.Join([]string{rootName, "notifiers"}, s.NodeSepToken)
 	return func(ev s.Event) {
 		if ev.GetTag() == s.ProcessFailed && ev.GetProcessRuntimeName() == failingNode {
-			// execute this callback on a goroutine to not hang this notification
-			// system
-			go settings.onReliableNotifierFailure(ev.Err())
+			settings.onReliableNotifierFailure(ev.Err())
 		}
 	}
 }
