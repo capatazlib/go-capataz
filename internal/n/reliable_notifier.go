@@ -92,7 +92,9 @@ func runEntrypointListener(
 				)
 				select {
 				case <-notifyCtx.Done():
-					settings.onNotifierTimeout(name)
+					// execute this callback on a goroutine to not hang this notification
+					// system
+					go settings.onNotifierTimeout(name)
 
 				case ch <- ev:
 				}
@@ -132,7 +134,9 @@ func notifyRootFailure(settings notifierSettings) s.EventNotifier {
 	failingNode := strings.Join([]string{rootName, "notifiers"}, s.NodeSepToken)
 	return func(ev s.Event) {
 		if ev.GetTag() == s.ProcessFailed && ev.GetProcessRuntimeName() == failingNode {
-			settings.onReliableNotifierFailure(ev.Err())
+			// execute this callback on a goroutine to not hang this notification
+			// system
+			go settings.onReliableNotifierFailure(ev.Err())
 		}
 	}
 }
