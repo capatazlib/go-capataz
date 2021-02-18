@@ -89,12 +89,14 @@ var WithOnReliableNotifierFailure = n.WithOnReliableNotifierFailure
 // Since: 0.1.0
 type EventCriteria = n.EventCriteria
 
-// EAnd joins a slice of EventCriteria with an and statement
+// EAnd joins a slice of EventCriteria with an "and" statement. A call without
+// arguments will accept all given events.
 //
 // Since: 0.1.0
 var EAnd = n.EAnd
 
-// EOr joins a slice of EventCriteria with an or statement
+// EOr joins a slice of EventCriteria with an "or" statement. A call without
+// arguments wil reject all given events.
 //
 // Since: 0.1.0
 var EOr = n.EOr

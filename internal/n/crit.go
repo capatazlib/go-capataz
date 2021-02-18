@@ -12,7 +12,8 @@ import (
 // a specific supervision event
 type EventCriteria func(s.Event) bool
 
-// EAnd joins a slice of EventCriteria with an and statement
+// EAnd joins a slice of EventCriteria with an "and" statement. A call without
+// arguments will accept all given events.
 func EAnd(crits ...EventCriteria) EventCriteria {
 	return func(ev s.Event) bool {
 		result := true
@@ -26,7 +27,8 @@ func EAnd(crits ...EventCriteria) EventCriteria {
 	}
 }
 
-// EOr joins a slice of EventCriteria with an or statement
+// EOr joins a slice of EventCriteria with an "or" statement. A call without
+// arguments wil reject all given events.
 func EOr(crits ...EventCriteria) EventCriteria {
 	return func(ev s.Event) bool {
 		result := false
@@ -40,27 +42,29 @@ func EOr(crits ...EventCriteria) EventCriteria {
 	}
 }
 
-// ENot negates the result from a given EventCriteria
+// ENot negates the result from a given EventCriteria.
 func ENot(crit EventCriteria) EventCriteria {
 	return func(ev s.Event) bool {
 		return !crit(ev)
 	}
 }
 
-// EInSubtree allows to filter s.Event that were sent from an specific subtree
-func EInSubtree(names ...string) EventCriteria {
-	prefix := strings.Join(names, s.NodeSepToken)
+// EInSubtree allows to filter s.Event that were sent from an specific subtree.
+func EInSubtree(rawName string) EventCriteria {
+	// ensure internal token is not coupled to this API
+	tokens := strings.Split(rawName, "/")
+	prefix := strings.Join(tokens, s.NodeSepToken)
 	return func(ev s.Event) bool {
 		return strings.HasPrefix(ev.GetProcessRuntimeName(), prefix)
 	}
 }
 
-// EIsFailure returns true if the event represent a node failure
+// EIsFailure returns true if the event represent a node failure.
 var EIsFailure EventCriteria = func(ev s.Event) bool {
 	return ev.GetTag() == s.ProcessFailed
 }
 
-// EIsWorkerFailure returns true if the event represents a worker failure
+// EIsWorkerFailure returns true if the event represents a worker failure.
 var EIsWorkerFailure EventCriteria = func(ev s.Event) bool {
 	return EIsFailure(ev) && ev.GetNodeTag() == c.Worker
 }
@@ -76,8 +80,11 @@ var EIsSupervisorRestartError EventCriteria = func(ev s.Event) bool {
 
 // EHasName returns true if the runtime name of the node that emitted the event
 // matches the given name
-func EHasName(names ...string) EventCriteria {
-	name := strings.Join(names, s.NodeSepToken)
+func EHasName(rawName string) EventCriteria {
+	// ensure internal token is not coupled to this API
+	tokens := strings.Split(rawName, "/")
+	name := strings.Join(tokens, s.NodeSepToken)
+
 	return func(ev s.Event) bool {
 		return ev.GetProcessRuntimeName() == name
 	}

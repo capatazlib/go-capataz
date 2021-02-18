@@ -92,7 +92,7 @@ func TestEInSubtree(t *testing.T) {
 	b0n := "branch0"
 	b1n := "branch1"
 
-	evNotifier := n.SelectEventByCriteria(n.EInSubtree(rootName, b0n), evNotifier0)
+	evNotifier := n.SelectEventByCriteria(n.EInSubtree("root/branch0"), evNotifier0)
 
 	b0 := s.NewSupervisorSpec(b0n, s.WithNodes(WaitDoneWorker("child0")))
 	b1 := s.NewSupervisorSpec(b1n, s.WithNodes(WaitDoneWorker("child1")))
