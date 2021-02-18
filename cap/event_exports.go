@@ -128,6 +128,7 @@ var EIsWorkerFailure = n.EIsWorkerFailure
 var EIsSupervisorRestartError = n.EIsSupervisorRestartError
 
 // EHasName returns true if the runtime name of the node that emitted the event
+// matches the given name
 //
 // Since: 0.1.0
 var EHasName = n.EHasName
