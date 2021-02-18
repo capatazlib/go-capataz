@@ -6,6 +6,11 @@
 * Move all files in the `cap` folder to `internal/s` and do an explicit export
   list of symbols (#56)
 
+* Add a new `EventNotifier` called `ReliableNotifier`, which guarantees a safe,
+  failure tolerant, latency tolerant event notifier dispatching mechanism. (#58)
+
+* Expose the `NodeSepToken` variable to join symbols from a tree hierarchy. (#58)
+
 # v0.0.0
 
 * See changes on [Every PR](https://github.com/capatazlib/go-capataz/pulls?q=is%3Apr+is%3Aclosed+label%3Apre-changelog) that was created before a CHANGELOG file was added
