@@ -1,6 +1,9 @@
 package cap
 
-import "github.com/capatazlib/go-capataz/internal/s"
+import (
+	"github.com/capatazlib/go-capataz/internal/n"
+	"github.com/capatazlib/go-capataz/internal/s"
+)
 
 // EventTag specifies the type of Event that gets notified from the supervision
 // system
@@ -48,3 +51,34 @@ type Event = s.Event
 //
 // Since: 0.0.0
 type EventNotifier = s.EventNotifier
+
+// ReliableNotifierOpt allows clients to tweak the behavior of an EventNotifier
+// instance built with NewReliableNotifier
+//
+// Since: 0.1.0
+type ReliableNotifierOpt = n.ReliableNotifierOpt
+
+// NewReliableNotifier is an EventNotifier that guarantees it will never panic
+// the execution of its caller, and that it will continue sending events to
+// notifiers despite previous panics
+//
+// Since: 0.1.0
+var NewReliableNotifier = n.NewReliableNotifier
+
+// WithOnNotifierTimeout sets callback that gets executed when a given notifier drops
+// an event because it cannot process it.
+//
+// Since: 0.1.0
+var WithOnNotifierTimeout = n.WithOnNotifierTimeout
+
+// WithNotifierTimeout sets the maximum allowed time the reliable notifier is going to
+// wait for a notifier function to be ready to receive an event (defaults to 10 millis).
+//
+// since: 0.1.0
+var WithNotifierTimeout = n.WithNotifierTimeout
+
+// WithOnReliableNotifierFailure sets a callback that gets executed when a failure
+// occurs on the event broadcasting logic
+//
+// Since: 0.1.0
+var WithOnReliableNotifierFailure = n.WithOnReliableNotifierFailure
