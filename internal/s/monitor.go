@@ -9,9 +9,9 @@ import (
 	"github.com/capatazlib/go-capataz/internal/c"
 )
 
-// nodeSepToken is the token use to separate sub-trees and child node names in
+// NodeSepToken is the token use to separate sub-trees and child node names in
 // the supervision tree
-const nodeSepToken = "/"
+const NodeSepToken = "/"
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -148,7 +148,7 @@ func startChildNode(
 	if chStartErr != nil {
 		cRuntimeName := strings.Join(
 			[]string{supRuntimeName, chSpec.GetName()},
-			nodeSepToken,
+			NodeSepToken,
 		)
 		eventNotifier.processStartFailed(chSpec.GetTag(), cRuntimeName, chStartErr)
 		return c.Child{}, chStartErr
