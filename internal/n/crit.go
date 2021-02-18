@@ -26,9 +26,13 @@ func EAnd(crits ...EventCriteria) EventCriteria {
 }
 
 // EOr joins a slice of EventCriteria with an "or" statement. A call without
-// arguments wil reject all given events.
+// arguments wil accept all given events.
 func EOr(crits ...EventCriteria) EventCriteria {
 	return func(ev s.Event) bool {
+		if len(crits) == 0 {
+			return true
+		}
+
 		for _, crit := range crits {
 			if crit(ev) {
 				return true
