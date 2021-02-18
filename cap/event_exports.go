@@ -133,8 +133,8 @@ var EIsSupervisorRestartError = n.EIsSupervisorRestartError
 // Since: 0.1.0
 var EHasName = n.EHasName
 
-// SelectEventByCriteria forwards Event records that match positively the given
+// ApplyEventCriteria forwards Event records that match positively the given
 // criteria to the given EventNotifier
 //
 // Since: 0.1.0
-var SelectEventByCriteria = n.SelectEventByCriteria
+var ApplyEventCriteria = n.ApplyEventCriteria
