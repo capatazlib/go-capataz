@@ -84,7 +84,7 @@ func (err *SupervisorTerminationError) explainLines() []string {
 	var nodeErrLines []string
 
 	// deal with a single child error
-	if err.nodeErrMap != nil && len(err.nodeErrMap) == 1 {
+	if len(err.nodeErrMap) == 1 {
 		for childName, childErr := range err.nodeErrMap {
 			// deal with sub-tree termination errors
 			if errExplain, ok := childErr.(errExplain); ok {
@@ -119,7 +119,7 @@ func (err *SupervisorTerminationError) explainLines() []string {
 		return nodeErrLines
 	}
 
-	if err.nodeErrMap == nil || len(err.nodeErrMap) == 0 && err.rscCleanupErr != nil {
+	if len(err.nodeErrMap) == 0 && err.rscCleanupErr != nil {
 		errLines := indentExplain(1, errToExplain(err.rscCleanupErr))
 		nodeErrLines = append(nodeErrLines,
 			fmt.Sprintf("supervisor '%s' cleanup failed on termination", err.supRuntimeName),
@@ -131,7 +131,7 @@ func (err *SupervisorTerminationError) explainLines() []string {
 		return nodeErrLines
 	}
 
-	if err.nodeErrMap != nil && len(err.nodeErrMap) > 0 {
+	if len(err.nodeErrMap) > 0 {
 		// report for sub-tree errors
 		var subtreeErrLines = make([]string, 0)
 		// report for direct children error
