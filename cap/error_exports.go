@@ -42,8 +42,9 @@ type SupervisorRestartError = s.SupervisorRestartError
 // Since: 0.0.0
 type RestartToleranceReached = s.RestartToleranceReached
 
-// ExplainError is an utility function to get a human-friendly message from a
-// Capataz error
+// ExplainError is a utility function that explains capataz errors in a human-friendly
+// way. Defaults to a call to error.Error() if the underlying error does not come from
+// the capataz library.
 //
 // Since: 0.1.0
 var ExplainError = s.ExplainError
