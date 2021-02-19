@@ -162,7 +162,7 @@ func TestStartFailedChild(t *testing.T) {
 	cs := []cap.Node{
 		WaitDoneWorker("child0"),
 		WaitDoneWorker("child1"),
-		FailTerminateWorker("child2", errors.New("child2 termination failure")),
+		FailTerminationWorker("child2", errors.New("child2 termination failure")),
 		// NOTE: FailStartWorker here
 		FailStartWorker("child3"),
 		WaitDoneWorker("child4"),
@@ -200,7 +200,14 @@ func TestStartFailedChild(t *testing.T) {
 
 	explanation, ok := cap.ExplainError(err)
 	assert.True(t, ok)
-	assert.Equal(t, "worker 'root/branch1/child3' failed to start\n\t> FailStartWorker child3", explanation)
+	assert.Equal(
+		t,
+		"supervisor failed to start\n\n\tworker node 'root/branch1/child3' failed to start\n\t\t"+
+			"> FailStartWorker child3\n\n\t"+
+			"also, some previously started siblings failed to terminate\n\t\t"+
+			"worker node 'root/branch1/child2' failed to terminate\n\t\t\t"+
+			"> child2 termination failure",
+		explanation)
 
 	AssertExactMatch(t, events,
 		[]EventP{
@@ -223,7 +230,7 @@ func TestStartFailedChild(t *testing.T) {
 			//
 			// * The start function returns an error
 			//
-			WorkerTerminated("root/branch1/child2"),
+			WorkerFailed("root/branch1/child2"),
 			SupervisorStartFailed("root/branch1"),
 			WorkerTerminated("root/branch0/child1"),
 			WorkerTerminated("root/branch0/child0"),
@@ -277,7 +284,7 @@ func TestTerminateFailedChild(t *testing.T) {
 	assert.True(t, ok)
 	assert.Equal(
 		t,
-		"the worker node 'root/branch1/child2' failed to terminate:\n\t> child shutdown timeout",
+		"worker node 'root/branch1/child2' failed to terminate\n\t> child shutdown timeout",
 		explanation,
 	)
 
@@ -367,7 +374,7 @@ func TestFailedTerminationOnOneLevelTree(t *testing.T) {
 	assert.True(t, ok)
 	assert.Equal(
 		t,
-		"the worker node 'root/child1' failed to terminate:\n\t> child1 failed",
+		"worker node 'root/child1' failed to terminate\n\t> child1 failed",
 		explanation,
 	)
 

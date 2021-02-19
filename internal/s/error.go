@@ -93,7 +93,7 @@ func (err *SupervisorTerminationError) explainLines() []string {
 				// deal with worker termination error
 				nodeErrLines = append(
 					nodeErrLines,
-					fmt.Sprintf("the worker node '%s%s%s' failed to terminate:",
+					fmt.Sprintf("worker node '%s%s%s' failed to terminate",
 						err.supRuntimeName,
 						NodeSepToken,
 						childName,
@@ -306,12 +306,16 @@ func (err *SupervisorStartError) explainLines() []string {
 	} else {
 		workerErrLines = append(
 			workerErrLines,
-			fmt.Sprintf("worker '%s%s%s' failed to start",
+			fmt.Sprintf("supervisor failed to start\n"),
+		)
+		workerErrLines = append(
+			workerErrLines,
+			fmt.Sprintf("\tworker node '%s%s%s' failed to start",
 				err.supRuntimeName, NodeSepToken, err.nodeName),
 		)
 		workerErrLines = append(
 			workerErrLines,
-			indentExplain(1, errToExplain(err.nodeErr))...,
+			indentExplain(2, errToExplain(err.nodeErr))...,
 		)
 	}
 
@@ -319,12 +323,12 @@ func (err *SupervisorStartError) explainLines() []string {
 	if err.terminationErr != nil {
 		terminationErrLines = append(
 			terminationErrLines,
-			"in the termination of previously started siblings, some failed to terminate",
+			"\n\talso, some previously started siblings failed to terminate",
 		)
 
 		terminationErrLines = append(
 			terminationErrLines,
-			indentExplain(1, err.terminationErr.explainLines())...,
+			indentExplain(2, err.terminationErr.explainLines())...,
 		)
 	}
 
@@ -336,10 +340,6 @@ func (err *SupervisorStartError) explainLines() []string {
 	)
 
 	if len(terminationErrLines) > 0 {
-		outputLines = append(
-			outputLines,
-			"\n",
-		)
 		outputLines = append(
 			outputLines,
 			terminationErrLines...,
@@ -469,7 +469,7 @@ func (err *RestartToleranceReached) explainLines() []string {
 		outputLines,
 		[]string{
 			fmt.Sprintf(
-				"the worker node '%s' was restarted at least %d times in a %v window; "+
+				"worker node '%s' was restarted at least %d times in a %v window; "+
 					"the last error reported was:",
 				err.failedChildName,
 				err.failedChildErrCount,

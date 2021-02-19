@@ -232,7 +232,7 @@ func TestTransientOneForOneSingleFailingWorkerReachThreshold(t *testing.T) {
 	assert.True(t, ok)
 	assert.Equal(
 		t,
-		"supervisor 'root' crashed due to restart tolerance surpassed.\n\tthe worker node 'root/worker1' was restarted at least 2 times in a 10s window; the last error reported was:\n\t\t> Failing child (3 out of 3)",
+		"supervisor 'root' crashed due to restart tolerance surpassed.\n\tworker node 'root/worker1' was restarted at least 2 times in a 10s window; the last error reported was:\n\t\t> Failing child (3 out of 3)",
 		explanation,
 	)
 
