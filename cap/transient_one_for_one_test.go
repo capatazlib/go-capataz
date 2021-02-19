@@ -228,8 +228,7 @@ func TestTransientOneForOneSingleFailingWorkerReachThreshold(t *testing.T) {
 	assert.Equal(t, 10*time.Second, kvs["supervisor.restart.node.error.duration"])
 	assert.Equal(t, uint32(2), kvs["supervisor.restart.node.error.count"])
 
-	explanation, ok := cap.ExplainError(err)
-	assert.True(t, ok)
+	explanation := cap.ExplainError(err)
 	assert.Equal(
 		t,
 		"supervisor 'root' crashed due to restart tolerance surpassed.\n\tworker node 'root/worker1' was restarted at least 2 times in a 10s window; the last error reported was:\n\t\t> Failing child (3 out of 3)",

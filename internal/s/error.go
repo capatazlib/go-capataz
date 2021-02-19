@@ -487,12 +487,13 @@ func (err *RestartToleranceReached) explainLines() []string {
 ////////////////////
 
 // ExplainError is an utility function that explains capataz errors in a human-friendly
-// way
-func ExplainError(err error) (string, bool) {
+// way. Defaults to a call to error.Error() if the underlying error does not come from
+// the capataz library
+func ExplainError(err error) string {
 	if errExp, ok := err.(errExplain); ok {
-		return strings.Join(errExp.explainLines(), "\n"), ok
+		return strings.Join(errExp.explainLines(), "\n")
 	}
-	return "", false
+	return err.Error()
 }
 
 // errToExplain transforms an error message into a human-friendly readbable

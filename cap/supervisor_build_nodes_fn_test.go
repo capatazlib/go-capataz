@@ -93,8 +93,7 @@ func TestSupervisorWithPanicBuildNodesFnOnSingleTree(t *testing.T) {
 	assert.Equal(t, "root", kvs["supervisor.name"])
 	assert.Equal(t, "single tree panic", fmt.Sprint(kvs["supervisor.build.error"]))
 
-	explanation, ok := cap.ExplainError(err)
-	assert.True(t, ok)
+	explanation := cap.ExplainError(err)
 	assert.Equal(
 		t,
 		"supervisor 'root' build nodes function failed\n\t> single tree panic",
@@ -137,8 +136,7 @@ func TestSupervisorWithPanicBuildNodesFnOnNestedTree(t *testing.T) {
 	assert.Equal(t, "root/subtree2", kvs["supervisor.subtree.name"])
 	assert.Equal(t, "sub-tree panic", fmt.Sprint(kvs["supervisor.subtree.build.error"]))
 
-	explanation, ok := cap.ExplainError(err)
-	assert.True(t, ok)
+	explanation := cap.ExplainError(err)
 	assert.Equal(
 		t,
 		"supervisor 'root/subtree2' build nodes function failed\n\t> sub-tree panic",
@@ -184,8 +182,7 @@ func TestSupervisorWithErroredCleanupResourcesFnOnSingleTree(t *testing.T) {
 		fmt.Sprint(kvs["supervisor.termination.cleanup.error"]),
 	)
 
-	explanation, ok := cap.ExplainError(err)
-	assert.True(t, ok)
+	explanation := cap.ExplainError(err)
 	assert.Equal(
 		t,
 		"supervisor 'root' cleanup failed on termination\n\t> cleanup resources err",
@@ -240,8 +237,7 @@ func TestSupervisorWithErroredCleanupResourcesFnOnNestedTree(t *testing.T) {
 		fmt.Sprint(kvs["supervisor.subtree.0.termination.cleanup.error"]),
 	)
 
-	explanation, ok := cap.ExplainError(err)
-	assert.True(t, ok)
+	explanation := cap.ExplainError(err)
 	assert.Equal(
 		t,
 		"supervisor 'root/subtree2' cleanup failed on termination\n\t> cleanup resources err",

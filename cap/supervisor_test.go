@@ -198,8 +198,7 @@ func TestStartFailedChild(t *testing.T) {
 		fmt.Sprint(kvs["supervisor.subtree.start.node.name"]),
 	)
 
-	explanation, ok := cap.ExplainError(err)
-	assert.True(t, ok)
+	explanation := cap.ExplainError(err)
 	assert.Equal(
 		t,
 		"supervisor failed to start\n\n\tworker node 'root/branch1/child3' failed to start\n\t\t"+
@@ -280,8 +279,7 @@ func TestTerminateFailedChild(t *testing.T) {
 		fmt.Sprint(kvs["supervisor.subtree.0.termination.node.0.error"]),
 	)
 
-	explanation, ok := cap.ExplainError(err)
-	assert.True(t, ok)
+	explanation := cap.ExplainError(err)
 	assert.Equal(
 		t,
 		"worker node 'root/branch1/child2' failed to terminate\n\t> child shutdown timeout",
@@ -370,8 +368,7 @@ func TestFailedTerminationOnOneLevelTree(t *testing.T) {
 	assert.Equal(t, "child1", kvs["supervisor.termination.node.0.name"])
 	assert.Equal(t, "child1 failed", fmt.Sprint(kvs["supervisor.termination.node.0.error"]))
 
-	explanation, ok := cap.ExplainError(err)
-	assert.True(t, ok)
+	explanation := cap.ExplainError(err)
 	assert.Equal(
 		t,
 		"worker node 'root/child1' failed to terminate\n\t> child1 failed",
