@@ -73,7 +73,8 @@ var EIsWorkerFailure EventCriteria = func(ev s.Event) bool {
 // tolerance reached error
 var EIsSupervisorRestartError EventCriteria = func(ev s.Event) bool {
 	if ev.GetTag() == s.ProcessFailed && ev.GetNodeTag() == c.Supervisor {
-		return errors.Is(ev.Err(), &s.SupervisorRestartError{})
+		var restartErr *s.SupervisorRestartError
+		return errors.As(ev.Err(), &restartErr)
 	}
 	return false
 }

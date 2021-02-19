@@ -93,6 +93,13 @@ func TestSupervisorWithPanicBuildNodesFnOnSingleTree(t *testing.T) {
 	assert.Equal(t, "root", kvs["supervisor.name"])
 	assert.Equal(t, "single tree panic", fmt.Sprint(kvs["supervisor.build.error"]))
 
+	explanation := cap.ExplainError(err)
+	assert.Equal(
+		t,
+		"supervisor 'root' build nodes function failed\n\t> single tree panic",
+		explanation,
+	)
+
 	AssertExactMatch(t, events,
 		[]EventP{
 			SupervisorStartFailed("root"),
@@ -128,6 +135,13 @@ func TestSupervisorWithPanicBuildNodesFnOnNestedTree(t *testing.T) {
 	assert.Equal(t, "supervisor node failed to start", err.Error())
 	assert.Equal(t, "root/subtree2", kvs["supervisor.subtree.name"])
 	assert.Equal(t, "sub-tree panic", fmt.Sprint(kvs["supervisor.subtree.build.error"]))
+
+	explanation := cap.ExplainError(err)
+	assert.Equal(
+		t,
+		"supervisor 'root/subtree2' build nodes function failed\n\t> sub-tree panic",
+		explanation,
+	)
 
 	AssertExactMatch(t, events,
 		[]EventP{
@@ -166,6 +180,13 @@ func TestSupervisorWithErroredCleanupResourcesFnOnSingleTree(t *testing.T) {
 		t,
 		"cleanup resources err",
 		fmt.Sprint(kvs["supervisor.termination.cleanup.error"]),
+	)
+
+	explanation := cap.ExplainError(err)
+	assert.Equal(
+		t,
+		"supervisor 'root' cleanup failed on termination\n\t> cleanup resources err",
+		explanation,
 	)
 
 	AssertExactMatch(t, events,
@@ -214,6 +235,13 @@ func TestSupervisorWithErroredCleanupResourcesFnOnNestedTree(t *testing.T) {
 		t,
 		"cleanup resources err",
 		fmt.Sprint(kvs["supervisor.subtree.0.termination.cleanup.error"]),
+	)
+
+	explanation := cap.ExplainError(err)
+	assert.Equal(
+		t,
+		"supervisor 'root/subtree2' cleanup failed on termination\n\t> cleanup resources err",
+		explanation,
 	)
 
 	AssertExactMatch(t, events,
