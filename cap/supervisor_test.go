@@ -7,6 +7,7 @@ package cap_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -161,7 +162,7 @@ func TestStartFailedChild(t *testing.T) {
 	cs := []cap.Node{
 		WaitDoneWorker("child0"),
 		WaitDoneWorker("child1"),
-		WaitDoneWorker("child2"),
+		FailTerminateWorker("child2", errors.New("child2 termination failure")),
 		// NOTE: FailStartWorker here
 		FailStartWorker("child3"),
 		WaitDoneWorker("child4"),
@@ -182,6 +183,7 @@ func TestStartFailedChild(t *testing.T) {
 	)
 
 	assert.Error(t, err)
+
 	errKVs := err.(cap.ErrKVs)
 	kvs := errKVs.KVs()
 	assert.Equal(t, "supervisor node failed to start", err.Error())
@@ -195,6 +197,10 @@ func TestStartFailedChild(t *testing.T) {
 		"child3",
 		fmt.Sprint(kvs["supervisor.subtree.start.node.name"]),
 	)
+
+	explanation, ok := cap.ExplainError(err)
+	assert.True(t, ok)
+	assert.Equal(t, "worker 'root/branch1/child3' failed to start\n\t> FailStartWorker child3", explanation)
 
 	AssertExactMatch(t, events,
 		[]EventP{
@@ -265,6 +271,14 @@ func TestTerminateFailedChild(t *testing.T) {
 		t,
 		"child shutdown timeout",
 		fmt.Sprint(kvs["supervisor.subtree.0.termination.node.0.error"]),
+	)
+
+	explanation, ok := cap.ExplainError(err)
+	assert.True(t, ok)
+	assert.Equal(
+		t,
+		"the worker node 'root/branch1/child2' failed to terminate:\n\t> child shutdown timeout",
+		explanation,
 	)
 
 	AssertExactMatch(t, events,
@@ -348,6 +362,14 @@ func TestFailedTerminationOnOneLevelTree(t *testing.T) {
 	assert.Equal(t, "root", kvs["supervisor.name"])
 	assert.Equal(t, "child1", kvs["supervisor.termination.node.0.name"])
 	assert.Equal(t, "child1 failed", fmt.Sprint(kvs["supervisor.termination.node.0.error"]))
+
+	explanation, ok := cap.ExplainError(err)
+	assert.True(t, ok)
+	assert.Equal(
+		t,
+		"the worker node 'root/child1' failed to terminate:\n\t> child1 failed",
+		explanation,
+	)
 
 	t.Run("starts and stops routines in the correct order", func(t *testing.T) {
 		AssertExactMatch(t, events,

@@ -23,6 +23,12 @@ type ErrKVs interface {
 	KVs() map[string]interface{}
 }
 
+// errExplain is an utility interface used to get a human-friendly message from
+// a Capataz error
+type errExplain interface {
+	explainLines() []string
+}
+
 // SupervisorTerminationError wraps errors returned by a child node that failed
 // to terminate (io errors, timeouts, etc.), enhancing it with supervisor
 // information. Note, the only way to have a valid SupervisorTerminationError is
@@ -71,6 +77,142 @@ func (err *SupervisorTerminationError) KVs() map[string]interface{} {
 	return acc
 }
 
+// explainLines returns a human-friendly message of the error represented as a slice
+// of lines
+func (err *SupervisorTerminationError) explainLines() []string {
+	// error reporting from children
+	var nodeErrLines []string
+
+	// deal with a single child error
+	if err.nodeErrMap != nil && len(err.nodeErrMap) == 1 {
+		for childName, childErr := range err.nodeErrMap {
+			// deal with sub-tree termination errors
+			if errExplain, ok := childErr.(errExplain); ok {
+				nodeErrLines = append(nodeErrLines, errExplain.explainLines()...)
+			} else {
+				// deal with worker termination error
+				nodeErrLines = append(
+					nodeErrLines,
+					fmt.Sprintf("the worker node '%s%s%s' failed to terminate:",
+						err.supRuntimeName,
+						NodeSepToken,
+						childName,
+					),
+				)
+				nodeErrLines = append(
+					nodeErrLines,
+					indentExplain(1, errToExplain(childErr))...,
+				)
+			}
+		}
+
+		if err.rscCleanupErr != nil {
+			errLines := indentExplain(1, errToExplain(err.rscCleanupErr))
+			nodeErrLines = append(nodeErrLines,
+				"also, cleanup failed of the supervisor failed:",
+			)
+			nodeErrLines = append(nodeErrLines,
+				errLines...,
+			)
+		}
+
+		return nodeErrLines
+	}
+
+	if err.nodeErrMap == nil || len(err.nodeErrMap) == 0 && err.rscCleanupErr != nil {
+		errLines := indentExplain(1, errToExplain(err.rscCleanupErr))
+		nodeErrLines = append(nodeErrLines,
+			fmt.Sprintf("supervisor '%s' cleanup failed on termination", err.supRuntimeName),
+		)
+		nodeErrLines = append(nodeErrLines,
+			errLines...,
+		)
+
+		return nodeErrLines
+	}
+
+	if err.nodeErrMap != nil && len(err.nodeErrMap) > 0 {
+		// report for sub-tree errors
+		var subtreeErrLines = make([]string, 0)
+		// report for direct children error
+		var workerErrLines = make([]string, 0)
+
+		for childName, childErr := range err.nodeErrMap {
+			// deal with sub-tree termination errors
+			if errExplain, ok := childErr.(errExplain); ok {
+				subtreeErrLines = append(subtreeErrLines, errExplain.explainLines()...)
+			} else {
+				// deal with worker termination error
+				workerErrLines = append(
+					workerErrLines,
+					fmt.Sprintf("the worker node '%s%s%s' failed to terminate:",
+						err.supRuntimeName,
+						NodeSepToken,
+						childName,
+					),
+				)
+				workerErrLines = append(
+					workerErrLines,
+					indentExplain(1, errToExplain(childErr))...,
+				)
+			}
+		}
+
+		nodeErrLines = append(nodeErrLines,
+			fmt.Sprintf(
+				"children cleanup failed: %d node(s) failed to terminate",
+				len(err.nodeErrMap),
+			),
+		)
+
+		if len(subtreeErrLines) > 0 {
+			nodeErrLines = append(
+				nodeErrLines, indentExplain(1, subtreeErrLines)...,
+			)
+		}
+
+		if len(workerErrLines) > 0 {
+			nodeErrLines = append(
+				nodeErrLines, indentExplain(1, workerErrLines)...,
+			)
+		}
+	}
+
+	// error reporting from cleanup
+	var cleanupErrLines []string
+	if err.rscCleanupErr != nil {
+		errLines := indentExplain(1, errToExplain(err.rscCleanupErr))
+		cleanupErrLines = append(cleanupErrLines,
+			"cleanup failed:",
+		)
+		cleanupErrLines = append(cleanupErrLines,
+			errLines...,
+		)
+	}
+
+	var outputLines []string
+	outputLines = append(
+		outputLines,
+		"supervisor failed to terminate",
+	)
+
+	if len(nodeErrLines) > 0 {
+		outputLines = append(
+			outputLines,
+			indentExplain(1, nodeErrLines)...,
+		)
+	}
+
+	if len(cleanupErrLines) > 0 {
+		outputLines = append(
+			outputLines,
+			indentExplain(1, cleanupErrLines)...,
+		)
+	}
+
+	return outputLines
+}
+
 // SupervisorBuildError wraps errors returned from a client provided function
 // that builds the supervisor nodes, enhancing it with supervisor information
 type SupervisorBuildError struct {
@@ -88,6 +230,24 @@ func (err *SupervisorBuildError) KVs() map[string]interface{} {
 	acc["supervisor.name"] = err.supRuntimeName
 	acc["supervisor.build.error"] = err.buildNodesErr
 	return acc
+}
+
+// explainLines returns a human-friendly message of the error represented as a slice
+// of lines
+func (err *SupervisorBuildError) explainLines() []string {
+	var outputLines []string
+
+	outputLines = append(
+		outputLines,
+		fmt.Sprintf("supervisor '%s' build nodes function failed", err.supRuntimeName),
+	)
+
+	outputLines = append(
+		outputLines,
+		indentExplain(1, errToExplain(err.buildNodesErr))...,
+	)
+
+	return outputLines
 }
 
 // SupervisorStartError wraps an error reported on the initialization of a child
@@ -135,6 +295,60 @@ func (err *SupervisorStartError) KVs() map[string]interface{} {
 	return acc
 }
 
+func (err *SupervisorStartError) explainLines() []string {
+	var workerErrLines []string
+
+	if errExplain, ok := err.nodeErr.(errExplain); ok {
+		workerErrLines = append(
+			workerErrLines,
+			errExplain.explainLines()...,
+		)
+	} else {
+		workerErrLines = append(
+			workerErrLines,
+			fmt.Sprintf("worker '%s%s%s' failed to start",
+				err.supRuntimeName, NodeSepToken, err.nodeName),
+		)
+		workerErrLines = append(
+			workerErrLines,
+			indentExplain(1, errToExplain(err.nodeErr))...,
+		)
+	}
+
+	var terminationErrLines []string
+	if err.terminationErr != nil {
+		terminationErrLines = append(
+			terminationErrLines,
+			"in the termination of previously started siblings, some failed to terminate",
+		)
+
+		terminationErrLines = append(
+			terminationErrLines,
+			indentExplain(1, err.terminationErr.explainLines())...,
+		)
+	}
+
+	var outputLines []string
+
+	outputLines = append(
+		outputLines,
+		workerErrLines...,
+	)
+
+	if len(terminationErrLines) > 0 {
+		outputLines = append(
+			outputLines,
+			"\n",
+		)
+		outputLines = append(
+			outputLines,
+			terminationErrLines...,
+		)
+	}
+
+	return outputLines
+}
+
 // SupervisorRestartError wraps an error tolerance surpassed error from a child
 // node, enhancing it with supervisor information and possible termination errors
 // on other siblings
@@ -146,7 +360,7 @@ type SupervisorRestartError struct {
 
 // Error returns an error message
 func (err *SupervisorRestartError) Error() string {
-	return "supervisor crashed due to error tolerance surpassed"
+	return "supervisor crashed due to restart tolerance surpassed"
 }
 
 // KVs returns a metadata map for structured logging
@@ -167,6 +381,38 @@ func (err *SupervisorRestartError) KVs() map[string]interface{} {
 	}
 
 	return acc
+}
+
+// explainLines returns a human-friendly message of the error represented as a slice
+// of lines
+func (err *SupervisorRestartError) explainLines() []string {
+	var outputLines []string
+
+	outputLines = append(
+		outputLines,
+		fmt.Sprintf(
+			"supervisor '%s' crashed due to restart tolerance surpassed.",
+			err.supRuntimeName,
+		),
+	)
+
+	outputLines = append(
+		outputLines,
+		indentExplain(1, err.nodeErr.explainLines())...,
+	)
+
+	if err.terminationErr != nil {
+		outputLines = append(
+			outputLines,
+			"also, some siblings failed to terminate while restarting",
+		)
+		outputLines = append(
+			outputLines,
+			indentExplain(1, err.terminationErr.explainLines())...,
+		)
+	}
+
+	return outputLines
 }
 
 // RestartToleranceReached is an error that gets reported when a supervisor has
@@ -213,4 +459,57 @@ func (err *RestartToleranceReached) Error() string {
 // ErrorToleranceReached error
 func (err *RestartToleranceReached) Unwrap() error {
 	return err.err
+}
+
+// explainLines returns a human-friendly message of the error represented as a slice
+// of lines
+func (err *RestartToleranceReached) explainLines() []string {
+	var outputLines []string
+	outputLines = append(
+		outputLines,
+		[]string{
+			fmt.Sprintf(
+				"the worker node '%s' was restarted at least %d times in a %v window; "+
+					"the last error reported was:",
+				err.failedChildName,
+				err.failedChildErrCount,
+				err.failedChildErrDuration,
+			),
+		}...,
+	)
+	outputLines = append(
+		outputLines,
+		indentExplain(1, errToExplain(err.err))...,
+	)
+	return outputLines
+}
+
+////////////////////
+
+// ExplainError is an utility function that explains capataz errors in a human-friendly
+// way
+func ExplainError(err error) (string, bool) {
+	if errExp, ok := err.(errExplain); ok {
+		return strings.Join(errExp.explainLines(), "\n"), ok
+	}
+	return "", false
+}
+
+// errToExplain transforms an error message into a human-friendly readbable
+// string
+func errToExplain(err error) []string {
+	errLines := strings.Split(err.Error(), "\n")
+	for i, l := range errLines {
+		errLines[i] = fmt.Sprintf("> %s", l)
+	}
+	return errLines
+}
+
+// indentExplain indents the given lines a number of specified times
+func indentExplain(times int, ss []string) []string {
+	indentPrefix := strings.Repeat("\t", times)
+	for i, s := range ss {
+		ss[i] = fmt.Sprintf("%s%s", indentPrefix, s)
+	}
+	return ss
 }
