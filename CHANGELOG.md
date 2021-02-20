@@ -1,4 +1,4 @@
-# pre-release v0.1.0 (breaking changes)
+# v0.1.0 (breaking changes)
 
 * Deprecate `WithTolerance` worker option with `WithRestartTolerance` supervisor
   option #breaking-change (#55)
