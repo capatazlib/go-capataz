@@ -422,20 +422,26 @@ type RestartToleranceReached struct {
 	failedChildName        string
 	failedChildErrCount    uint32
 	failedChildErrDuration time.Duration
-	err                    error
+	sourceErr              error
+	lastErr                error
 }
 
 // NewRestartToleranceReached creates an ErrorToleranceReached record
 func NewRestartToleranceReached(
 	tolerance restartTolerance,
-	err error,
-	ch c.Child,
+	sourceCh c.Child,
+	sourceErr error,
+	lastErr error,
 ) *RestartToleranceReached {
 	return &RestartToleranceReached{
-		failedChildName:        ch.GetRuntimeName(),
-		failedChildErrCount:    tolerance.MaxRestartCount,
+		failedChildName:        sourceCh.GetRuntimeName(),
+		// we want to indicate that MaxRestartCount is less than the
+		// current error count, given this, we need to increment this
+		// number by one
+		failedChildErrCount:    tolerance.MaxRestartCount + 1,
 		failedChildErrDuration: tolerance.RestartWindow,
-		err:                    err,
+		sourceErr:              sourceErr,
+		lastErr:                lastErr,
 	}
 }
 
@@ -443,8 +449,8 @@ func NewRestartToleranceReached(
 func (err *RestartToleranceReached) KVs() map[string]interface{} {
 	kvs := make(map[string]interface{})
 	kvs["node.name"] = err.failedChildName
-	if err.err != nil {
-		kvs["node.error.msg"] = err.err.Error()
+	if err.lastErr != nil {
+		kvs["node.error.msg"] = err.lastErr.Error()
 		kvs["node.error.count"] = err.failedChildErrCount
 		kvs["node.error.duration"] = err.failedChildErrDuration
 	}
@@ -458,7 +464,7 @@ func (err *RestartToleranceReached) Error() string {
 // Unwrap returns the last error that caused the creation of an
 // ErrorToleranceReached error
 func (err *RestartToleranceReached) Unwrap() error {
-	return err.err
+	return err.lastErr
 }
 
 // explainLines returns a human-friendly message of the error represented as a slice
@@ -479,7 +485,7 @@ func (err *RestartToleranceReached) explainLines() []string {
 	)
 	outputLines = append(
 		outputLines,
-		indentExplain(1, errToExplain(err.err))...,
+		indentExplain(1, errToExplain(err.lastErr))...,
 	)
 	return outputLines
 }
