@@ -11,7 +11,7 @@ type Child struct {
 	restartCount uint32
 	createdAt    time.Time
 	cancel       func()
-	wait         func(Shutdown) error
+	wait         func(Shutdown) (error, bool)
 }
 
 // GetRuntimeName returns the name of this child (once started). It will have a

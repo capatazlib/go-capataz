@@ -34,32 +34,32 @@ func setNodeName(ctx context.Context, name string) context.Context {
 // of it's thread to stop.
 func waitTimeout(
 	terminateCh <-chan ChildNotification,
-) func(Shutdown) error {
-	return func(shutdown Shutdown) error {
+) func(Shutdown) (error, bool) {
+	return func(shutdown Shutdown) (error, bool) {
 		switch shutdown.tag {
 		case indefinitelyT:
 			// We wait forever for the result
 			childNotification, ok := <-terminateCh
 			if !ok {
-				return nil
+				return nil, false
 			}
 			// A child may have terminated with an error
-			return childNotification.Unwrap()
+			return childNotification.Unwrap(), true
 		case timeoutT:
 			// we wait until some duration
 			select {
 			case childNotification, ok := <-terminateCh:
 				if !ok {
-					return nil
+					return nil, false
 				}
 				// A child may have terminated with an error
-				return childNotification.Unwrap()
+				return childNotification.Unwrap(), true
 			case <-time.After(shutdown.duration):
-				return errors.New("child shutdown timeout")
+				return errors.New("child shutdown timeout"), true
 			}
 		default:
 			// This should never happen if we use the already defined Shutdown types
-			panic("invalid shutdown value received")
+			panic("invalid shutdown value received; check waitTimeout implementation")
 		}
 	}
 }
@@ -73,7 +73,6 @@ func sendNotificationToSup(
 	supNotifyCh chan<- ChildNotification,
 	terminateCh chan<- ChildNotification,
 ) {
-
 	chNotification := ChildNotification{
 		name:        chSpec.GetName(),
 		tag:         chSpec.GetTag(),
@@ -134,7 +133,10 @@ func (chSpec ChildSpec) DoStart(
 
 	// Child Goroutine is bootstraped
 	go func() {
-		// we tell the spawner this child thread has stopped
+		// we tell the spawner this child thread has stopped. We want to
+		// close this channel after the worker is done so that on the
+		// scenario the termination logic is called again, the call
+		// returns immediatelly and without errors
 		defer close(terminateCh)
 
 		// we cancel the childCtx on regular termination
