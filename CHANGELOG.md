@@ -1,3 +1,7 @@
+# v0.2.0
+
+* Introduce supervision restart strategy `OneForAll` (#65)
+
 # v0.1.0 (breaking changes)
 
 * Deprecate `WithTolerance` worker option with `WithRestartTolerance` supervisor
