@@ -20,8 +20,8 @@ func TestWorkerDoubleTermination(t *testing.T) {
 		// internal way to transform a Node to a WorkerSpec
 		wspec := WaitDoneWorker("worker")(s.SupervisorSpec{})
 
-		supNotifyCh := make(chan c.ChildNotification)
-		c, err := wspec.DoStart(context.Background(), "test", supNotifyCh)
+		supNotifyChan := make(chan c.ChildNotification)
+		c, err := wspec.DoStart(context.Background(), "test", supNotifyChan)
 		assert.NoError(t, err)
 		// first time, is going to call the termination logic, and it should not retrun an error
 		err, isFirstTime := c.Terminate()
@@ -40,8 +40,8 @@ func TestWorkerDoubleTermination(t *testing.T) {
 			"worker", fmt.Errorf("failing worker"),
 		)(s.SupervisorSpec{})
 
-		supNotifyCh := make(chan c.ChildNotification)
-		c, err := wspec.DoStart(context.Background(), "test", supNotifyCh)
+		supNotifyChan := make(chan c.ChildNotification)
+		c, err := wspec.DoStart(context.Background(), "test", supNotifyChan)
 		assert.NoError(t, err)
 		// first time, is going to call the termination logic, and it should not retrun an error
 		err, isFirstTime := c.Terminate()

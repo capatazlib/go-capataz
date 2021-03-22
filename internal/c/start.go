@@ -70,7 +70,7 @@ func sendNotificationToSup(
 	err error,
 	chSpec ChildSpec,
 	chRuntimeName string,
-	supNotifyCh chan<- ChildNotification,
+	supNotifyChan chan<- ChildNotification,
 	terminateCh chan<- ChildNotification,
 ) {
 	chNotification := ChildNotification{
@@ -85,17 +85,17 @@ func sendNotificationToSup(
 	// There are two ways the supervisor could receive this notification:
 	//
 	// 1) If the supervisor is running it's supervision loop (e.g. normal
-	// execution), the notification will be received over the `supNotifyCh`
+	// execution), the notification will be received over the `supNotifyChan`
 	// channel; this will execute the restart mechanisms.
 	//
 	// 2) If the supervisor is shutting down, it won't be reading the
-	// `supNotifyCh`, but instead is going to be executing the `stopChildren`
+	// `supNotifyChan`, but instead is going to be executing the `stopChildren`
 	// function, which calls the `child.Terminate` method for each of the supervised
 	// internally, this function reads the `terminateCh`.
 	//
 	select {
 	// (1)
-	case supNotifyCh <- chNotification:
+	case supNotifyChan <- chNotification:
 	// (2)
 	case terminateCh <- chNotification:
 	}
@@ -105,7 +105,7 @@ func sendNotificationToSup(
 // ChildSpec, this function will block until the spawned goroutine notifies it
 // has been initialized.
 //
-// ### The supNotifyCh value
+// ### The supNotifyChan value
 //
 // Messages sent to this channel notify the supervisor that the child's
 // goroutine has finished (either with or without an error). The runtime name of
@@ -115,7 +115,7 @@ func sendNotificationToSup(
 func (chSpec ChildSpec) DoStart(
 	startCtx context.Context,
 	supName string,
-	supNotifyCh chan<- ChildNotification,
+	supNotifyChan chan<- ChildNotification,
 ) (Child, error) {
 
 	chRuntimeName := strings.Join([]string{supName, chSpec.GetName()}, "/")
@@ -159,7 +159,7 @@ func (chSpec ChildSpec) DoStart(
 					panicErr,
 					chSpec,
 					chRuntimeName,
-					supNotifyCh,
+					supNotifyChan,
 					terminateCh,
 				)
 			}
@@ -180,7 +180,7 @@ func (chSpec ChildSpec) DoStart(
 			err,
 			chSpec,
 			chRuntimeName,
-			supNotifyCh,
+			supNotifyChan,
 			terminateCh,
 		)
 	}()

@@ -20,7 +20,7 @@ type ctrlMsg interface {
 		specChildren []c.ChildSpec,
 		supRuntimeName string,
 		supChildren map[string]c.Child,
-		supNotifyCh chan c.ChildNotification,
+		supNotifyChan chan c.ChildNotification,
 	) ([]c.ChildSpec, map[string]c.Child)
 }
 
@@ -44,15 +44,15 @@ func (scm startChildMsg) processMsg(
 	specChildren []c.ChildSpec,
 	supRuntimeName string,
 	supChildren map[string]c.Child,
-	supNotifyCh chan c.ChildNotification,
+	supNotifyChan chan c.ChildNotification,
 ) ([]c.ChildSpec, map[string]c.Child) {
 	// REMEMBER: WE ARE RUNNING THIS CODE IN THE SUPERVISOR THREAD
 
 	childSpec := scm.node(spec)
 
-	ch, startErr := startChildNode(supCtx, spec, supRuntimeName, supNotifyCh, childSpec)
+	ch, startErr := startChildNode(supCtx, spec, supRuntimeName, supNotifyChan, childSpec)
 	if startErr != nil {
-		// When we fail, we send an error to the supNotifyCh and return the error,
+		// When we fail, we send an error to the supNotifyChan and return the error,
 		// this doesn't have any detrimental consequence in static supervisors,
 		// but on dynamic supervisors, it means the monitor loop will get bothered
 		// with an error that it should not really handle. We are going to read it
@@ -107,7 +107,7 @@ func (tcm terminateChildMsg) processMsg(
 	specChildren []c.ChildSpec,
 	supRuntimeName string,
 	supChildren map[string]c.Child,
-	supNotifyCh chan c.ChildNotification,
+	supNotifyChan chan c.ChildNotification,
 ) ([]c.ChildSpec, map[string]c.Child) {
 	// REMEMBER: WE ARE RUNNING THIS CODE IN THE SUPERVISOR THREAD
 
@@ -163,7 +163,7 @@ func handleCtrlMsg(
 	specChildren []c.ChildSpec,
 	supRuntimeName string,
 	supChildren map[string]c.Child,
-	supNotifyCh chan c.ChildNotification,
+	supNotifyChan chan c.ChildNotification,
 	msg ctrlMsg,
 ) ([]c.ChildSpec, map[string]c.Child) {
 	return msg.processMsg(
@@ -173,7 +173,7 @@ func handleCtrlMsg(
 		specChildren,
 		supRuntimeName,
 		supChildren,
-		supNotifyCh,
+		supNotifyChan,
 	)
 }
 
