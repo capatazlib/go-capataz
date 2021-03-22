@@ -57,7 +57,7 @@ func (scm startChildMsg) processMsg(
 		// but on dynamic supervisors, it means the monitor loop will get bothered
 		// with an error that it should not really handle. We are going to read it
 		// out and return after that.
-		_ = <-supNotifyCh
+		_ = <-supNotifyChan
 		// do not block waiting for a read
 		select {
 		case scm.resultChan <- startChildResult{
