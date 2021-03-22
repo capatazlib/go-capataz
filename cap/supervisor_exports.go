@@ -38,6 +38,12 @@ type Strategy = s.Strategy
 // Since: 0.0.0
 var OneForOne = s.OneForOne
 
+// OneForAll is an Strategy that tells the Supervisor to restart all the
+// siblings of a failed child process
+//
+// Since: 0.2.0
+var OneForAll = s.OneForAll
+
 // CleanupResourcesFn is a function that cleans up resources that were
 // allocated in a BuildNodesFn function.
 //
