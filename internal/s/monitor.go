@@ -84,7 +84,6 @@ func execRestartLoop(
 	}
 }
 
-
 func handleChildNodeError(
 	supCtx context.Context,
 	supTolerance *restartToleranceManager,
@@ -152,9 +151,9 @@ func handleChildNodeCompletion(
 			supCtx,
 			supTolerance,
 			supSpec, supChildSpecs,
-			supRuntimeName,  supChildren, supNotifyChan,
+			supRuntimeName, supChildren, supNotifyChan,
 			sourceCh,
-			nil /* error */,
+			nil, /* error */
 		)
 	}
 }
@@ -272,7 +271,6 @@ func startChildNode(
 	return ch, nil
 }
 
-
 // TODO: introduce shouldSkip when supporting RestForOne functionality
 
 // startChildNodes iterates over all the children (specified with `cap.WithNodes`
@@ -337,7 +335,7 @@ func terminateChildNode(
 ) error {
 	chSpec := ch.GetSpec()
 	stoppingTime := time.Now()
-	terminationErr, isFirstTermination := ch.Terminate()
+	isFirstTermination, terminationErr := ch.Terminate()
 
 	// if it is not the first termination (it was terminated before, or finished because
 	// of a failure), we have already made notice of this termination before, so we are

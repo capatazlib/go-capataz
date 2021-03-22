@@ -8,8 +8,8 @@ package cap_test
 import (
 	"context"
 	"errors"
-	"time"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 

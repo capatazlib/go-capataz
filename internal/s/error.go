@@ -434,7 +434,7 @@ func NewRestartToleranceReached(
 	lastErr error,
 ) *RestartToleranceReached {
 	return &RestartToleranceReached{
-		failedChildName:        sourceCh.GetRuntimeName(),
+		failedChildName: sourceCh.GetRuntimeName(),
 		// we want to indicate that MaxRestartCount is less than the
 		// current error count, given this, we need to increment this
 		// number by one

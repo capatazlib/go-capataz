@@ -34,28 +34,28 @@ func setNodeName(ctx context.Context, name string) context.Context {
 // of it's thread to stop.
 func waitTimeout(
 	terminateCh <-chan ChildNotification,
-) func(Shutdown) (error, bool) {
-	return func(shutdown Shutdown) (error, bool) {
+) func(Shutdown) (bool, error) {
+	return func(shutdown Shutdown) (bool, error) {
 		switch shutdown.tag {
 		case indefinitelyT:
 			// We wait forever for the result
 			childNotification, ok := <-terminateCh
 			if !ok {
-				return nil, false
+				return false, nil
 			}
 			// A child may have terminated with an error
-			return childNotification.Unwrap(), true
+			return true, childNotification.Unwrap()
 		case timeoutT:
 			// we wait until some duration
 			select {
 			case childNotification, ok := <-terminateCh:
 				if !ok {
-					return nil, false
+					return false, nil
 				}
 				// A child may have terminated with an error
-				return childNotification.Unwrap(), true
+				return true, childNotification.Unwrap()
 			case <-time.After(shutdown.duration):
-				return errors.New("child shutdown timeout"), true
+				return true, errors.New("child shutdown timeout")
 			}
 		default:
 			// This should never happen if we use the already defined Shutdown types

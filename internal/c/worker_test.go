@@ -1,6 +1,5 @@
 package c_test
 
-
 import (
 	"context"
 	"fmt"
@@ -14,7 +13,6 @@ import (
 	. "github.com/capatazlib/go-capataz/internal/stest"
 )
 
-
 func TestWorkerDoubleTermination(t *testing.T) {
 	t.Run("on healthy worker", func(t *testing.T) {
 		// internal way to transform a Node to a WorkerSpec
@@ -24,12 +22,12 @@ func TestWorkerDoubleTermination(t *testing.T) {
 		c, err := wspec.DoStart(context.Background(), "test", supNotifyChan)
 		assert.NoError(t, err)
 		// first time, is going to call the termination logic, and it should not retrun an error
-		err, isFirstTime := c.Terminate()
+		isFirstTime, err := c.Terminate()
 		assert.NoError(t, err)
 		assert.True(t, isFirstTime)
 		// at this point, the internal termination channel is closed, and this
 		// should first time should return false
-		err, isFirstTime = c.Terminate()
+		isFirstTime, err = c.Terminate()
 		assert.NoError(t, err)
 		assert.Nil(t, err)
 		assert.False(t, isFirstTime)
@@ -44,12 +42,12 @@ func TestWorkerDoubleTermination(t *testing.T) {
 		c, err := wspec.DoStart(context.Background(), "test", supNotifyChan)
 		assert.NoError(t, err)
 		// first time, is going to call the termination logic, and it should not retrun an error
-		err, isFirstTime := c.Terminate()
+		isFirstTime, err := c.Terminate()
 		assert.Error(t, err)
 		assert.True(t, isFirstTime)
 		// at this point, the internal termination channel is closed, and this
 		// should first time should return false
-		err, isFirstTime = c.Terminate()
+		isFirstTime, err = c.Terminate()
 		assert.NoError(t, err)
 		assert.Nil(t, err)
 		assert.False(t, isFirstTime)

@@ -5,7 +5,6 @@ import (
 	"github.com/capatazlib/go-capataz/internal/c"
 )
 
-
 var oneForAllRestart strategyRestartFn = func(
 	supCtx context.Context,
 	spec SupervisorSpec, supChildrenSpecs []c.ChildSpec,
