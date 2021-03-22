@@ -56,6 +56,10 @@ func execRestartLoop(
 		if prevErr != nil {
 			ok := supTolerance.checkTolerance()
 			if !ok {
+				// Very important! even though we return an error value
+				// here, we want to return a supChildren, this collection
+				// gets replaced on every iteration, and if we return a nil
+				// value, all children well not be terminated.
 				return supChildren, NewRestartToleranceReached(
 					supTolerance.restartTolerance,
 					sourceCh,

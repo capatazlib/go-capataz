@@ -26,6 +26,10 @@ func oneForOneRestart(
 	newCh, chRestartErr := chSpec.DoStart(supCtx, supRuntimeName, supNotifyChan)
 
 	if chRestartErr != nil {
+		// Very important! even though we return an error value here, we want to
+		// return a supChildren, this collection gets replaced on every iteration,
+		// and if we return a nil value, all children won't get terminated
+		// appropietly.
 		return supChildren, chRestartErr
 	}
 
