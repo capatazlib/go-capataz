@@ -193,6 +193,48 @@ func handleChildNodeNotification(
 
 ////////////////////////////////////////////////////////////////////////////////
 
+// skipChildFn is a function used to skip a child during an iteration of
+// children inside the supervision tree. This function is useful to modify the
+// behavior of start/termination of children in a supervision tree and restart
+// strategies.
+type skipChildFn = func(int, c.ChildSpec) bool
+
+// noChildSkip is a skipChildFn that doesn't skip any child when iterating a
+// children list
+var noChildSkip skipChildFn = func(_ int, _ c.ChildSpec) bool {
+	return false
+}
+
+// skipChild is a skipChildFn that skips a child entry from an iteration that
+// matches the given child.
+func skipChild(ch c.Child) skipChildFn {
+	chSpec := ch.GetSpec()
+	return func(_ int, otherChSpec c.ChildSpec) bool {
+		return chSpec.GetName() == otherChSpec.GetName()
+	}
+}
+
+// TODO: use functions bellow for RestForOne strategy
+//
+
+// func skipChildBeforeIndex(i int) skipChildFn {
+//	return func(j int, _ c.ChildSpec) bool {
+//		return i < j
+//	}
+// }
+
+// func getChildIndex(chs []c.ChildSpec, ch c.Child) (int, bool) {
+//	chSpec := ch.GetSpec()
+//	for i, other := range chs {
+//		if chSpec.GetName() == other.GetName() {
+//			return i, true
+//		}
+//	}
+//	return 0, false
+// }
+
+////////////////////////////////////////////////////////////////////////////////
+
 // startChildNode is responsible of starting a single child. This function will
 // deal with the child lifecycle notification. It will return an error if
 // something goes wrong with the initialization of this child.
@@ -225,6 +267,9 @@ func startChildNode(
 	}
 	return ch, nil
 }
+
+
+// TODO: introduce shouldSkip when supporting RestForOne functionality
 
 // startChildNodes iterates over all the children (specified with `cap.WithNodes`
 // and `cap.WithSubtree`) starting a goroutine for each. The children iteration
@@ -309,40 +354,13 @@ func terminateChildNode(
 	return nil
 }
 
-func noChildSkip(_ int, _ c.ChildSpec) bool {
-	return false
-}
-
-func skipChild(ch c.Child) (func(int, c.ChildSpec) bool) {
-	chSpec := ch.GetSpec()
-	return func(_ int, otherChSpec c.ChildSpec) bool {
-		return chSpec.GetName() == otherChSpec.GetName()
-	}
-}
-
-func skipChildBeforeIndex(i int) (func(int, c.ChildSpec) bool) {
-	return func(j int, _ c.ChildSpec) bool {
-		return i < j
-	}
-}
-
-func getChildIndex(chs []c.ChildSpec, ch c.Child) (int, bool) {
-	chSpec := ch.GetSpec()
-	for i, other := range chs {
-		if chSpec.GetName() == other.GetName() {
-			return i, true
-		}
-	}
-	return 0, false
-}
-
 // terminateChildNodes is used on the shutdown of the supervisor tree, it stops
 // children in the desired order.
 func terminateChildNodes(
 	supSpec SupervisorSpec,
 	supChildrenSpecs0 []c.ChildSpec,
 	supChildren map[string]c.Child,
-	shouldSkip func(int, c.ChildSpec) bool,
+	shouldSkip skipChildFn,
 ) map[string]error {
 	eventNotifier := supSpec.eventNotifier
 	supChildrenSpecs := supSpec.order.sortTermination(supChildrenSpecs0)
@@ -470,19 +488,22 @@ func runMonitorLoop(
 	onStart c.NotifyStartFn,
 	onTerminate notifyTerminationFn,
 ) error {
+	var startErr error
+	var restartErr *RestartToleranceReached
+
 	// Start children
-	supChildren, restartErr := startChildNodes(
+	supChildren, startErr := startChildNodes(
 		supCtx,
 		supSpec,
 		supChildrenSpecs,
 		supRuntimeName,
 		supNotifyChan,
 	)
-	if restartErr != nil {
+	if startErr != nil {
 		// in case we run in the async strategy we notify the spawner that we
 		// started with an error
-		onStart(restartErr)
-		return restartErr
+		onStart(startErr)
+		return startErr
 	}
 
 	// Supervisors are responsible of notifying their start events, this is
@@ -526,7 +547,7 @@ func runMonitorLoop(
 				)
 			}
 
-			supChildren, restartErr := handleChildNodeNotification(
+			supChildren, restartErr = handleChildNodeNotification(
 				supCtx,
 				supTolerance,
 				supSpec, supChildrenSpecs,
