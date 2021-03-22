@@ -63,6 +63,8 @@ const (
 	// OneForOne is an Strategy that tells the Supervisor to only restart the
 	// child process that errored
 	OneForOne Strategy = iota
+	// OneForAll is an Strategy that tells the Supervisor to restart all the
+	// siblings of a failed child process
 	OneForAll
 	// RestForOne
 )
