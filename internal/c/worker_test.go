@@ -40,7 +40,8 @@ func TestWorkerDoubleTermination(t *testing.T) {
 		supNotifyChan := make(chan c.ChildNotification)
 		c, err := wspec.DoStart(context.Background(), "test", supNotifyChan)
 		assert.NoError(t, err)
-		// first time, is going to call the termination logic, and it should not retrun an error
+		// first time, is going to call the termination logic, and it should not
+		// return an error
 		isFirstTime, err := c.Terminate()
 		assert.Error(t, err)
 		assert.True(t, isFirstTime)
