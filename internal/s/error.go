@@ -434,11 +434,8 @@ func NewRestartToleranceReached(
 	lastErr error,
 ) *RestartToleranceReached {
 	return &RestartToleranceReached{
-		failedChildName: sourceCh.GetRuntimeName(),
-		// we want to indicate that MaxRestartCount is less than the
-		// current error count, given this, we need to increment this
-		// number by one
-		failedChildErrCount:    tolerance.MaxRestartCount + 1,
+		failedChildName:        sourceCh.GetRuntimeName(),
+		failedChildErrCount:    tolerance.MaxRestartCount,
 		failedChildErrDuration: tolerance.RestartWindow,
 		sourceErr:              sourceErr,
 		lastErr:                lastErr,
@@ -450,7 +447,8 @@ func (err *RestartToleranceReached) KVs() map[string]interface{} {
 	kvs := make(map[string]interface{})
 	kvs["node.name"] = err.failedChildName
 	if err.lastErr != nil {
-		kvs["node.error.msg"] = err.lastErr.Error()
+		kvs["node.error.source.msg"] = err.sourceErr.Error()
+		kvs["node.error.last.msg"] = err.lastErr.Error()
 		kvs["node.error.count"] = err.failedChildErrCount
 		kvs["node.error.duration"] = err.failedChildErrDuration
 	}
@@ -475,13 +473,21 @@ func (err *RestartToleranceReached) explainLines() []string {
 		outputLines,
 		[]string{
 			fmt.Sprintf(
-				"worker node '%s' was restarted at least %d times in a %v window; "+
-					"the last error reported was:",
+				"worker node '%s' was restarted more than %d times in a %v window.",
 				err.failedChildName,
 				err.failedChildErrCount,
 				err.failedChildErrDuration,
 			),
+			"the original error reported was:",
 		}...,
+	)
+	outputLines = append(
+		outputLines,
+		indentExplain(1, errToExplain(err.sourceErr))...,
+	)
+	outputLines = append(
+		outputLines,
+		"the last error reported was:",
 	)
 	outputLines = append(
 		outputLines,

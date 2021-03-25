@@ -9,10 +9,12 @@ import (
 	"github.com/capatazlib/go-capataz/internal/c"
 )
 
+type supRuntimeName = string
+
 type strategyRestartFn = func(
 	context.Context,
 	SupervisorSpec, []c.ChildSpec, // supSpec arguments
-	string, map[string]c.Child, chan c.ChildNotification, // runtime arguments
+	supRuntimeName, map[string]c.Child, chan c.ChildNotification, // runtime arguments
 	c.Child, // source child that failed
 ) (map[string]c.Child, error)
 
@@ -54,16 +56,16 @@ func execRestartLoop(
 
 	for {
 		if prevErr != nil {
-			ok := supTolerance.checkTolerance()
+			ok := supTolerance.checkToleranceExceeded(prevErr)
 			if !ok {
 				// Very important! even though we return an error value
 				// here, we want to return a supChildren, this collection
 				// gets replaced on every iteration, and if we return a nil
-				// value, all children well not be terminated.
+				// value, children will skip termination (e.g. leak).
 				return supChildren, NewRestartToleranceReached(
 					supTolerance.restartTolerance,
 					sourceCh,
-					sourceErr,
+					supTolerance.sourceErr,
 					prevErr,
 				)
 			}

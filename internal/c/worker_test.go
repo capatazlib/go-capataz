@@ -25,8 +25,7 @@ func TestWorkerDoubleTermination(t *testing.T) {
 		isFirstTime, err := c.Terminate()
 		assert.NoError(t, err)
 		assert.True(t, isFirstTime)
-		// at this point, the internal termination channel is closed, and this
-		// should first time should return false
+
 		isFirstTime, err = c.Terminate()
 		assert.NoError(t, err)
 		assert.Nil(t, err)
@@ -46,7 +45,7 @@ func TestWorkerDoubleTermination(t *testing.T) {
 		assert.Error(t, err)
 		assert.True(t, isFirstTime)
 		// at this point, the internal termination channel is closed, and this
-		// should first time should return false
+		// returns an error only the first time it is called.
 		isFirstTime, err = c.Terminate()
 		assert.NoError(t, err)
 		assert.Nil(t, err)
