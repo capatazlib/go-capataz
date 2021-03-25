@@ -2,6 +2,9 @@
 
 * Introduce supervision restart strategy `OneForAll` (#65)
 
+* `SupervisorRestartError` explain message got enhanced with first detected error
+  on a window of time (#65)
+
 # v0.1.0 (breaking changes)
 
 * Deprecate `WithTolerance` worker option with `WithRestartTolerance` supervisor
