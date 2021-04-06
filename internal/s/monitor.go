@@ -31,7 +31,7 @@ func getRestartStrategy(supSpec SupervisorSpec) strategyRestartFn {
 	case OneForAll:
 		return oneForAllRestart
 	default:
-		panic("unknown restarte strategy, check getRestartStrategy implementation")
+		panic("unknown restart strategy, check getRestartStrategy implementation")
 	}
 }
 
