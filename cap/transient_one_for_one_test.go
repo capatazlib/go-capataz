@@ -224,14 +224,15 @@ func TestTransientOneForOneSingleFailingWorkerReachThreshold(t *testing.T) {
 	assert.Equal(t, "supervisor crashed due to restart tolerance surpassed", err.Error())
 	assert.Equal(t, "root", kvs["supervisor.name"])
 	assert.Equal(t, "root/worker1", kvs["supervisor.restart.node.name"])
-	assert.Equal(t, "Failing child (3 out of 3)", fmt.Sprint(kvs["supervisor.restart.node.error.msg"]))
+	assert.Equal(t, "Failing child (1 out of 3)", fmt.Sprint(kvs["supervisor.restart.node.error.source.msg"]))
+	assert.Equal(t, "Failing child (3 out of 3)", fmt.Sprint(kvs["supervisor.restart.node.error.last.msg"]))
 	assert.Equal(t, 10*time.Second, kvs["supervisor.restart.node.error.duration"])
 	assert.Equal(t, uint32(2), kvs["supervisor.restart.node.error.count"])
 
 	explanation := cap.ExplainError(err)
 	assert.Equal(
 		t,
-		"supervisor 'root' crashed due to restart tolerance surpassed.\n\tworker node 'root/worker1' was restarted at least 2 times in a 10s window; the last error reported was:\n\t\t> Failing child (3 out of 3)",
+		"supervisor 'root' crashed due to restart tolerance surpassed.\n\tworker node 'root/worker1' was restarted more than 2 times in a 10s window.\n\tthe original error reported was:\n\t\t> Failing child (1 out of 3)\n\tthe last error reported was:\n\t\t> Failing child (3 out of 3)",
 		explanation,
 	)
 

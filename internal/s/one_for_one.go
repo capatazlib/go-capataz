@@ -7,74 +7,38 @@ import (
 	"github.com/capatazlib/go-capataz/internal/c"
 )
 
-func oneForOneRestart(
+var oneForOneRestart strategyRestartFn = func(
 	supCtx context.Context,
-	eventNotifier EventNotifier,
+	spec SupervisorSpec, supChildrenSpecs []c.ChildSpec,
+
 	supRuntimeName string,
 	supChildren map[string]c.Child,
-	supNotifyCh chan<- c.ChildNotification,
-	prevCh c.Child,
-) (c.Child, error) {
-	chSpec := prevCh.GetSpec()
+	supNotifyChan chan c.ChildNotification,
+
+	sourceCh c.Child,
+) (map[string]c.Child, error) {
+	eventNotifier := spec.getEventNotifier()
+
+	chSpec := sourceCh.GetSpec()
 	chName := chSpec.GetName()
 
 	startTime := time.Now()
-	newCh, chRestartErr := chSpec.DoStart(supCtx, supRuntimeName, supNotifyCh)
+	newCh, chRestartErr := chSpec.DoStart(supCtx, supRuntimeName, supNotifyChan)
 
 	if chRestartErr != nil {
-		return c.Child{}, chRestartErr
+		// Very important! even though we return an error value here, we want to
+		// return a supChildren, this collection gets replaced on every iteration,
+		// and if we return a nil value, all children won't get terminated
+		// appropietly.
+		return supChildren, chRestartErr
 	}
 
 	supChildren[chName] = newCh
 
-	// notify event only for workers, supervisors are responsible of their own
+	// notify event only for workers, supervisors are responsible of their
+	// own notifications
 	if newCh.GetTag() == c.Worker {
 		eventNotifier.workerStarted(newCh.GetRuntimeName(), startTime)
 	}
-	return newCh, nil
-}
-
-func oneForOneRestartLoop(
-	supCtx context.Context,
-	eventNotifier EventNotifier,
-	supRuntimeName string,
-	supTolerance *restartToleranceManager,
-	supChildren map[string]c.Child,
-	supNotifyCh chan<- c.ChildNotification,
-	prevCh c.Child,
-	prevChErr error,
-) *RestartToleranceReached {
-	// we initialize prevErr with the original child error that caused this logic
-	// to get executed. It could happen that this error gets eclipsed by a restart
-	// error later on
-	prevErr := prevChErr
-
-	for {
-		if prevChErr != nil {
-			ok := supTolerance.checkTolerance()
-			if !ok {
-				// Remove children from runtime child map to skip terminate procedure
-				delete(supChildren, prevCh.GetName())
-				return NewRestartToleranceReached(supTolerance.restartTolerance, prevErr, prevCh)
-			}
-		}
-
-		newCh, restartErr := oneForOneRestart(
-			supCtx,
-			eventNotifier,
-			supRuntimeName,
-			supChildren,
-			supNotifyCh,
-			prevCh,
-		)
-
-		// if we don't get restart errors, break the loop
-		if restartErr == nil {
-			return nil
-		}
-
-		// otherwise, repeat until restart tolerance is reached
-		prevCh = newCh
-		prevErr = restartErr
-	}
+	return supChildren, nil
 }

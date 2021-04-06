@@ -83,7 +83,11 @@ func FailOnSignalWorker(
 	return cap.NewWorker(
 		name,
 		func(ctx context.Context) error {
-			<-startCh
+			select {
+			case <-ctx.Done():
+				return nil
+			case <-startCh:
+			}
 			if currentFailCount < totalErrCount {
 				atomic.AddInt32(&currentFailCount, 1)
 				return fmt.Errorf("Failing child (%d out of %d)", currentFailCount, totalErrCount)

@@ -17,37 +17,38 @@ import (
 	. "github.com/capatazlib/go-capataz/internal/stest"
 )
 
-func TestPermanentOneForOneSingleCompleteWorker(t *testing.T) {
+func TestPermanentOneForAllSingleCompleteWorker(t *testing.T) {
 	parentName := "root"
 	child1, completeWorker1 := CompleteOnSignalWorker(
 		3,
 		"child1",
 		cap.WithRestart(cap.Permanent),
 	)
+	child2 := WaitDoneWorker("child2")
 
 	events, err := ObserveSupervisor(
 		context.TODO(),
 		parentName,
-		cap.WithNodes(child1),
-		[]cap.Opt{},
+		cap.WithNodes(child1, child2),
+		[]cap.Opt{cap.WithStrategy(cap.OneForAll)},
 		func(em EventManager) {
-			// NOTE: we won't stop the supervisor until the child has failed at least
-			// once
+			// NOTE: we won't stop the supervisor until the child has completed
+			// at least once
 			evIt := em.Iterator()
 			// 1) Wait till all the tree is up
 			evIt.SkipTill(SupervisorStarted("root"))
 			// 2) Start the failing behavior of child1
 
 			completeWorker1()
-			evIt.SkipTill(WorkerStarted("root/child1"))
+			evIt.SkipTill(WorkerStarted("root/child2"))
 			// ^^^ Wait till 1st restart
 
 			completeWorker1()
-			evIt.SkipTill(WorkerStarted("root/child1"))
+			evIt.SkipTill(WorkerStarted("root/child2"))
 			// ^^^ Wait till 2nd restart
 
 			completeWorker1()
-			evIt.SkipTill(WorkerStarted("root/child1"))
+			evIt.SkipTill(WorkerStarted("root/child2"))
 			// ^^^ Wait till 3rd restart
 
 			completeWorker1()
@@ -60,43 +61,62 @@ func TestPermanentOneForOneSingleCompleteWorker(t *testing.T) {
 		[]EventP{
 			// start children from left to right
 			WorkerStarted("root/child1"),
+			WorkerStarted("root/child2"),
 			SupervisorStarted("root"),
 			// ^^^ 1) completeWorker1 starts executing here
+
 			WorkerCompleted("root/child1"),
+			WorkerTerminated("root/child2"),
 			WorkerStarted("root/child1"),
+			WorkerStarted("root/child2"),
 			// ^^^ 1st restart
+
 			WorkerCompleted("root/child1"),
+			WorkerTerminated("root/child2"),
 			WorkerStarted("root/child1"),
+			WorkerStarted("root/child2"),
 			// ^^^ 2nd restart
+
 			WorkerCompleted("root/child1"),
+			WorkerTerminated("root/child2"),
 			WorkerStarted("root/child1"),
+			WorkerStarted("root/child2"),
 			// ^^^ 3rd restart
+
+			WorkerTerminated("root/child2"),
 			WorkerTerminated("root/child1"),
 			SupervisorTerminated("root"),
 		},
 	)
 }
 
-func TestPermanentOneForOneSingleFailingWorkerRecovers(t *testing.T) {
+func TestPermanentOneForAllSingleFailingWorkerRecovers(t *testing.T) {
 	parentName := "root"
 	// Fail only one time
-	child1, failWorker1 := FailOnSignalWorker(1, "child1", cap.WithRestart(cap.Permanent))
+	child1 := WaitDoneWorker("child1")
+	child2, failWorker2 := FailOnSignalWorker(
+		1, "child2", cap.WithRestart(cap.Permanent),
+	)
+	child3 := WaitDoneWorker("child3")
 
 	events, err := ObserveSupervisor(
 		context.TODO(),
 		parentName,
-		cap.WithNodes(child1),
-		[]cap.Opt{},
+		cap.WithNodes(child1, child2, child3),
+		[]cap.Opt{cap.WithStrategy(cap.OneForAll)},
 		func(em EventManager) {
 			// NOTE: we won't stop the supervisor until the child has failed at least
 			// once
 			evIt := em.Iterator()
 			// 1) Wait till all the tree is up
 			evIt.SkipTill(SupervisorStarted("root"))
-			// 2) Start the failing behavior of child1
-			failWorker1(true /* done */)
+
+			// 2) Start the failing behavior of child2
+			failWorker2(true /* done */)
+			evIt.SkipTill(WorkerFailed("root/child2"))
+
 			// 3) Wait till first restart
-			evIt.SkipTill(WorkerStarted("root/child1"))
+			evIt.SkipTill(WorkerStarted("root/child3"))
 		},
 	)
 
@@ -106,23 +126,40 @@ func TestPermanentOneForOneSingleFailingWorkerRecovers(t *testing.T) {
 		[]EventP{
 			// start children from left to right
 			WorkerStarted("root/child1"),
+			WorkerStarted("root/child2"),
+			WorkerStarted("root/child3"),
 			SupervisorStarted("root"),
-			// ^^^ 1) failWorker1 starts executing here
-			WorkerFailed("root/child1"),
+			// ^^^ 1) failWorker2 starts executing here
+
+			WorkerFailed("root/child2"),
+			WorkerTerminated("root/child3"),
+			WorkerTerminated("root/child1"),
 			// ^^^ 2) And then we see a new (re)start of it
+
 			WorkerStarted("root/child1"),
+			WorkerStarted("root/child2"),
+			WorkerStarted("root/child3"),
 			// ^^^ 3) After 1st (re)start we stop
+
+			WorkerTerminated("root/child3"),
+			WorkerTerminated("root/child2"),
 			WorkerTerminated("root/child1"),
 			SupervisorTerminated("root"),
 		},
 	)
 }
 
-func TestPermanentOneForOneNestedFailingWorkerRecovers(t *testing.T) {
+func TestPermanentOneForAllNestedFailingWorkerRecovers(t *testing.T) {
 	parentName := "root"
 	// Fail only one time
-	child1, failWorker1 := FailOnSignalWorker(1, "child1", cap.WithRestart(cap.Permanent))
-	tree1 := cap.NewSupervisorSpec("subtree1", cap.WithNodes(child1))
+	child1 := WaitDoneWorker("child1")
+	child2, failWorker2 := FailOnSignalWorker(1, "child2", cap.WithRestart(cap.Permanent))
+	child3 := WaitDoneWorker("child3")
+	tree1 := cap.NewSupervisorSpec(
+		"subtree1",
+		cap.WithNodes(child1, child2, child3),
+		cap.WithStrategy(cap.OneForAll),
+	)
 
 	events, err := ObserveSupervisor(
 		context.TODO(),
@@ -130,15 +167,19 @@ func TestPermanentOneForOneNestedFailingWorkerRecovers(t *testing.T) {
 		cap.WithNodes(cap.Subtree(tree1)),
 		[]cap.Opt{},
 		func(em EventManager) {
-			// NOTE: we won't stop the supervisor until the child has failed at least
-			// once
+			// NOTE: we won't stop the supervisor until the child has failed at
+			// least once
 			evIt := em.Iterator()
+
 			// 1) Wait till all the tree is up
 			evIt.SkipTill(SupervisorStarted("root"))
-			// 2) Start the failing behavior of child1
-			failWorker1(true /* done */)
+
+			// 2) Start the failing behavior of child2
+			failWorker2(true /* done */)
+			evIt.SkipTill(WorkerFailed("root/subtree1/child2"))
+
 			// 3) Wait till first restart
-			evIt.SkipTill(WorkerStarted("root/subtree1/child1"))
+			evIt.SkipTill(WorkerStarted("root/subtree1/child3"))
 		},
 	)
 
@@ -148,13 +189,24 @@ func TestPermanentOneForOneNestedFailingWorkerRecovers(t *testing.T) {
 		[]EventP{
 			// start children from left to right
 			WorkerStarted("root/subtree1/child1"),
+			WorkerStarted("root/subtree1/child2"),
+			WorkerStarted("root/subtree1/child3"),
 			SupervisorStarted("root/subtree1"),
 			SupervisorStarted("root"),
 			// ^^^ 1) Wait till root starts
-			WorkerFailed("root/subtree1/child1"),
-			// ^^^ 2) We see the failWorker1 causing the error
+
+			WorkerFailed("root/subtree1/child2"),
+			WorkerTerminated("root/subtree1/child3"),
+			WorkerTerminated("root/subtree1/child1"),
+			// ^^^ 2) We see the failWorker2 causing the error
+
 			WorkerStarted("root/subtree1/child1"),
+			WorkerStarted("root/subtree1/child2"),
+			WorkerStarted("root/subtree1/child3"),
 			// ^^^ 3) After 1st (re)start we stop
+
+			WorkerTerminated("root/subtree1/child3"),
+			WorkerTerminated("root/subtree1/child2"),
 			WorkerTerminated("root/subtree1/child1"),
 			SupervisorTerminated("root/subtree1"),
 			SupervisorTerminated("root"),
@@ -162,21 +214,27 @@ func TestPermanentOneForOneNestedFailingWorkerRecovers(t *testing.T) {
 	)
 }
 
-func TestPermanentOneForOneSingleFailingWorkerReachThreshold(t *testing.T) {
+func TestPermanentOneForAllSingleFailingWorkerReachThreshold(t *testing.T) {
 	parentName := "root"
-	child1, failWorker1 := FailOnSignalWorker(
-		3,
-		"child1",
+	child1 := WaitDoneWorker("child1")
+	child2, failWorker2 := FailOnSignalWorker(
+		1,
+		"child2",
 		cap.WithRestart(cap.Permanent),
 	)
-	child2 := WaitDoneWorker("child2")
+	child3, failWorker3 := FailOnSignalWorker(
+		2,
+		"child3",
+		cap.WithRestart(cap.Permanent),
+	)
 
 	events, err := ObserveSupervisor(
 		context.TODO(),
 		parentName,
-		cap.WithNodes(child1, child2),
+		cap.WithNodes(child1, child2, child3),
 		[]cap.Opt{
 			cap.WithRestartTolerance(2, 10*time.Second),
+			cap.WithStrategy(cap.OneForAll),
 		},
 		func(em EventManager) {
 			evIt := em.Iterator()
@@ -184,16 +242,22 @@ func TestPermanentOneForOneSingleFailingWorkerReachThreshold(t *testing.T) {
 			evIt.SkipTill(SupervisorStarted("root"))
 			// ^^^ Wait till all the tree is up
 
-			failWorker1(false /* done */)
-			evIt.SkipTill(WorkerStarted("root/child1"))
+			// (1)
+			failWorker3(false /* done */)
+			evIt.SkipTill(WorkerFailed("root/child3"))
+			evIt.SkipTill(WorkerStarted("root/child3"))
 			// ^^^ Wait till first restart
 
-			failWorker1(false /* done */)
-			evIt.SkipTill(WorkerStarted("root/child1"))
+			// (2)
+			failWorker2(true /* done */)
+			evIt.SkipTill(WorkerFailed("root/child2"))
+			evIt.SkipTill(WorkerStarted("root/child3"))
 			// ^^^ Wait till second restart
 
-			failWorker1(true /* done */)
-			evIt.SkipTill(WorkerFailed("root/child1"))
+			// (3)
+			failWorker3(true /* done */)
+			evIt.SkipTill(WorkerFailed("root/child3"))
+			evIt.SkipTill(WorkerTerminated("root/child1"))
 			// ^^^ Wait till third failure
 		},
 	)
@@ -207,43 +271,62 @@ func TestPermanentOneForOneSingleFailingWorkerReachThreshold(t *testing.T) {
 			// start children from left to right
 			WorkerStarted("root/child1"),
 			WorkerStarted("root/child2"),
+			WorkerStarted("root/child3"),
 			SupervisorStarted("root"),
-			// ^^^ failWorker1 starts executing here
+			// ^^^ failWorker3 excutes here (1)
 
-			WorkerFailed("root/child1"),
+			WorkerFailed("root/child3"),
+			WorkerTerminated("root/child2"),
+			WorkerTerminated("root/child1"),
 			WorkerStarted("root/child1"),
+			WorkerStarted("root/child2"),
+			WorkerStarted("root/child3"),
 			// ^^^ first restart
 
-			WorkerFailed("root/child1"),
+			WorkerFailed("root/child2"),
+			WorkerTerminated("root/child3"),
+			WorkerTerminated("root/child1"),
 			WorkerStarted("root/child1"),
-			// ^^^ second restart
+			WorkerStarted("root/child2"),
+			WorkerStarted("root/child3"),
+			// ^^^ failWorker2 executes here (2)
 
 			// 3rd err
-			WorkerFailed("root/child1"),
+			WorkerFailed("root/child3"),
+			WorkerTerminated("root/child2"),
+			WorkerTerminated("root/child1"),
+			// failWorker3 executes here (3)
 			// ^^^ Error that indicates treshold has been met
 
-			WorkerTerminated("root/child2"),
-			// ^^^ Terminating all other workers because supervisor failed
-
 			SupervisorFailed("root"),
-			// ^^^ Finish with SupervisorFailed because no parent supervisor will
-			// recover it
+			// ^^^ Finish with SupervisorFailed because no parent supervisor
+			// will recover it
 		},
 	)
 }
 
-func TestPermanentOneForOneNestedFailingWorkerReachThreshold(t *testing.T) {
+func TestPermanentOneForAllNestedFailingWorkerReachThreshold(t *testing.T) {
+
+	// remember, error accumulation happens at the supervisor level, not the
+	// worker
+
 	parentName := "root"
-	child1, failWorker1 := FailOnSignalWorker(
-		3, // 3 errors, 2 tolerance
-		"child1",
+	child1 := WaitDoneWorker("child1")
+	child2, failWorker2 := FailOnSignalWorker(
+		2, // 2 errors on this worker, 1 on the other worker, 3 total, 2 tolerance
+		"child2",
 		cap.WithRestart(cap.Permanent),
 	)
-	child2 := WaitDoneWorker("child2")
+	child3, failWorker3 := FailOnSignalWorker(
+		1, // 1 error on this worker, 2 on the other worker, 3 total, 2 tolerance
+		"child3",
+		cap.WithRestart(cap.Permanent),
+	)
 
 	tree1 := cap.NewSupervisorSpec(
 		"subtree1",
-		cap.WithNodes(child1, child2),
+		cap.WithNodes(child1, child2, child3),
+		cap.WithStrategy(cap.OneForAll),
 		cap.WithRestartTolerance(2, 10*time.Second),
 	)
 
@@ -253,22 +336,28 @@ func TestPermanentOneForOneNestedFailingWorkerReachThreshold(t *testing.T) {
 		cap.WithNodes(cap.Subtree(tree1)),
 		[]cap.Opt{},
 		func(em EventManager) {
-			// NOTE: we won't stop the supervisor until the child has failed at least
-			// once
+			// NOTE: we won't stop the supervisor until the child has failed at
+			// least once
 			evIt := em.Iterator()
 			evIt.SkipTill(SupervisorStarted("root"))
 			// ^^^ Wait till all the tree is up
 
-			failWorker1(false /* done */)
-			evIt.SkipTill(WorkerStarted("root/subtree1/child1"))
+			// (1)
+			failWorker2(false /* done */)
+			evIt.SkipTill(WorkerFailed("root/subtree1/child2"))
+			evIt.SkipTill(WorkerStarted("root/subtree1/child3"))
 			// ^^^ Wait till first restart
 
-			failWorker1(false /* done */)
-			evIt.SkipTill(WorkerStarted("root/subtree1/child1"))
+			// (2)
+			failWorker3(false /* done */)
+			evIt.SkipTill(WorkerFailed("root/subtree1/child3"))
+			evIt.SkipTill(WorkerStarted("root/subtree1/child3"))
 			// ^^^ Wait till second restart
 
-			failWorker1(true /* done */) // 3 failures
-			evIt.SkipTill(WorkerFailed("root/subtree1/child1"))
+			// (3)
+			failWorker2(true /* done */) // 3 failures, tolerance exceeded
+			evIt.SkipTill(WorkerFailed("root/subtree1/child2"))
+			evIt.SkipTill(WorkerTerminated("root/subtree1/child1"))
 			// ^^^ Wait till worker failure
 
 			evIt.SkipTill(SupervisorFailed("root/subtree1"))
@@ -285,37 +374,47 @@ func TestPermanentOneForOneNestedFailingWorkerReachThreshold(t *testing.T) {
 			// start children from left to right
 			WorkerStarted("root/subtree1/child1"),
 			WorkerStarted("root/subtree1/child2"),
+			WorkerStarted("root/subtree1/child3"),
 			SupervisorStarted("root/subtree1"),
 			SupervisorStarted("root"),
 			// ^^^ Wait till root starts
 
-			// 1st err
-			WorkerFailed("root/subtree1/child1"),
-			// ^^^ We see failWorker1 causing the error
+			WorkerFailed("root/subtree1/child2"),
+			WorkerTerminated("root/subtree1/child3"),
+			WorkerTerminated("root/subtree1/child1"),
+			// ^^^ We see failWorker2 causing an error (1)
 			WorkerStarted("root/subtree1/child1"),
-			// ^^^ Wait failWorker1 restarts
+			WorkerStarted("root/subtree1/child2"),
+			WorkerStarted("root/subtree1/child3"),
+			// ^^^ Wait failWorker2 restarts (1st restart)
 
-			// 2nd err
-			WorkerFailed("root/subtree1/child1"),
-			// ^^^ After 1st (re)start we stop
-			WorkerStarted("root/subtree1/child1"),
-			// ^^^ Wait failWorker1 restarts (2nd)
-
-			// 3rd err
-			WorkerFailed("root/subtree1/child1"),
-			// ^^^ Error that indicates treshold has been met
-
+			WorkerFailed("root/subtree1/child3"),
 			WorkerTerminated("root/subtree1/child2"),
-			// ^^^ IMPORTANT: Supervisor failure stops other children
+			WorkerTerminated("root/subtree1/child1"),
+			// ^^^ Wee see failWorker3 causing the error (2)
+			WorkerStarted("root/subtree1/child1"),
+			WorkerStarted("root/subtree1/child2"),
+			WorkerStarted("root/subtree1/child3"),
+			// ^^^ Wait failWorker3 restarts (2nd restart)
+
+			WorkerFailed("root/subtree1/child2"),
+			WorkerTerminated("root/subtree1/child3"),
+			WorkerTerminated("root/subtree1/child1"),
+			// ^^^ We see failWorker2 causing an error (3); threshold has been
+			// exceeded
+
 			SupervisorFailed("root/subtree1"),
 			// ^^^ Supervisor child surpassed error
 
 			WorkerStarted("root/subtree1/child1"),
 			WorkerStarted("root/subtree1/child2"),
-			// ^^^ IMPORTANT: Restarted Supervisor signals restart of child first
+			WorkerStarted("root/subtree1/child3"),
+			// ^^^ IMPORTANT: Restarted Supervisor signals restart of child
+			// first
 			SupervisorStarted("root/subtree1"),
 			// ^^^ Supervisor restarted again
 
+			WorkerTerminated("root/subtree1/child3"),
 			WorkerTerminated("root/subtree1/child2"),
 			WorkerTerminated("root/subtree1/child1"),
 			SupervisorTerminated("root/subtree1"),
@@ -324,17 +423,23 @@ func TestPermanentOneForOneNestedFailingWorkerReachThreshold(t *testing.T) {
 	)
 }
 
-func TestPermanentOneForOneNestedFailingWorkerErrorCountResets(t *testing.T) {
+func TestPermanentOneForAllNestedFailingWorkerErrorCountResets(t *testing.T) {
 	parentName := "root"
-	child1, failWorker1 := FailOnSignalWorker(
-		2, // 3 errors, 2 tolerance
-		"child1",
+	child1 := WaitDoneWorker("child1")
+	child2, failWorker2 := FailOnSignalWorker(
+		1, /* 1 error allowed */
+		"child2",
 		cap.WithRestart(cap.Permanent),
 	)
-	child2 := WaitDoneWorker("child2")
+	child3, failWorker3 := FailOnSignalWorker(
+		1, /* 1 error allowed */
+		"child3",
+		cap.WithRestart(cap.Permanent),
+	)
 	tree1 := cap.NewSupervisorSpec(
 		"subtree1",
-		cap.WithNodes(child1, child2),
+		cap.WithNodes(child1, child2, child3),
+		cap.WithStrategy(cap.OneForAll),
 		cap.WithRestartTolerance(1, 100*time.Microsecond),
 	)
 
@@ -350,14 +455,20 @@ func TestPermanentOneForOneNestedFailingWorkerErrorCountResets(t *testing.T) {
 			evIt.SkipTill(SupervisorStarted("root"))
 			// ^^^ Wait till all the tree is up
 
-			failWorker1(false /* done */)
-			evIt.SkipTill(WorkerStarted("root/subtree1/child1"))
+			// (1)
+			failWorker3(true /* done */)
+			evIt.SkipTill(WorkerFailed("root/subtree1/child3"))
+			evIt.SkipTill(WorkerStarted("root/subtree1/child3"))
 			// ^^^ Wait till first restart
 
-			// Waiting 3 times more than tolerance window
+			// (2)
+			// Waiting 3 times more than tolerance window, ideally, we have
+			// a way to not rely on time.Sleep, but I can't think of a clever
+			// way (like virtual time) yet
 			time.Sleep(300 * time.Microsecond)
-			failWorker1(true /* done */)
-			evIt.SkipTill(WorkerStarted("root/subtree1/child1"))
+			failWorker2(true /* done */)
+			evIt.SkipTill(WorkerFailed("root/subtree1/child2"))
+			evIt.SkipTill(WorkerStarted("root/subtree1/child3"))
 			// ^^^ Wait till second restart
 		},
 	)
@@ -369,22 +480,32 @@ func TestPermanentOneForOneNestedFailingWorkerErrorCountResets(t *testing.T) {
 			// start children from left to right
 			WorkerStarted("root/subtree1/child1"),
 			WorkerStarted("root/subtree1/child2"),
+			WorkerStarted("root/subtree1/child3"),
 			SupervisorStarted("root/subtree1"),
 			SupervisorStarted("root"),
 			// ^^^ Wait till root starts
 
-			// 1st err
-			WorkerFailed("root/subtree1/child1"),
-			// ^^^ We see failWorker1 causing the error
+			WorkerFailed("root/subtree1/child3"),
+			// ^^^ We see failWorker3 causing an error (1)
+			WorkerTerminated("root/subtree1/child2"),
+			WorkerTerminated("root/subtree1/child1"),
 			WorkerStarted("root/subtree1/child1"),
-			// ^^^ Wait failWorker1 restarts
+			WorkerStarted("root/subtree1/child2"),
+			WorkerStarted("root/subtree1/child3"),
+			// ^^^ Wait failWorker3 restarts
 
-			// 2nd err -- even though we only tolerate one error, the second error happens
-			// after the 100 microseconds window, and it restarts
-			WorkerFailed("root/subtree1/child1"),
+			// 2nd err -- even though we only tolerate one error, the second
+			// error happens after the 100 microseconds window
+			WorkerFailed("root/subtree1/child2"),
+			// ^^^ Wait failWorker2 causing an error (2)
+			WorkerTerminated("root/subtree1/child3"),
+			WorkerTerminated("root/subtree1/child1"),
 			WorkerStarted("root/subtree1/child1"),
-			// ^^^ Wait failWorker1 restarts (2nd)
+			WorkerStarted("root/subtree1/child2"),
+			WorkerStarted("root/subtree1/child3"),
+			// ^^^ Wait failWorker2 restarts
 
+			WorkerTerminated("root/subtree1/child3"),
 			WorkerTerminated("root/subtree1/child2"),
 			WorkerTerminated("root/subtree1/child1"),
 			SupervisorTerminated("root/subtree1"),
@@ -393,7 +514,7 @@ func TestPermanentOneForOneNestedFailingWorkerErrorCountResets(t *testing.T) {
 	)
 }
 
-func TestPermanentOneForOneSiblingTerminationFailOnRestart(t *testing.T) {
+func TestPermanentOneForAllSiblingTerminationFailOnRestart(t *testing.T) {
 	parentName := "root"
 	child1, failWorker1 := FailOnSignalWorker(
 		3, // 3 errors, 2 tolerance
@@ -405,6 +526,7 @@ func TestPermanentOneForOneSiblingTerminationFailOnRestart(t *testing.T) {
 	tree1 := cap.NewSupervisorSpec(
 		"subtree1",
 		cap.WithNodes(child1, child2),
+		cap.WithStrategy(cap.OneForAll),
 		cap.WithRestartTolerance(2, 10*time.Second),
 	)
 
@@ -414,26 +536,24 @@ func TestPermanentOneForOneSiblingTerminationFailOnRestart(t *testing.T) {
 		cap.WithNodes(cap.Subtree(tree1)),
 		[]cap.Opt{},
 		func(em EventManager) {
-			// NOTE: we won't stop the supervisor until the child has failed at least
-			// once
 			evIt := em.Iterator()
 			evIt.SkipTill(SupervisorStarted("root"))
 			// ^^^ Wait till all the tree is up
 
 			failWorker1(false /* done */)
-			evIt.SkipTill(WorkerStarted("root/subtree1/child1"))
+			evIt.SkipTill(WorkerFailed("root/subtree1/child1"))
+			evIt.SkipTill(WorkerStarted("root/subtree1/child2"))
 			// ^^^ Wait till first restart
 
 			failWorker1(false /* done */)
-			evIt.SkipTill(WorkerStarted("root/subtree1/child1"))
+			evIt.SkipTill(WorkerFailed("root/subtree1/child1"))
+			evIt.SkipTill(WorkerStarted("root/subtree1/child2"))
 			// ^^^ Wait till second restart
 
 			failWorker1(true /* done */) // 3 failures
-			evIt.SkipTill(WorkerFailed("root/subtree1/child1"))
-			// ^^^ Wait till worker failure
-
 			evIt.SkipTill(SupervisorFailed("root/subtree1"))
-			// ^^^ Wait till supervisor failure (no more WorkerStarted)
+			// ^^^ Wait till supervisor failure
+
 			evIt.SkipTill(SupervisorStarted("root/subtree1"))
 			// ^^^ Wait till supervisor restarted
 		},
@@ -441,6 +561,7 @@ func TestPermanentOneForOneSiblingTerminationFailOnRestart(t *testing.T) {
 
 	assert.Error(t, err)
 
+	// get supervisor restart error to assert error message properties
 	var restartEv *cap.Event = nil
 	for _, ev := range events {
 		if cap.EIsSupervisorRestartError(ev) {
@@ -466,33 +587,35 @@ func TestPermanentOneForOneSiblingTerminationFailOnRestart(t *testing.T) {
 			// ^^^ Wait till root starts
 
 			// 1st err
-			WorkerFailed("root/subtree1/child1"),
+			WorkerFailed("root/subtree1/child1"), // runtime error
+			WorkerFailed("root/subtree1/child2"), // termination error
 			// ^^^ We see failWorker1 causing the error
 			WorkerStarted("root/subtree1/child1"),
+			WorkerStarted("root/subtree1/child2"),
 			// ^^^ Wait failWorker1 restarts
 
 			// 2nd err
-			WorkerFailed("root/subtree1/child1"),
+			WorkerFailed("root/subtree1/child1"), // runtime error
+			WorkerFailed("root/subtree1/child2"), // termination error
 			// ^^^ After 1st (re)start we stop
 			WorkerStarted("root/subtree1/child1"),
+			WorkerStarted("root/subtree1/child2"),
 			// ^^^ Wait failWorker1 restarts (2nd)
 
 			// 3rd err
-			WorkerFailed("root/subtree1/child1"),
+			WorkerFailed("root/subtree1/child1"), //runtime error
+			WorkerFailed("root/subtree1/child2"), // termination error
 			// ^^^ Error that indicates treshold has been met
 
-			WorkerFailed("root/subtree1/child2"),
-			// ^^^ IMPORTANT: Supervisor failure stops other children
 			SupervisorFailed("root/subtree1"),
 			// ^^^ Supervisor child surpassed error
 
 			WorkerStarted("root/subtree1/child1"),
 			WorkerStarted("root/subtree1/child2"),
-			// ^^^ IMPORTANT: Restarted Supervisor signals restart of child first
 			SupervisorStarted("root/subtree1"),
 			// ^^^ Supervisor restarted again
 
-			WorkerFailed("root/subtree1/child2"),
+			WorkerFailed("root/subtree1/child2"), // termination error
 			WorkerTerminated("root/subtree1/child1"),
 			SupervisorFailed("root/subtree1"),
 			SupervisorFailed("root"),

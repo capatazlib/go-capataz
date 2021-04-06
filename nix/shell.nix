@@ -11,7 +11,7 @@ pkgs.mkShell {
 
     # recommended packages to have for development with emacs/spacemacs
     gotools godef gocode golint golangci-lint gogetdoc gopkgs gotests impl
-    errcheck reftools humanlog delve gopls gomod2nix
+    errcheck reftools humanlog delve gopls gomod2nix gopls
 
     # capataz deps
     go-capataz

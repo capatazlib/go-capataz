@@ -34,32 +34,32 @@ func setNodeName(ctx context.Context, name string) context.Context {
 // of it's thread to stop.
 func waitTimeout(
 	terminateCh <-chan ChildNotification,
-) func(Shutdown) error {
-	return func(shutdown Shutdown) error {
+) func(Shutdown) (bool, error) {
+	return func(shutdown Shutdown) (bool, error) {
 		switch shutdown.tag {
 		case indefinitelyT:
 			// We wait forever for the result
 			childNotification, ok := <-terminateCh
 			if !ok {
-				return nil
+				return false, nil
 			}
 			// A child may have terminated with an error
-			return childNotification.Unwrap()
+			return true, childNotification.Unwrap()
 		case timeoutT:
 			// we wait until some duration
 			select {
 			case childNotification, ok := <-terminateCh:
 				if !ok {
-					return nil
+					return false, nil
 				}
 				// A child may have terminated with an error
-				return childNotification.Unwrap()
+				return true, childNotification.Unwrap()
 			case <-time.After(shutdown.duration):
-				return errors.New("child shutdown timeout")
+				return true, errors.New("child shutdown timeout")
 			}
 		default:
 			// This should never happen if we use the already defined Shutdown types
-			panic("invalid shutdown value received")
+			panic("invalid shutdown value received; check waitTimeout implementation")
 		}
 	}
 }
@@ -70,10 +70,9 @@ func sendNotificationToSup(
 	err error,
 	chSpec ChildSpec,
 	chRuntimeName string,
-	supNotifyCh chan<- ChildNotification,
+	supNotifyChan chan<- ChildNotification,
 	terminateCh chan<- ChildNotification,
 ) {
-
 	chNotification := ChildNotification{
 		name:        chSpec.GetName(),
 		tag:         chSpec.GetTag(),
@@ -86,17 +85,17 @@ func sendNotificationToSup(
 	// There are two ways the supervisor could receive this notification:
 	//
 	// 1) If the supervisor is running it's supervision loop (e.g. normal
-	// execution), the notification will be received over the `supNotifyCh`
+	// execution), the notification will be received over the `supNotifyChan`
 	// channel; this will execute the restart mechanisms.
 	//
 	// 2) If the supervisor is shutting down, it won't be reading the
-	// `supNotifyCh`, but instead is going to be executing the `stopChildren`
+	// `supNotifyChan`, but instead is going to be executing the `stopChildren`
 	// function, which calls the `child.Terminate` method for each of the supervised
 	// internally, this function reads the `terminateCh`.
 	//
 	select {
 	// (1)
-	case supNotifyCh <- chNotification:
+	case supNotifyChan <- chNotification:
 	// (2)
 	case terminateCh <- chNotification:
 	}
@@ -106,7 +105,7 @@ func sendNotificationToSup(
 // ChildSpec, this function will block until the spawned goroutine notifies it
 // has been initialized.
 //
-// ### The supNotifyCh value
+// ### The supNotifyChan value
 //
 // Messages sent to this channel notify the supervisor that the child's
 // goroutine has finished (either with or without an error). The runtime name of
@@ -116,7 +115,7 @@ func sendNotificationToSup(
 func (chSpec ChildSpec) DoStart(
 	startCtx context.Context,
 	supName string,
-	supNotifyCh chan<- ChildNotification,
+	supNotifyChan chan<- ChildNotification,
 ) (Child, error) {
 
 	chRuntimeName := strings.Join([]string{supName, chSpec.GetName()}, "/")
@@ -134,7 +133,10 @@ func (chSpec ChildSpec) DoStart(
 
 	// Child Goroutine is bootstraped
 	go func() {
-		// we tell the spawner this child thread has stopped
+		// we tell the spawner this child thread has stopped. We want to
+		// close this channel after the worker is done so that on the
+		// scenario the termination logic is called again, the call
+		// returns immediatelly and without errors
 		defer close(terminateCh)
 
 		// we cancel the childCtx on regular termination
@@ -157,7 +159,7 @@ func (chSpec ChildSpec) DoStart(
 					panicErr,
 					chSpec,
 					chRuntimeName,
-					supNotifyCh,
+					supNotifyChan,
 					terminateCh,
 				)
 			}
@@ -178,7 +180,7 @@ func (chSpec ChildSpec) DoStart(
 			err,
 			chSpec,
 			chRuntimeName,
-			supNotifyCh,
+			supNotifyChan,
 			terminateCh,
 		)
 	}()

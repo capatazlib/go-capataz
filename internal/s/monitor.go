@@ -9,123 +9,234 @@ import (
 	"github.com/capatazlib/go-capataz/internal/c"
 )
 
+type supRuntimeName = string
+
+type strategyRestartFn = func(
+	context.Context,
+	SupervisorSpec, []c.ChildSpec, // supSpec arguments
+	supRuntimeName, map[string]c.Child, chan c.ChildNotification, // runtime arguments
+	c.Child, // source child that failed
+) (map[string]c.Child, error)
+
 // NodeSepToken is the token use to separate sub-trees and child node names in
 // the supervision tree
 const NodeSepToken = "/"
 
 ////////////////////////////////////////////////////////////////////////////////
 
+func getRestartStrategy(supSpec SupervisorSpec) strategyRestartFn {
+	switch supSpec.strategy {
+	case OneForOne:
+		return oneForOneRestart
+	case OneForAll:
+		return oneForAllRestart
+	default:
+		panic("unknown restart strategy, check getRestartStrategy implementation")
+	}
+}
+
+func execRestartLoop(
+	supCtx context.Context,
+	supTolerance *restartToleranceManager,
+	supSpec SupervisorSpec,
+	supChildrenSpecs []c.ChildSpec,
+	supRuntimeName string,
+	supChildren map[string]c.Child,
+	supNotifyChan chan c.ChildNotification,
+	sourceCh c.Child,
+	sourceErr error,
+) (map[string]c.Child, *RestartToleranceReached) {
+	execRestart := getRestartStrategy(supSpec)
+	var prevErr, restartErr error
+
+	// we initialize prevErr with the original child error that caused this logic to get
+	// executed. It could happen that this error gets eclipsed by a restart error later
+	// on
+	prevErr = sourceErr
+
+	for {
+		if prevErr != nil {
+			ok := supTolerance.checkToleranceExceeded(prevErr)
+			if !ok {
+				// Very important! even though we return an error value
+				// here, we want to return a supChildren, this collection
+				// gets replaced on every iteration, and if we return a nil
+				// value, children will skip termination (e.g. leak).
+				return supChildren, NewRestartToleranceReached(
+					supTolerance.restartTolerance,
+					sourceCh,
+					supTolerance.sourceErr,
+					prevErr,
+				)
+			}
+		}
+
+		supChildren, restartErr = execRestart(
+			supCtx,
+			supSpec, supChildrenSpecs,
+			supRuntimeName, supChildren, supNotifyChan,
+			sourceCh,
+		)
+
+		if restartErr == nil {
+			return supChildren, nil
+		}
+
+		prevErr = restartErr
+	}
+}
+
 func handleChildNodeError(
 	supCtx context.Context,
-	eventNotifier EventNotifier,
-	supRuntimeName string,
 	supTolerance *restartToleranceManager,
-	supChildren map[string]c.Child,
-	supNotifyCh chan c.ChildNotification,
-	prevCh c.Child,
-	prevChErr error,
-) *RestartToleranceReached {
-	chSpec := prevCh.GetSpec()
+	supSpec SupervisorSpec, supChildrenSpecs []c.ChildSpec,
 
-	eventNotifier.processFailed(chSpec.GetTag(), prevCh.GetRuntimeName(), prevChErr)
+	supRuntimeName string,
+	supChildren map[string]c.Child,
+	supNotifyChan chan c.ChildNotification,
+
+	sourceCh c.Child, sourceErr error,
+) (map[string]c.Child, *RestartToleranceReached) {
+	eventNotifier := supSpec.getEventNotifier()
+	chSpec := sourceCh.GetSpec()
+
+	eventNotifier.processFailed(chSpec.GetTag(), sourceCh.GetRuntimeName(), sourceErr)
 
 	switch chSpec.GetRestart() {
 	case c.Permanent, c.Transient:
 		// On error scenarios, Permanent and Transient try as much as possible
 		// to restart the failing child
-		return oneForOneRestartLoop(
+		return execRestartLoop(
 			supCtx,
-			eventNotifier,
-			supRuntimeName,
 			supTolerance,
-			supChildren,
-			supNotifyCh,
-			prevCh,
-			prevChErr,
+			supSpec, supChildrenSpecs,
+			supRuntimeName, supChildren, supNotifyChan,
+			sourceCh, sourceErr,
 		)
 
 	default: /* Temporary */
 		// Temporary children can complete or fail, supervisor will not restart them
 		delete(supChildren, chSpec.GetName())
-		return nil
+		return supChildren, nil
 	}
 }
 
 func handleChildNodeCompletion(
 	supCtx context.Context,
-	eventNotifier EventNotifier,
-	supRuntimeName string,
 	supTolerance *restartToleranceManager,
-	supChildren map[string]c.Child,
-	supNotifyCh chan c.ChildNotification,
-	prevCh c.Child,
-) *RestartToleranceReached {
+	supSpec SupervisorSpec, supChildSpecs []c.ChildSpec,
 
-	if prevCh.IsWorker() {
-		eventNotifier.workerCompleted(prevCh.GetRuntimeName())
+	supRuntimeName string,
+	supChildren map[string]c.Child,
+	supNotifyChan chan c.ChildNotification,
+
+	sourceCh c.Child,
+) (map[string]c.Child, *RestartToleranceReached) {
+	eventNotifier := supSpec.getEventNotifier()
+
+	if sourceCh.IsWorker() {
+		eventNotifier.workerCompleted(sourceCh.GetRuntimeName())
 	}
 
-	chSpec := prevCh.GetSpec()
+	chSpec := sourceCh.GetSpec()
 
 	switch chSpec.GetRestart() {
 
 	case c.Transient, c.Temporary:
 		delete(supChildren, chSpec.GetName())
 		// Do nothing
-		return nil
+		return supChildren, nil
 	default: /* Permanent */
 		// On child completion, the supervisor still restart the child when the
 		// c.Restart is Permanent
-		return oneForOneRestartLoop(
+		return execRestartLoop(
 			supCtx,
-			eventNotifier,
-			supRuntimeName,
 			supTolerance,
-			supChildren,
-			supNotifyCh,
-			prevCh,
-			nil,
+			supSpec, supChildSpecs,
+			supRuntimeName, supChildren, supNotifyChan,
+			sourceCh,
+			nil, /* error */
 		)
 	}
 }
 
 func handleChildNodeNotification(
 	supCtx context.Context,
-	eventNotifier EventNotifier,
-	supRuntimeName string,
 	supTolerance *restartToleranceManager,
+	supSpec SupervisorSpec,
+	supChildSpecs []c.ChildSpec,
+	supRuntimeName string,
 	supChildren map[string]c.Child,
-	supNotifyCh chan c.ChildNotification,
-	prevCh c.Child,
+	supNotifyChan chan c.ChildNotification,
+	sourceCh c.Child,
 	chNotification c.ChildNotification,
-) *RestartToleranceReached {
-	chErr := chNotification.Unwrap()
+) (map[string]c.Child, *RestartToleranceReached) {
+	sourceErr := chNotification.Unwrap()
 
-	if chErr != nil {
+	if sourceErr != nil {
 		// if the notification contains an error, we send a notification
 		// saying that the process failed
 		return handleChildNodeError(
 			supCtx,
-			eventNotifier,
-			supRuntimeName,
 			supTolerance,
-			supChildren,
-			supNotifyCh,
-			prevCh,
-			chErr,
+			supSpec, supChildSpecs,
+
+			supRuntimeName, supChildren, supNotifyChan,
+			sourceCh,
+			sourceErr,
 		)
 	}
 
 	return handleChildNodeCompletion(
 		supCtx,
-		eventNotifier,
-		supRuntimeName,
 		supTolerance,
-		supChildren,
-		supNotifyCh,
-		prevCh,
+		supSpec, supChildSpecs,
+		supRuntimeName, supChildren, supNotifyChan,
+		sourceCh,
 	)
 }
+
+////////////////////////////////////////////////////////////////////////////////
+
+// skipChildFn is a function used to skip a child during an iteration of
+// children inside the supervision tree. This function is useful to modify the
+// behavior of start/termination of children in a supervision tree and restart
+// strategies.
+type skipChildFn = func(int, c.ChildSpec) bool
+
+// noChildSkip is a skipChildFn that doesn't skip any child when iterating a
+// children list
+var noChildSkip skipChildFn = func(_ int, _ c.ChildSpec) bool {
+	return false
+}
+
+// skipChild is a skipChildFn that skips a child entry from an iteration that
+// matches the given child.
+func skipChild(ch c.Child) skipChildFn {
+	chSpec := ch.GetSpec()
+	return func(_ int, otherChSpec c.ChildSpec) bool {
+		return chSpec.GetName() == otherChSpec.GetName()
+	}
+}
+
+// TODO: use functions bellow for RestForOne strategy
+//
+
+// func skipChildBeforeIndex(i int) skipChildFn {
+//	return func(j int, _ c.ChildSpec) bool {
+//		return i < j
+//	}
+// }
+
+// func getChildIndex(chs []c.ChildSpec, ch c.Child) (int, bool) {
+//	chSpec := ch.GetSpec()
+//	for i, other := range chs {
+//		if chSpec.GetName() == other.GetName() {
+//			return i, true
+//		}
+//	}
+//	return 0, false
+// }
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -134,12 +245,12 @@ func handleChildNodeNotification(
 // something goes wrong with the initialization of this child.
 func startChildNode(
 	startCtx context.Context,
-	spec SupervisorSpec,
+	supSpec SupervisorSpec,
 	supRuntimeName string,
 	notifyCh chan c.ChildNotification,
 	chSpec c.ChildSpec,
 ) (c.Child, error) {
-	eventNotifier := spec.getEventNotifier()
+	eventNotifier := supSpec.getEventNotifier()
 	startedTime := time.Now()
 	ch, chStartErr := chSpec.DoStart(startCtx, supRuntimeName, notifyCh)
 
@@ -162,6 +273,8 @@ func startChildNode(
 	return ch, nil
 }
 
+// TODO: introduce shouldSkip when supporting RestForOne functionality
+
 // startChildNodes iterates over all the children (specified with `cap.WithNodes`
 // and `cap.WithSubtree`) starting a goroutine for each. The children iteration
 // will be sorted as specified with the `cap.WithStartOrder` option. In case any child
@@ -169,7 +282,7 @@ func startChildNode(
 // started children so far will be stopped in the reverse order.
 func startChildNodes(
 	startCtx context.Context,
-	spec SupervisorSpec,
+	supSpec SupervisorSpec,
 	supChildrenSpecs []c.ChildSpec,
 	supRuntimeName string,
 	notifyCh chan c.ChildNotification,
@@ -177,18 +290,23 @@ func startChildNodes(
 	children := make(map[string]c.Child)
 
 	// Start children in the correct order
-	for _, chSpec := range spec.order.sortStart(supChildrenSpecs) {
+	for _, chSpec := range supSpec.order.sortStart(supChildrenSpecs) {
 		// the function above will modify the children internally
 		ch, chStartErr := startChildNode(
 			startCtx,
-			spec,
+			supSpec,
 			supRuntimeName,
 			notifyCh,
 			chSpec,
 		)
 		if chStartErr != nil {
 			// we must stop previously started children before we finish the supervisor
-			nodeErrMap := terminateChildNodes(spec, supChildrenSpecs, children)
+			nodeErrMap := terminateChildNodes(
+				supSpec,
+				supChildrenSpecs,
+				children,
+				noChildSkip,
+			)
 			var terminationErr *SupervisorTerminationError
 			if len(nodeErrMap) > 0 {
 				terminationErr = &SupervisorTerminationError{
@@ -211,19 +329,28 @@ func startChildNodes(
 	return children, nil
 }
 
-// terminateChildNode executes the Terminate procedure on the given child, in case
-// there is an error on termination it notifies the event system
+// terminateChildNode executes the Terminate procedure on the given child, in case there is
+// an error on termination it notifies the event system
 func terminateChildNode(
 	eventNotifier EventNotifier,
 	ch c.Child,
 ) error {
 	chSpec := ch.GetSpec()
 	stoppingTime := time.Now()
-	terminationErr := ch.Terminate()
+	isFirstTermination, terminationErr := ch.Terminate()
+
+	// if it is not the first termination (it was terminated before, or finished because
+	// of a failure), we have already made notice of this termination before, so we are
+	// going to skip notifications.
+	if !isFirstTermination {
+		return nil
+	}
 
 	if terminationErr != nil {
 		// we also notify that the process failed
-		eventNotifier.processFailed(chSpec.GetTag(), ch.GetRuntimeName(), terminationErr)
+		eventNotifier.processFailed(
+			chSpec.GetTag(), ch.GetRuntimeName(), terminationErr,
+		)
 		return terminationErr
 	}
 	// we need to notify that the process stopped
@@ -234,21 +361,26 @@ func terminateChildNode(
 // terminateChildNodes is used on the shutdown of the supervisor tree, it stops
 // children in the desired order.
 func terminateChildNodes(
-	spec SupervisorSpec,
+	supSpec SupervisorSpec,
 	supChildrenSpecs0 []c.ChildSpec,
 	supChildren map[string]c.Child,
+	shouldSkip skipChildFn,
 ) map[string]error {
-	eventNotifier := spec.eventNotifier
-	supChildrenSpecs := spec.order.sortTermination(supChildrenSpecs0)
+	eventNotifier := supSpec.eventNotifier
+	supChildrenSpecs := supSpec.order.sortTermination(supChildrenSpecs0)
 	supNodeErrMap := make(map[string]error)
 
-	for _, chSpec := range supChildrenSpecs {
+	for i, chSpec := range supChildrenSpecs {
+		if shouldSkip(i, chSpec) {
+			continue
+		}
+
 		ch, ok := supChildren[chSpec.GetName()]
 		// There are scenarios where is ok to ignore supChildren not having the
 		// entry:
 		//
 		// * On start, there may be a failure mid-way in the initialization and on
-		// the rollback we iterate over children spec that are not present in the
+		// the rollback we iterate over children supSpec that are not present in the
 		// runtime children map
 		//
 		// * On stop, there may be a Transient child that completed, or a Temporary child
@@ -278,7 +410,12 @@ func terminateSupervisor(
 	restartErr *RestartToleranceReached,
 ) error {
 	var terminateErr *SupervisorTerminationError
-	supNodeErrMap := terminateChildNodes(supSpec, supChildrenSpecs, supChildren)
+	supNodeErrMap := terminateChildNodes(
+		supSpec,
+		supChildrenSpecs,
+		supChildren,
+		noChildSkip,
+	)
 	supRscCleanupErr := supRscCleanup()
 
 	// If any of the children fails to stop, we should report that as an
@@ -349,25 +486,28 @@ func runMonitorLoop(
 	supRuntimeName string,
 	supTolerance *restartToleranceManager,
 	supRscCleanup CleanupResourcesFn,
-	supNotifyCh chan c.ChildNotification,
+	supNotifyChan chan c.ChildNotification,
 	ctrlCh chan ctrlMsg,
 	supStartTime time.Time,
 	onStart c.NotifyStartFn,
 	onTerminate notifyTerminationFn,
 ) error {
+	var startErr error
+	var restartErr *RestartToleranceReached
+
 	// Start children
-	supChildren, restartErr := startChildNodes(
+	supChildren, startErr := startChildNodes(
 		supCtx,
 		supSpec,
 		supChildrenSpecs,
 		supRuntimeName,
-		supNotifyCh,
+		supNotifyChan,
 	)
-	if restartErr != nil {
+	if startErr != nil {
 		// in case we run in the async strategy we notify the spawner that we
 		// started with an error
-		onStart(restartErr)
-		return restartErr
+		onStart(startErr)
+		return startErr
 	}
 
 	// Supervisors are responsible of notifying their start events, this is
@@ -396,8 +536,8 @@ func runMonitorLoop(
 				nil, /* restart error */
 			)
 
-		case chNotification := <-supNotifyCh:
-			prevCh, ok := supChildren[chNotification.GetName()]
+		case chNotification := <-supNotifyChan:
+			sourceCh, ok := supChildren[chNotification.GetName()]
 
 			if !ok {
 				// TODO: Expand on this case, I think this is highly unlikely, but would
@@ -405,21 +545,18 @@ func runMonitorLoop(
 				panic(
 					fmt.Errorf(
 						"something horribly wrong happened here (name: %s, tag: %s)",
-						prevCh.GetRuntimeName(),
-						prevCh.GetTag(),
+						sourceCh.GetRuntimeName(),
+						sourceCh.GetTag(),
 					),
 				)
 			}
 
-			restartErr := handleChildNodeNotification(
+			supChildren, restartErr = handleChildNodeNotification(
 				supCtx,
-				eventNotifier,
-				supRuntimeName,
 				supTolerance,
-				supChildren,
-				supNotifyCh,
-				prevCh,
-				chNotification,
+				supSpec, supChildrenSpecs,
+				supRuntimeName, supChildren, supNotifyChan,
+				sourceCh, chNotification,
 			)
 
 			if restartErr != nil {
@@ -442,7 +579,7 @@ func runMonitorLoop(
 				supChildrenSpecs,
 				supRuntimeName,
 				supChildren,
-				supNotifyCh,
+				supNotifyChan,
 				msg,
 			)
 		}
