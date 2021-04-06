@@ -306,17 +306,19 @@ func TestPermanentOneForAllSingleFailingWorkerReachThreshold(t *testing.T) {
 }
 
 func TestPermanentOneForAllNestedFailingWorkerReachThreshold(t *testing.T) {
+
+	// remember, error accumulation happens at the supervisor level, not the
+	// worker
+
 	parentName := "root"
 	child1 := WaitDoneWorker("child1")
 	child2, failWorker2 := FailOnSignalWorker(
-		2, // 2 errors, 2 tolerance
+		2, // 2 errors on this worker, 1 on the other worker, 3 total, 2 tolerance
 		"child2",
 		cap.WithRestart(cap.Permanent),
 	)
 	child3, failWorker3 := FailOnSignalWorker(
-		// remember, error accumulation happens at the supervisor level, not the
-		// worker
-		1, // 3 (2 + 1) errors, 2 tolerance
+		1, // 1 error on this worker, 2 on the other worker, 3 total, 2 tolerance
 		"child3",
 		cap.WithRestart(cap.Permanent),
 	)
