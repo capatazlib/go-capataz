@@ -185,7 +185,6 @@ func NewReliableNotifier(
 		// this logic running (and failing in the background)
 		s.WithRestartTolerance(100, 1*time.Second),
 		s.WithNotifier(notifyRootFailure(settings)),
-		// TODO: Add OneForAll strategy here
 	)
 
 	reliableNotifier, startErr := reliableNotifierSpec.Start(context.Background())

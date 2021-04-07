@@ -9,6 +9,86 @@ import (
 	"github.com/capatazlib/go-capataz/cap"
 )
 
+// WaitDoneDynSubtree creates a `cap.Node` that runs a goroutine with a spawner
+// that will spawn the given children. It blocks until the `context.Done`
+// channel indicates a supervisor termination
+func WaitDoneDynSubtree(
+	name string,
+	spawnerOpts []cap.Opt,
+	workerOpts []cap.WorkerOpt,
+	children ...cap.Node,
+) cap.Node {
+	return cap.NewDynSubtreeWithNotifyStart(
+		name,
+		func(
+			ctx context.Context,
+			notifyStart cap.NotifyStartFn,
+			spawner cap.Spawner,
+		) error {
+			for _, c := range children {
+				_, err := spawner.Spawn(c)
+				if err != nil {
+					notifyStart(err)
+					return err
+				}
+			}
+			notifyStart(nil)
+			<-ctx.Done()
+			return nil
+		},
+		spawnerOpts,
+		workerOpts...,
+	)
+}
+
+// FailOnSignalDynSubtree creates a cap.Node that runs a dynamic subtree that
+// will fail at least the given number of times as soon as the returned start
+// signal is called. Once this number of times has been reached, it waits until
+// the given `context.Done` channel indicates a supervisor termination.
+func FailOnSignalDynSubtree(
+	totalErrCount int32,
+	name string,
+	spawnerOpts []cap.Opt,
+	workerOpts []cap.WorkerOpt,
+	children ...cap.Node,
+) (cap.Node, func(bool)) {
+	currentFailCount := int32(0)
+	startCh := make(chan struct{})
+	startSignal := func(done bool) {
+		if done {
+			close(startCh)
+			return
+		}
+		startCh <- struct{}{}
+	}
+	return cap.NewDynSubtreeWithNotifyStart(
+		name,
+		func(ctx context.Context, notifyStart cap.NotifyStartFn, spawner cap.Spawner) error {
+			for _, c := range children {
+				_, err := spawner.Spawn(c)
+				if err != nil {
+					notifyStart(err)
+					return err
+				}
+			}
+			notifyStart(nil)
+
+			<-startCh
+			if currentFailCount < totalErrCount {
+				atomic.AddInt32(&currentFailCount, 1)
+				return fmt.Errorf(
+					"Failing dyn subtree worker (%d out of %d)", currentFailCount, totalErrCount,
+				)
+			}
+
+			<-ctx.Done()
+			return nil
+		},
+		spawnerOpts,
+		workerOpts...,
+	), startSignal
+}
+
 // WaitDoneWorker creates a `cap.Node` that runs a goroutine that blocks until
 // the `context.Done` channel indicates a supervisor termination
 func WaitDoneWorker(name string) cap.Node {

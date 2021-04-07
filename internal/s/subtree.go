@@ -23,6 +23,7 @@ func (spec SupervisorSpec) run(
 	ctx context.Context,
 	supRuntimeName string,
 	onStart c.NotifyStartFn,
+	ctrlChan chan ctrlMsg,
 ) error {
 	// Build childrenSpec and resource cleanup
 	supChildrenSpecs, supRscCleanup, rscAllocError := spec.buildChildrenSpecs(supRuntimeName)
@@ -36,9 +37,6 @@ func (spec SupervisorSpec) run(
 
 	// notifyCh is used to keep track of errors from children
 	notifyCh := make(chan c.ChildNotification)
-
-	// ctrlCh is used to keep track of request from client APIs (e.g. spawn child)
-	ctrlCh := make(chan ctrlMsg)
 
 	onTerminate := func(err terminateNodeError) {}
 
@@ -54,7 +52,7 @@ func (spec SupervisorSpec) run(
 		supTolerance,
 		supRscCleanup,
 		notifyCh,
-		ctrlCh,
+		ctrlChan,
 		startTime,
 		onStart,
 		onTerminate,
@@ -65,6 +63,7 @@ func (spec SupervisorSpec) run(
 // sub-tree. It returns an error if the child supervisor fails to start.
 func subtreeMain(
 	supSpec SupervisorSpec,
+	ctrlChan chan ctrlMsg,
 ) func(context.Context, c.NotifyStartFn) error {
 	// we use the start version that receives the notifyChildStart callback, this
 	// is essential, as we need this callback to signal the sub-tree children have
@@ -78,7 +77,7 @@ func subtreeMain(
 		}
 		ctx, cancelFn := context.WithCancel(parentCtx)
 		defer cancelFn()
-		return supSpec.run(ctx, supRuntimeName, notifyChildStart)
+		return supSpec.run(ctx, supRuntimeName, notifyChildStart, ctrlChan)
 	}
 }
 
@@ -87,6 +86,7 @@ func subtreeMain(
 // returned `c.ChildSpec` is going to contain the supervisor internally.
 func (spec SupervisorSpec) subtree(
 	subtreeSpec SupervisorSpec,
+	ctrlChan chan ctrlMsg,
 	copts0 ...c.Opt,
 ) c.ChildSpec {
 	subtreeSpec.eventNotifier = spec.eventNotifier
@@ -103,7 +103,7 @@ func (spec SupervisorSpec) subtree(
 
 	return c.NewWithNotifyStart(
 		subtreeSpec.GetName(),
-		subtreeMain(subtreeSpec),
+		subtreeMain(subtreeSpec, ctrlChan),
 		copts...,
 	)
 }
@@ -133,6 +133,7 @@ func (spec SupervisorSpec) subtree(
 //
 func Subtree(subtreeSpec SupervisorSpec, opts ...c.Opt) Node {
 	return func(supSpec SupervisorSpec) c.ChildSpec {
-		return supSpec.subtree(subtreeSpec, opts...)
+		ctrlChan := make(chan ctrlMsg)
+		return supSpec.subtree(subtreeSpec, ctrlChan, opts...)
 	}
 }
