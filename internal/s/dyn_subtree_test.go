@@ -250,6 +250,7 @@ func TestDynSubtreeFailedTermination(t *testing.T) {
 }
 
 func TestDynSubtreeWorkerStartStopStart(t *testing.T) {
+	rootStarted := make(chan struct{})
 	subtree := cap.NewDynSubtreeWithNotifyStart(
 		"subtree",
 		func(ctx context.Context, notifyStart cap.NotifyStartFn, spawner cap.Spawner) error {
@@ -270,6 +271,16 @@ func TestDynSubtreeWorkerStartStopStart(t *testing.T) {
 			// event assertion list bellow
 			notifyStart(nil)
 
+			// let us start/stop some workers after the root start to showcase that we
+			// can start workers at any time
+			<-rootStarted
+
+			cancelWorker, err = spawner.Spawn(WaitDoneWorker("child3"))
+			_, _ = spawner.Spawn(WaitDoneWorker("child4"))
+			assert.NoError(t, err)
+			err = cancelWorker()
+			assert.NoError(t, err)
+
 			<-ctx.Done()
 			return nil
 		},
@@ -281,7 +292,10 @@ func TestDynSubtreeWorkerStartStopStart(t *testing.T) {
 		"root",
 		cap.WithNodes(subtree),
 		[]cap.Opt{},
-		func(EventManager) {},
+		func(EventManager) {
+			// signal that root started to the dynamic subtree worker
+			close(rootStarted)
+		},
 	)
 	assert.NoError(t, err)
 
@@ -300,8 +314,15 @@ func TestDynSubtreeWorkerStartStopStart(t *testing.T) {
 			SupervisorStarted("root/subtree"),
 			SupervisorStarted("root"),
 
+			// rootStarted signal gets triggered in dyn subtree worker
+			WorkerStarted("root/subtree/spawner/child3"),
+			WorkerStarted("root/subtree/spawner/child4"),
+			WorkerTerminated("root/subtree/spawner/child3"),
+
 			// dyn subtree terminates in reverse order
 			WorkerTerminated("root/subtree/worker"),
+			WorkerTerminated("root/subtree/spawner/child4"),
+			// child3 is not here because it was shut down already
 			WorkerTerminated("root/subtree/spawner/child2"),
 			// child1 is not here because it was shut down already
 			WorkerTerminated("root/subtree/spawner/child0"),
