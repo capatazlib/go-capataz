@@ -45,7 +45,7 @@ want to make sure an event happens before triggering a new one concurrently.
 
 Finally, this function returns two values, the events that got triggered, and if
 the supervisor failed with an error. You can then use the assertion functions
-(described bellow) to check that the events are the ones you expect.
+(described below) to check that the events are the ones you expect.
 
 ### Assertion functions
 

@@ -487,7 +487,7 @@ func runMonitorLoop(
 	supTolerance *restartToleranceManager,
 	supRscCleanup CleanupResourcesFn,
 	supNotifyChan chan c.ChildNotification,
-	ctrlCh chan ctrlMsg,
+	ctrlChan chan ctrlMsg,
 	supStartTime time.Time,
 	onStart c.NotifyStartFn,
 	onTerminate notifyTerminationFn,
@@ -571,7 +571,7 @@ func runMonitorLoop(
 				)
 			}
 
-		case msg := <-ctrlCh:
+		case msg := <-ctrlChan:
 			supChildrenSpecs, supChildren = handleCtrlMsg(
 				supCtx,
 				eventNotifier,

@@ -177,16 +177,17 @@ func handleCtrlMsg(
 	)
 }
 
-func (dyn *DynSupervisor) terminateNode(nodeName string) func() error {
+func buildTerminateNodeCallback(ctrlChan chan ctrlMsg, nodeName string) func() error {
 	// REMEMBER: WE ARE RUNNING ON THE CLIENT API THREAD
 
-	// we initialize the resultCh with a buffer of 1, we may store the result
+	// we initialize the resultChan with a buffer of 1, we may store the result
 	// before the client is ready to read it.
-	resultCh := make(chan terminateNodeError, 1)
+	resultChan := make(chan terminateNodeError, 1)
 	msg := terminateChildMsg{
 		nodeName:   nodeName,
-		resultChan: resultCh,
+		resultChan: resultChan,
 	}
+
 	return func() (err error) {
 		defer func() {
 			panicVal := recover()
@@ -205,7 +206,7 @@ func (dyn *DynSupervisor) terminateNode(nodeName string) func() error {
 		// block until the supervisor can handle the request, in case the
 		// supervisor is stopped, this line is going to panic
 		select {
-		case dyn.sup.ctrlCh <- msg:
+		case ctrlChan <- msg:
 		case _ = <-time.After(1 * time.Second):
 			// This scenario can happen when the supervisor is being terminated and the
 			// non-blocking sup.GetCrashError happened just before that (race
@@ -215,12 +216,47 @@ func (dyn *DynSupervisor) terminateNode(nodeName string) func() error {
 		}
 
 		select {
-		case err = <-resultCh:
+		case err = <-resultChan:
 		case <-time.After(1 * time.Second):
 			// Not sure when this scenario would happen to be honest :shrug:
 			err = errors.New("could not get a cancelation confirmation from worker")
 		}
 		return
+	}
+}
+
+func sendSpawnToSupervisor(ctrlChan chan ctrlMsg, node Node) (func() error, error) {
+	// we initialize the resultChan with a buffer of 1, we may store the result
+	// before the client is ready to read it.
+	resultChan := make(chan startChildResult, 1)
+	msg := startChildMsg{
+		node:       node,
+		resultChan: resultChan,
+	}
+
+	select {
+	case ctrlChan <- msg:
+	case _ = <-time.After(1 * time.Second):
+		// This scenario can happen when the supervisor is being terminated and the
+		// non-blocking sup.GetCrashError happened just before that (race
+		// condition).
+		return nil, errors.New("could not talk to supervisor")
+	}
+
+	select {
+	case result, ok := <-resultChan:
+		if !ok {
+			panic("could not get the result of a spawn call. Implementation error")
+		}
+
+		if result.startErr != nil {
+			return nil, result.startErr
+		}
+		return buildTerminateNodeCallback(ctrlChan, result.childName), nil
+	case <-time.After(1 * time.Second):
+		// Paranoid timeout. Better to not hang if this ever happens; to be honest,
+		// not sure when this is the case :shrug:
+		return nil, errors.New("could not get a creation confirmation from worker")
 	}
 }
 
@@ -243,38 +279,7 @@ func (dyn *DynSupervisor) Spawn(nodeFn Node) (func() error, error) {
 		return nil, fmt.Errorf("supervisor already terminated: %w", terminationErr)
 	}
 
-	// we initialize the resultCh with a buffer of 1, we may store the result
-	// before the client is ready to read it.
-	resultCh := make(chan startChildResult, 1)
-	msg := startChildMsg{
-		node:       nodeFn,
-		resultChan: resultCh,
-	}
-
-	select {
-	case dyn.sup.ctrlCh <- msg:
-	case _ = <-time.After(1 * time.Second):
-		// This scenario can happen when the supervisor is being terminated and the
-		// non-blocking sup.GetCrashError happened just before that (race
-		// condition).
-		return nil, errors.New("could not talk to supervisor")
-	}
-
-	select {
-	case result, ok := <-resultCh:
-		if !ok {
-			panic("could not get the result of a spawn call. Implementation error")
-		}
-
-		if result.startErr != nil {
-			return nil, result.startErr
-		}
-		return dyn.terminateNode(result.childName), nil
-	case <-time.After(1 * time.Second):
-		// Paranoid timeout. Better to not hang if this ever happens; to be honest,
-		// not sure when this is the case :shrug:
-		return nil, errors.New("could not get a creation confirmation from worker")
-	}
+	return sendSpawnToSupervisor(dyn.sup.ctrlCh, nodeFn)
 }
 
 // Terminate is a synchronous procedure that halts the execution of the whole

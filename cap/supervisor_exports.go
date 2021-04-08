@@ -309,6 +309,27 @@ type DynSupervisor = s.DynSupervisor
 // Since: 0.0.0
 var NewDynSupervisor = s.NewDynSupervisor
 
+// Spawner is a builder type that can spawn other workers
+//
+// since: 0.2.0
+type Spawner = s.Spawner
+
+// NewDynSubtree builds a worker that has receives a Spawner that allows it to
+// create more child workers dynamically in a sub-tree.
+//
+// Note: The Spawner is automatically managed by the supervision tree, so
+// clients are not required to terminate it explicitly.
+//
+// since: 0.2.0
+var NewDynSubtree = s.NewDynSubtree
+
+// NewDynSubtreeWithNotifyStart accomplishes the same goal as NewDynSubtree with
+// the addition of passing an extra argument (notifyStart callback) to the
+// startFn function parameter.
+//
+// since: 0.2.0
+var NewDynSubtreeWithNotifyStart = s.NewDynSubtreeWithNotifyStart
+
 // Supervisor represents the root of a tree of goroutines. A Supervisor may have
 // leaf or sub-tree children, where each of the nodes in the tree represent a
 // goroutine that gets automatic restart abilities as soon as the parent
