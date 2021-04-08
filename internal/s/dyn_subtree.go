@@ -60,10 +60,7 @@ func NewDynSubtreeWithNotifyStart(
 		dynSubtreeSpec := NewSupervisorSpec(
 			name,
 			func() ([]Node, CleanupResourcesFn, error) {
-				// we cannot create the dynamic supervisor here because
-				// we don't have a context to build it with. We are going
-				// to create a promise of a value so that the worker has access
-				// to it later
+				// this ctrlChan is going to be used by the spawner sub-tree
 				ctrlChan := make(chan ctrlMsg)
 
 				spawnerSpec := NewSupervisorSpec("spawner", WithNodes(), spawnerOpts...)
@@ -71,15 +68,19 @@ func NewDynSubtreeWithNotifyStart(
 					return parent.subtree(spawnerSpec, ctrlChan, opts...)
 				}
 
-				cleanup := func() error { return nil }
+				cleanup := func() error {
+					close(ctrlChan)
+					return nil
+				}
 
 				return []Node{
 					spawnerNode,
 					NewWorkerWithNotifyStart(
 						"worker",
 						func(ctx context.Context, notifyStart NotifyStartFn) error {
-							// we create a value that allows us to communicate with the
-							// spawner supervision sub-tree in a safe way.
+							// we create a value that allows this the dyn-subtree worker to
+							// communicate with the spawner supervision sub-tree in a safe
+							// way.
 							spawner := newSpawnerClient(ctrlChan)
 							return runFn(ctx, notifyStart, spawner)
 						},
@@ -87,7 +88,8 @@ func NewDynSubtreeWithNotifyStart(
 					),
 				}, cleanup, nil
 			},
-			// if the dynamic sub-tree or the spawner node fail, restart both of them
+			// if the dynamic sub-tree worker or the spawner fail, restart both of
+			// them
 			WithStrategy(OneForAll),
 		)
 
