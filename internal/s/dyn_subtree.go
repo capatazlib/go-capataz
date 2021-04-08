@@ -81,7 +81,6 @@ func NewDynSubtreeWithNotifyStart(
 				}
 
 				cleanup := func() error {
-					close(ctrlChan)
 					return nil
 				}
 
