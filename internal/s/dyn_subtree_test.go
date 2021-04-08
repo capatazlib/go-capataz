@@ -18,7 +18,7 @@ import (
 
 func TestDynSubtreeStartSingleChild(t *testing.T) {
 	subtree := WaitDoneDynSubtree(
-		"one", []cap.Opt{}, []cap.WorkerOpt{}, WaitDoneWorker("uno"),
+		"dyn", []cap.Opt{}, []cap.WorkerOpt{}, WaitDoneWorker("uno"),
 	)
 
 	events, errs := ObserveSupervisor(
@@ -32,19 +32,19 @@ func TestDynSubtreeStartSingleChild(t *testing.T) {
 
 	AssertExactMatch(t, events,
 		[]EventP{
-			// The dyn-subtree spawner sub-tree starts always first
-			SupervisorStarted("root/one/spawner"),
-			WorkerStarted("root/one/spawner/uno"),
+			// The dyn-subtree subtree sub-tree starts always first
+			SupervisorStarted("root/dyn/subtree"),
+			WorkerStarted("root/dyn/subtree/uno"),
 			// Then the dyn-subtree worker
-			WorkerStarted("root/one/worker"),
+			WorkerStarted("root/dyn/spawner"),
 			// Then dyn-subtree as a whole is started
-			SupervisorStarted("root/one"),
+			SupervisorStarted("root/dyn"),
 			SupervisorStarted("root"),
 			// stop occurs in reverse order of start
-			WorkerTerminated("root/one/worker"),
-			WorkerTerminated("root/one/spawner/uno"),
-			SupervisorTerminated("root/one/spawner"),
-			SupervisorTerminated("root/one"),
+			WorkerTerminated("root/dyn/spawner"),
+			WorkerTerminated("root/dyn/subtree/uno"),
+			SupervisorTerminated("root/dyn/subtree"),
+			SupervisorTerminated("root/dyn"),
 			SupervisorTerminated("root"),
 		})
 }
@@ -75,7 +75,7 @@ func TestDynSubtreeFailing(t *testing.T) {
 			// 2) Start the failing behavior of child1
 			failSubtree1(true /* done */)
 			// 3) Wait till first restart
-			evIt.SkipTill(WorkerStarted("root/one/worker"))
+			evIt.SkipTill(WorkerStarted("root/one/spawner"))
 		},
 	)
 
@@ -83,42 +83,42 @@ func TestDynSubtreeFailing(t *testing.T) {
 
 	AssertExactMatch(t, events,
 		[]EventP{
-			// The dyn-subtree spawner sub-tree starts always first
-			SupervisorStarted("root/one/spawner"),
+			// The dyn-subtree subtree sub-tree starts always first
+			SupervisorStarted("root/one/subtree"),
 			// then, because of the FailOnSignalDynSubtree implementation the dyn
 			// supervisor children start first
-			WorkerStarted("root/one/spawner/uno"),
-			WorkerStarted("root/one/spawner/dos"),
-			WorkerStarted("root/one/spawner/tres"),
+			WorkerStarted("root/one/subtree/uno"),
+			WorkerStarted("root/one/subtree/dos"),
+			WorkerStarted("root/one/subtree/tres"),
 			// then dyn-subtree worker
-			WorkerStarted("root/one/worker"),
+			WorkerStarted("root/one/spawner"),
 			// the the dyn-subtree as a whole
 			SupervisorStarted("root/one"),
 			// finally the root supervisor
 			SupervisorStarted("root"),
 
 			// signal of error starts here
-			WorkerFailed("root/one/worker"),
+			WorkerFailed("root/one/spawner"),
 			// the dyn sub-tree has a wired strategy of OneForAll, so the dyn-subtree
-			// spawner also gets terminated on error
-			WorkerTerminated("root/one/spawner/tres"),
-			WorkerTerminated("root/one/spawner/dos"),
-			WorkerTerminated("root/one/spawner/uno"),
-			SupervisorTerminated("root/one/spawner"),
+			// subtree also gets terminated on error
+			WorkerTerminated("root/one/subtree/tres"),
+			WorkerTerminated("root/one/subtree/dos"),
+			WorkerTerminated("root/one/subtree/uno"),
+			SupervisorTerminated("root/one/subtree"),
 
-			// the spawner sub-tree gets started first after a restart
-			SupervisorStarted("root/one/spawner"),
-			WorkerStarted("root/one/spawner/uno"),
-			WorkerStarted("root/one/spawner/dos"),
-			WorkerStarted("root/one/spawner/tres"),
-			WorkerStarted("root/one/worker"),
+			// the subtree sub-tree gets started first after a restart
+			SupervisorStarted("root/one/subtree"),
+			WorkerStarted("root/one/subtree/uno"),
+			WorkerStarted("root/one/subtree/dos"),
+			WorkerStarted("root/one/subtree/tres"),
+			WorkerStarted("root/one/spawner"),
 
 			// dyn subtree terminates in reverse order
-			WorkerTerminated("root/one/worker"),
-			WorkerTerminated("root/one/spawner/tres"),
-			WorkerTerminated("root/one/spawner/dos"),
-			WorkerTerminated("root/one/spawner/uno"),
-			SupervisorTerminated("root/one/spawner"),
+			WorkerTerminated("root/one/spawner"),
+			WorkerTerminated("root/one/subtree/tres"),
+			WorkerTerminated("root/one/subtree/dos"),
+			WorkerTerminated("root/one/subtree/uno"),
+			SupervisorTerminated("root/one/subtree"),
 			SupervisorTerminated("root/one"),
 			SupervisorTerminated("root"),
 		},
@@ -148,12 +148,12 @@ func TestDynSubtreeFailedSpawnedWorker(t *testing.T) {
 			// 2) Start the failing behavior of child1
 			failWorker1(false /* done */)
 			// 3) Wait till first restart
-			evIt.SkipTill(WorkerStarted("root/one/spawner/child1"))
+			evIt.SkipTill(WorkerStarted("root/one/subtree/child1"))
 			// 4) fail again to surpass default error threshold (2 in 5 seconds)
 			failWorker1(true /* done */)
 			// one_for_all strategy makes the whole dyn-subtree starts
 			// 5) wait for the whole dyn-subtree one gets started
-			evIt.SkipTill(WorkerStarted("root/one/worker"))
+			evIt.SkipTill(WorkerStarted("root/one/spawner"))
 		},
 	)
 
@@ -162,41 +162,41 @@ func TestDynSubtreeFailedSpawnedWorker(t *testing.T) {
 
 	AssertExactMatch(t, events,
 		[]EventP{
-			// The dyn-subtree spawner sub-tree starts always first
-			SupervisorStarted("root/one/spawner"),
-			WorkerStarted("root/one/spawner/child0"),
-			WorkerStarted("root/one/spawner/child1"),
-			WorkerStarted("root/one/spawner/child2"),
-			WorkerStarted("root/one/worker"),
+			// The dyn-subtree subtree sub-tree starts always first
+			SupervisorStarted("root/one/subtree"),
+			WorkerStarted("root/one/subtree/child0"),
+			WorkerStarted("root/one/subtree/child1"),
+			WorkerStarted("root/one/subtree/child2"),
+			WorkerStarted("root/one/spawner"),
 			SupervisorStarted("root/one"),
 			SupervisorStarted("root"),
 
 			// failure one starts here
-			WorkerFailed("root/one/spawner/child1"),
-			WorkerStarted("root/one/spawner/child1"),
+			WorkerFailed("root/one/subtree/child1"),
+			WorkerStarted("root/one/subtree/child1"),
 			// failure two starts here, one_for_all got triggered here
-			WorkerFailed("root/one/spawner/child1"),
-			WorkerTerminated("root/one/spawner/child2"),
-			WorkerTerminated("root/one/spawner/child0"),
-			SupervisorFailed("root/one/spawner"),
-			WorkerTerminated("root/one/worker"),
+			WorkerFailed("root/one/subtree/child1"),
+			WorkerTerminated("root/one/subtree/child2"),
+			WorkerTerminated("root/one/subtree/child0"),
+			SupervisorFailed("root/one/subtree"),
+			WorkerTerminated("root/one/spawner"),
 
 			// one_for_all start here
 			//
 			// remember, supervisor starts first because it's children are started
 			// dynamically by the WaitDoneDynSubtree implementation
-			SupervisorStarted("root/one/spawner"),
-			WorkerStarted("root/one/spawner/child0"),
-			WorkerStarted("root/one/spawner/child1"),
-			WorkerStarted("root/one/spawner/child2"),
-			WorkerStarted("root/one/worker"),
+			SupervisorStarted("root/one/subtree"),
+			WorkerStarted("root/one/subtree/child0"),
+			WorkerStarted("root/one/subtree/child1"),
+			WorkerStarted("root/one/subtree/child2"),
+			WorkerStarted("root/one/spawner"),
 
 			// dyn subtree terminates in reverse order
-			WorkerTerminated("root/one/worker"),
-			WorkerTerminated("root/one/spawner/child2"),
-			WorkerTerminated("root/one/spawner/child1"),
-			WorkerTerminated("root/one/spawner/child0"),
-			SupervisorTerminated("root/one/spawner"),
+			WorkerTerminated("root/one/spawner"),
+			WorkerTerminated("root/one/subtree/child2"),
+			WorkerTerminated("root/one/subtree/child1"),
+			WorkerTerminated("root/one/subtree/child0"),
+			SupervisorTerminated("root/one/subtree"),
 			SupervisorTerminated("root/one"),
 			SupervisorTerminated("root"),
 		},
@@ -205,7 +205,7 @@ func TestDynSubtreeFailedSpawnedWorker(t *testing.T) {
 
 func TestDynSubtreeFailedTermination(t *testing.T) {
 	subtree := WaitDoneDynSubtree(
-		"one",
+		"dyn",
 		[]cap.Opt{},
 		[]cap.WorkerOpt{},
 		WaitDoneWorker("child0"),
@@ -228,22 +228,22 @@ func TestDynSubtreeFailedTermination(t *testing.T) {
 	t.Run("starts and stops routines in the correct order", func(t *testing.T) {
 		AssertExactMatch(t, events,
 			[]EventP{
-				// The dyn-subtree spawner sub-tree starts always first
-				SupervisorStarted("root/one/spawner"),
-				WorkerStarted("root/one/spawner/child0"),
-				WorkerStarted("root/one/spawner/child1"),
-				WorkerStarted("root/one/spawner/child2"),
-				WorkerStarted("root/one/worker"),
-				SupervisorStarted("root/one"),
+				// The dyn-subtree subtree sub-tree starts always first
+				SupervisorStarted("root/dyn/subtree"),
+				WorkerStarted("root/dyn/subtree/child0"),
+				WorkerStarted("root/dyn/subtree/child1"),
+				WorkerStarted("root/dyn/subtree/child2"),
+				WorkerStarted("root/dyn/spawner"),
+				SupervisorStarted("root/dyn"),
 				SupervisorStarted("root"),
 
 				// dyn subtree terminates in reverse order
-				WorkerTerminated("root/one/worker"),
-				WorkerTerminated("root/one/spawner/child2"),
-				WorkerFailedWith("root/one/spawner/child1", "child1 failed"),
-				WorkerTerminated("root/one/spawner/child0"),
-				SupervisorFailed("root/one/spawner"),
-				SupervisorFailed("root/one"),
+				WorkerTerminated("root/dyn/spawner"),
+				WorkerTerminated("root/dyn/subtree/child2"),
+				WorkerFailedWith("root/dyn/subtree/child1", "child1 failed"),
+				WorkerTerminated("root/dyn/subtree/child0"),
+				SupervisorFailed("root/dyn/subtree"),
+				SupervisorFailed("root/dyn"),
 				SupervisorFailed("root"),
 			})
 	})
@@ -252,17 +252,17 @@ func TestDynSubtreeFailedTermination(t *testing.T) {
 func TestDynSubtreeWorkerStartStopStart(t *testing.T) {
 	rootStarted := make(chan struct{})
 	subtree := cap.NewDynSubtreeWithNotifyStart(
-		"subtree",
-		func(ctx context.Context, notifyStart cap.NotifyStartFn, spawner cap.Spawner) error {
-			_, _ = spawner.Spawn(WaitDoneWorker("child0"))
-			cancelWorker, err := spawner.Spawn(WaitDoneWorker("child1"))
-			_, _ = spawner.Spawn(WaitDoneWorker("child2"))
+		"dyn",
+		func(ctx context.Context, notifyStart cap.NotifyStartFn, subtree cap.Spawner) error {
+			_, _ = subtree.Spawn(WaitDoneWorker("child0"))
+			cancelWorker, err := subtree.Spawn(WaitDoneWorker("child1"))
+			_, _ = subtree.Spawn(WaitDoneWorker("child2"))
 
 			assert.NoError(t, err)
 			err = cancelWorker()
 			assert.NoError(t, err)
 
-			cancelWorker, err = spawner.Spawn(WaitDoneWorker("child1"))
+			cancelWorker, err = subtree.Spawn(WaitDoneWorker("child1"))
 			assert.NoError(t, err)
 			err = cancelWorker()
 			assert.NoError(t, err)
@@ -275,8 +275,8 @@ func TestDynSubtreeWorkerStartStopStart(t *testing.T) {
 			// can start workers at any time
 			<-rootStarted
 
-			cancelWorker, err = spawner.Spawn(WaitDoneWorker("child3"))
-			_, _ = spawner.Spawn(WaitDoneWorker("child4"))
+			cancelWorker, err = subtree.Spawn(WaitDoneWorker("child3"))
+			_, _ = subtree.Spawn(WaitDoneWorker("child4"))
 			assert.NoError(t, err)
 			err = cancelWorker()
 			assert.NoError(t, err)
@@ -301,33 +301,33 @@ func TestDynSubtreeWorkerStartStopStart(t *testing.T) {
 
 	AssertExactMatch(t, events,
 		[]EventP{
-			// The dyn-subtree spawner sub-tree starts always first
-			SupervisorStarted("root/subtree/spawner"),
-			WorkerStarted("root/subtree/spawner/child0"),
-			WorkerStarted("root/subtree/spawner/child1"),
-			WorkerStarted("root/subtree/spawner/child2"),
-			WorkerTerminated("root/subtree/spawner/child1"),
-			WorkerStarted("root/subtree/spawner/child1"),
-			WorkerTerminated("root/subtree/spawner/child1"),
+			// The dyn-subtree subtree sub-tree starts always first
+			SupervisorStarted("root/dyn/subtree"),
+			WorkerStarted("root/dyn/subtree/child0"),
+			WorkerStarted("root/dyn/subtree/child1"),
+			WorkerStarted("root/dyn/subtree/child2"),
+			WorkerTerminated("root/dyn/subtree/child1"),
+			WorkerStarted("root/dyn/subtree/child1"),
+			WorkerTerminated("root/dyn/subtree/child1"),
 
-			WorkerStarted("root/subtree/worker"),
-			SupervisorStarted("root/subtree"),
+			WorkerStarted("root/dyn/spawner"),
+			SupervisorStarted("root/dyn"),
 			SupervisorStarted("root"),
 
 			// rootStarted signal gets triggered in dyn subtree worker
-			WorkerStarted("root/subtree/spawner/child3"),
-			WorkerStarted("root/subtree/spawner/child4"),
-			WorkerTerminated("root/subtree/spawner/child3"),
+			WorkerStarted("root/dyn/subtree/child3"),
+			WorkerStarted("root/dyn/subtree/child4"),
+			WorkerTerminated("root/dyn/subtree/child3"),
 
 			// dyn subtree terminates in reverse order
-			WorkerTerminated("root/subtree/worker"),
-			WorkerTerminated("root/subtree/spawner/child4"),
+			WorkerTerminated("root/dyn/spawner"),
+			WorkerTerminated("root/dyn/subtree/child4"),
 			// child3 is not here because it was shut down already
-			WorkerTerminated("root/subtree/spawner/child2"),
+			WorkerTerminated("root/dyn/subtree/child2"),
 			// child1 is not here because it was shut down already
-			WorkerTerminated("root/subtree/spawner/child0"),
-			SupervisorTerminated("root/subtree/spawner"),
-			SupervisorTerminated("root/subtree"),
+			WorkerTerminated("root/dyn/subtree/child0"),
+			SupervisorTerminated("root/dyn/subtree"),
+			SupervisorTerminated("root/dyn"),
 			SupervisorTerminated("root"),
 		})
 }

@@ -26,6 +26,18 @@ func (s spawnerClient) Spawn(node Node) (func() error, error) {
 
 // NewDynSubtree builds a worker that has receives a Spawner that allows it to
 // create more child workers dynamically in a sub-tree.
+// NewDynSubtree builds a worker that receives a Spawner which allows it to
+// create more child workers dynamically in a sibling sub-tree.
+//
+// The runtime subtree is composed of a worker and a supervisor
+//
+// <name>
+// |
+// `- spawner (creates dynamic workers in sibling subtree)
+// |
+// `- subtree
+//    |
+//    `- <dynamic_worker>
 //
 // Note: The Spawner is automatically managed by the supervision tree, so
 // clients are not required to terminate it explicitly.
@@ -60,10 +72,10 @@ func NewDynSubtreeWithNotifyStart(
 		dynSubtreeSpec := NewSupervisorSpec(
 			name,
 			func() ([]Node, CleanupResourcesFn, error) {
-				// this ctrlChan is going to be used by the spawner sub-tree
+				// this ctrlChan is going to be used by the subtree
 				ctrlChan := make(chan ctrlMsg)
 
-				spawnerSpec := NewSupervisorSpec("spawner", WithNodes(), spawnerOpts...)
+				spawnerSpec := NewSupervisorSpec("subtree", WithNodes(), spawnerOpts...)
 				spawnerNode := func(parent SupervisorSpec) c.ChildSpec {
 					return parent.subtree(spawnerSpec, ctrlChan, opts...)
 				}
@@ -76,11 +88,10 @@ func NewDynSubtreeWithNotifyStart(
 				return []Node{
 					spawnerNode,
 					NewWorkerWithNotifyStart(
-						"worker",
+						"spawner",
 						func(ctx context.Context, notifyStart NotifyStartFn) error {
-							// we create a value that allows this the dyn-subtree worker to
-							// communicate with the spawner supervision sub-tree in a safe
-							// way.
+							// we create a value that allows this the spawner to communicate
+							// with the subtree in a safe way.
 							spawner := newSpawnerClient(ctrlChan)
 							return runFn(ctx, notifyStart, spawner)
 						},
@@ -88,8 +99,7 @@ func NewDynSubtreeWithNotifyStart(
 					),
 				}, cleanup, nil
 			},
-			// if the dynamic sub-tree worker or the spawner fail, restart both of
-			// them
+			// if the subtree or the spawner fail, restart both of them
 			WithStrategy(OneForAll),
 		)
 
