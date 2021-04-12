@@ -8,6 +8,8 @@
 * Introduce `NewDynSubtree` and `NewDynSubtreeWithNotifyStart` to create managed
   subtrees with dynamic worker spawning capabilities. (#66)
 
+* Bump go version to 1.16 (#67)
+
 # v0.1.0 (breaking changes)
 
 * Deprecate `WithTolerance` worker option with `WithRestartTolerance` supervisor
