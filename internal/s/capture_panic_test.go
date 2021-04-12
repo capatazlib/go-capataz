@@ -1,4 +1,4 @@
-package cap_test
+package s_test
 
 import (
 	"context"

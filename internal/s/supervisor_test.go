@@ -1,4 +1,4 @@
-package cap_test
+package s_test
 
 //
 // NOTE: If you feel it is counter-intuitive to have workers start before
