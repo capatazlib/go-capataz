@@ -94,14 +94,6 @@
     rev = "f140a6486e521aad38f5917de355cbf147cc0496"
     sha256 = "0qz439qvccm91w0mmjz4fqgx48clxdwagkvvx89cr43q1d4iry36"
 
-["github.com/google/uuid"]
-  sumVersion = "v1.1.1"
-  ["github.com/google/uuid".fetch]
-    type = "git"
-    url = "https://github.com/google/uuid"
-    rev = "0cd6bf5da1e1c83f8b45653022c74f71af0538a4"
-    sha256 = "0hfxcf9frkb57k6q0rdkrmnfs78ms21r1qfk9fhlqga2yh5xg8zb"
-
 ["github.com/json-iterator/go"]
   sumVersion = "v1.1.7"
   ["github.com/json-iterator/go".fetch]
@@ -133,14 +125,6 @@
     url = "https://github.com/kr/logfmt"
     rev = "b84e30acd515aadc4b783ad4ff83aff3299bdfe0"
     sha256 = "02ldzxgznrfdzvghfraslhgp19la1fczcbzh7wm2zdc6lmpd1qq9"
-
-["github.com/leanovate/gopter"]
-  sumVersion = "v0.2.4"
-  ["github.com/leanovate/gopter".fetch]
-    type = "git"
-    url = "https://github.com/leanovate/gopter"
-    rev = "c8df375e1ea5a53748eb0dff007e9cc5e07b7cd3"
-    sha256 = "0i6lvrihicgxlqwc9p7aslczl47r1m7napq5jip4mlf9bq97lm3a"
 
 ["github.com/matttproud/golang_protobuf_extensions"]
   sumVersion = "v1.0.1"
@@ -239,12 +223,12 @@
     sha256 = "0iph0qmpyqg4kwv8jsx6a56a7hhqq8swrazv40ycxk9rzr0s8yls"
 
 ["github.com/stretchr/testify"]
-  sumVersion = "v1.4.0"
+  sumVersion = "v1.3.0"
   ["github.com/stretchr/testify".fetch]
     type = "git"
     url = "https://github.com/stretchr/testify"
-    rev = "221dbe5ed46703ee255b1da0dec05086f5035f62"
-    sha256 = "187i5g88sxfy4vxpm7dw1gwv29pa2qaq475lxrdh5livh69wqfjb"
+    rev = "ffdc059bfe9ce6a4e144ba849dbedead332c6053"
+    sha256 = "0wjchp2c8xbgcbbq32w3kvblk6q6yn533g78nxl6iskq6y95lxsy"
 
 ["golang.org/x/crypto"]
   sumVersion = "v0.0.0-20190308221718-c2843e01d9a2"
@@ -253,14 +237,6 @@
     url = "https://go.googlesource.com/crypto"
     rev = "c2843e01d9a2bc60bb26ad24e09734fdc2d9ec58"
     sha256 = "01xgxbj5r79nmisdvpq48zfy8pzaaj90bn6ngd4nf33j9ar1dp8r"
-
-["golang.org/x/lint"]
-  sumVersion = "v0.0.0-20190409202823-959b441ac422"
-  ["golang.org/x/lint".fetch]
-    type = "git"
-    url = "https://go.googlesource.com/lint"
-    rev = "959b441ac422379a43da2230f62be024250818b0"
-    sha256 = "1mgcv5f00pkzsbwnq2y7vqvd1b4lr5a3s47cphh2qv4indfk7pck"
 
 ["golang.org/x/net"]
   sumVersion = "v0.0.0-20190613194153-d28f0bde5980"
@@ -293,14 +269,6 @@
     url = "https://go.googlesource.com/text"
     rev = "f21a4dfb5e38f5895301dc265a8def02365cc3d0"
     sha256 = "0r6x6zjzhr8ksqlpiwm5gdd7s209kwk5p4lw54xjvz10cs3qlq19"
-
-["golang.org/x/tools"]
-  sumVersion = "v0.0.0-20190311212946-11955173bddd"
-  ["golang.org/x/tools".fetch]
-    type = "git"
-    url = "https://go.googlesource.com/tools"
-    rev = "11955173bddd0ab0afcd688e6dc9c1b7c28fb546"
-    sha256 = "0hlkai67w167wiyivkzd1fgqrnyxkb94l2c6kr51jwcscizfyfn3"
 
 ["gopkg.in/alecthomas/kingpin.v2"]
   sumVersion = "v2.2.6"

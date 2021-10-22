@@ -18,7 +18,7 @@
           self.overlay.${system}
           gomod2nix.overlay
         ];
-        go = pkgs.go_1_16;
+        go = pkgs.go_1_17;
       in
         {
 

@@ -3,7 +3,7 @@
   buildGoApplication ? pkgs.buildGoApplication,
   lib                ? pkgs.lib }:
 
-assert lib.versionAtLeast go.version "1.16";
+assert lib.versionAtLeast go.version "1.17";
 
 buildGoApplication {
   name = "go-capataz";
