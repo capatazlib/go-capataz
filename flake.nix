@@ -16,7 +16,7 @@
       let
         pkgs = nixpkgs.legacyPackages.${system}.appendOverlays [
           self.overlay.${system}
-          gomod2nix.overlay.${system}
+          gomod2nix.overlay
         ];
         go = pkgs.go_1_16;
       in
