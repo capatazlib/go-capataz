@@ -62,27 +62,28 @@ type listSabotagePlans struct {
 type insertSabotagePlanMsg struct {
 	name        planName
 	subtreeName nodeName
+	duration    time.Duration
 	period      time.Duration
 	attempts    uint32
-	ResultChan  chan (chan bool)
+	ResultChan  chan error
 }
 
 // rmSabotagePlanMsg removes a sabotage plan from sabotageDB.
 type rmSabotagePlanMsg struct {
 	name       planName
-	ResultChan chan (chan bool)
+	ResultChan chan error
 }
 
 // startSabotagePlanMsg spawns a goroutine that executes a known sabotage plan.
 type startSabotagePlanMsg struct {
 	name       planName
-	ResultChan chan (chan bool)
+	ResultChan chan error
 }
 
 // stopSabotagePlanMsg terminates a goroutine that is executing a sabotage plan.
 type stopSabotagePlanMsg struct {
 	name       planName
-	ResultChan chan (chan bool)
+	ResultChan chan error
 }
 
 // sabotageDB is the record that contains all the sabotage plans we want to
@@ -91,6 +92,11 @@ type stopSabotagePlanMsg struct {
 type sabotageDB struct {
 	// Channel used to register saboteur workers in the sabotageDB
 	registerSignaler chan registerSaboteurMsg
+	insertPlanChan   chan insertSabotagePlanMsg
+	rmPlanChan       chan rmSabotagePlanMsg
+	startPlanChan    chan startSabotagePlanMsg
+	stopPlanChan     chan stopSabotagePlanMsg
+
 	// Collection of known saboteur nodes
 	saboteurs    map[nodeName]*saboteurNode
 	plans        map[planName]*sabotagePlan
