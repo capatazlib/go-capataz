@@ -41,6 +41,16 @@ func (db *sabotageDB) InsertPlan(
 	}
 }
 
+func (msg *insertSabotagePlanMsg) toPlan(node *saboteurNode) *sabotagePlan {
+	return &sabotagePlan{
+		name:        msg.name,
+		duration:    msg.duration,
+		period:      msg.period,
+		maxAttempts: int32(msg.attempts),
+		node:        node,
+	}
+}
+
 // RemovePlan removes a sabotage plan from this sabotageDB
 func (db *sabotageDB) RemovePlan(
 	ctx context.Context,
@@ -114,47 +124,195 @@ func (db *sabotageDB) StopPlan(
 }
 
 // stateLoop is a loop that handles messages that modify the sabotageDB state.
-func (db *sabotageDB) stateLoop(ctx context.Context, _ cap.Spawner) error {
-	// TODO: cap.Spawner is intended to be used to spawn sabotage plans
+func (db *sabotageDB) stateLoop(ctx context.Context, spawner cap.Spawner) error {
 	for {
-		// TODO: deal with more messages
 		select {
 		case <-ctx.Done():
 			return nil
-		case _, ok := <-db.insertPlanChan:
+
+		case msg, ok := <-db.insertPlanChan:
+			// Check invalid state
 			if !ok {
 				return errors.New("invalid state: sabotageDB had insertPlanChan closed")
 			}
-			// Pending
-			continue
-		case _, ok := <-db.rmPlanChan:
+
+			// Check given subtree name exists
+			node, ok := db.saboteurs[msg.subtreeName]
+			if !ok {
+				select {
+				case <-ctx.Done():
+					return errors.New("terminated while waiting on InsertPlan result ack")
+				case msg.ResultChan <- errors.New("invalid node name: not found"):
+				}
+				continue
+			}
+
+			// Check plan is not already present
+			if _, ok := db.plans[msg.name]; ok {
+				select {
+				case <-ctx.Done():
+					return errors.New("terminated while waiting on InsertPlan result ack")
+				case msg.ResultChan <- errors.New("plan name already registered"):
+				}
+				continue
+			}
+
+			// Insert plan
+			plan := msg.toPlan(node)
+			db.plans[msg.name] = plan
+
+			// Notify back success
+			select {
+			case <-ctx.Done():
+				return errors.New("terminated while waiting on InsertPlan result ack")
+			case msg.ResultChan <- nil:
+			}
+
+		case msg, ok := <-db.rmPlanChan:
+			// Check invalid state
 			if !ok {
 				return errors.New("invalid state: sabotageDB had rmPlanChan closed")
 			}
-			// Pending
-			continue
-		case _, ok := <-db.startPlanChan:
+
+			// Check plan is present
+			_, ok = db.plans[msg.name]
+			if !ok {
+				select {
+				case <-ctx.Done():
+					return errors.New("terminated while waiting on RemovePlan result ack")
+				case msg.ResultChan <- errors.New("invalid plan name: not found"):
+				}
+				continue
+			}
+
+			// Check plan is running so that we stop it and remove it from running plans
+			if stopPlan, ok := db.runningPlans[msg.name]; ok {
+				err := stopPlan()
+				if err != nil {
+					select {
+					case <-ctx.Done():
+						return errors.New("terminated while waiting on RemovePlan result ack")
+					case msg.ResultChan <- fmt.Errorf("plan could not be stopped: %w", err):
+					}
+					continue
+				}
+				delete(db.runningPlans, msg.name)
+			}
+
+			// Remove plan from plan specification map
+			delete(db.plans, msg.name)
+
+			// Notify back success
+			select {
+			case <-ctx.Done():
+				return errors.New("terminated while waiting on InsertPlan result ack")
+			case msg.ResultChan <- nil:
+			}
+
+		case msg, ok := <-db.startPlanChan:
+			// Check invalid state
 			if !ok {
 				return errors.New("invalid state: sabotageDB had startPlanChan closed")
 			}
-			// Pending
-			continue
-		case _, ok := <-db.stopPlanChan:
+
+			// Check plan is present
+			plan, ok := db.plans[msg.name]
+			if !ok {
+				select {
+				case <-ctx.Done():
+					return errors.New("terminated while waiting on StartPlan result ack")
+				case msg.ResultChan <- errors.New("invalid plan name: not found"):
+				}
+				continue
+			}
+
+			// Check plan is not already running
+			if _, ok := db.runningPlans[msg.name]; ok {
+				select {
+				case <-ctx.Done():
+					return errors.New("terminated while waiting on StartPlan result ack")
+				case msg.ResultChan <- errors.New("plan already running"):
+				}
+				continue
+			}
+
+			// Spawn the plan worker node
+			stopPlanFn, err := spawner.Spawn(plan.toNode())
+			if err != nil {
+				select {
+				case <-ctx.Done():
+					return errors.New("terminated while waiting on StartPlan result ack")
+				case msg.ResultChan <- fmt.Errorf("could not start plan: %w", err):
+				}
+				continue
+			}
+
+			// Insert to runningPlans state
+			db.runningPlans[msg.name] = stopPlanFn
+
+			// Notify back success
+			select {
+			case <-ctx.Done():
+				return errors.New("terminated while waiting on StartPlan result ack")
+			case msg.ResultChan <- nil:
+			}
+
+		case msg, ok := <-db.stopPlanChan:
+			// Check invalid state
 			if !ok {
 				return errors.New("invalid state: sabotageDB had stopPlanChan closed")
 			}
-			// Pending
-			continue
+			// Check plan is present
+			_, ok = db.plans[msg.name]
+			if !ok {
+				select {
+				case <-ctx.Done():
+					return errors.New("terminated while waiting on StopPlan result ack")
+				case msg.ResultChan <- errors.New("invalid plan name: not found"):
+				}
+				continue
+			}
+
+			// Check plan is running so that we stop it and remove it from running plans
+			stopPlan, ok := db.runningPlans[msg.name]
+
+			if !ok {
+				select {
+				case <-ctx.Done():
+					return errors.New("terminated while waiting on StopPlan result ack")
+				case msg.ResultChan <- fmt.Errorf("plan is not running"):
+				}
+			}
+
+			err := stopPlan()
+			// Check stop plan did not fail
+			if err != nil {
+				select {
+				case <-ctx.Done():
+					return errors.New("terminated while waiting on StopPlan result ack")
+				case msg.ResultChan <- fmt.Errorf("plan could not be stopped: %w", err):
+				}
+				continue
+			}
+
+			// Remove plan from running state
+			delete(db.runningPlans, msg.name)
+
+			// Notify back success
+			select {
+			case <-ctx.Done():
+				return errors.New("terminated while waiting on StopPlan result ack")
+			case msg.ResultChan <- nil:
+			}
+
 		case registerMsg, ok := <-db.registerSignaler:
-			// Handle registration message sent by a node that was
-			// configured to crash on command.
 			if !ok {
 				return errors.New("invalid state: sabotageDB had registerSignaler channel closed")
 			}
 
 			var saboteur *saboteurNode
 			if saboteur, ok = db.saboteurs[registerMsg.SubtreeName]; !ok {
-				// Create new saboteur node
+				// Create saboteur node for the first time
 				saboteur = &saboteurNode{
 					startCount: 0,
 					signaler:   make(errSignaler),
@@ -163,10 +321,11 @@ func (db *sabotageDB) stateLoop(ctx context.Context, _ cap.Spawner) error {
 				db.saboteurs[registerMsg.SubtreeName] = saboteur
 			}
 
+			// Increase saboteur node start count
 			saboteur.startCount++
 			select {
 			case <-ctx.Done():
-				return nil
+				return errors.New("terminated while waiting on saboteur registration")
 			case registerMsg.ResultChan <- saboteur.signaler:
 			}
 		}

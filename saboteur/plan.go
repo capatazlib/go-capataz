@@ -1,6 +1,14 @@
 package saboteur
 
-import "context"
+import (
+	"context"
+
+	"github.com/capatazlib/go-capataz/cap"
+)
+
+func (sp *sabotagePlan) toNode() cap.Node {
+	return cap.NewWorker(sp.name, sp.stateLoop)
+}
 
 func (sp *sabotagePlan) stateLoop(ctx context.Context) error {
 	// Implementation Pending
