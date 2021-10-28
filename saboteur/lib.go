@@ -22,6 +22,8 @@ type errSignaler = chan error
 type sabotagePlan struct {
 	// name of the plan for manipulation from CLI
 	name planName
+	// name of the subtree
+	subtreeName nodeName
 	// Time the sabotage plan will last (if 0, indefinitely)
 	duration time.Duration
 	// Duration between sabotage attempts (defaults to every minute)
@@ -53,9 +55,9 @@ type listSaboteurNodes struct {
 	ResultChan chan (chan []nodeName)
 }
 
-// listSabotagePlans lists all the plans that have been defined
-type listSabotagePlans struct {
-	ResultChan chan (chan []planName)
+// listSabotagePlansMsg lists all the plans that have been defined
+type listSabotagePlansMsg struct {
+	ResultChan chan []sabotagePlan
 }
 
 // insertSabotagePlanMsg adds a sabotage plan to sabotageDB.
@@ -92,6 +94,7 @@ type stopSabotagePlanMsg struct {
 type sabotageDB struct {
 	// Channel used to register saboteur workers in the sabotageDB
 	registerSignaler chan registerSaboteurMsg
+	listPlansChan    chan listSabotagePlansMsg
 	insertPlanChan   chan insertSabotagePlanMsg
 	rmPlanChan       chan rmSabotagePlanMsg
 	startPlanChan    chan startSabotagePlanMsg
