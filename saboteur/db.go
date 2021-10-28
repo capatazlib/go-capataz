@@ -18,7 +18,9 @@ func (db *sabotageDB) InsertPlan(
 	period time.Duration,
 	attempts uint32,
 ) error {
-	resultChan := make(chan error)
+	resultChan := make(chan error, 1)
+	defer close(resultChan)
+
 	msg := insertSabotagePlanMsg{
 		name:        name,
 		subtreeName: subtreeName,
@@ -56,7 +58,9 @@ func (db *sabotageDB) RemovePlan(
 	ctx context.Context,
 	name planName,
 ) error {
-	resultChan := make(chan error)
+	resultChan := make(chan error, 1)
+	defer close(resultChan)
+
 	msg := rmSabotagePlanMsg{
 		name:       name,
 		ResultChan: resultChan,
@@ -80,7 +84,9 @@ func (db *sabotageDB) StartPlan(
 	ctx context.Context,
 	name planName,
 ) error {
-	resultChan := make(chan error)
+	resultChan := make(chan error, 1)
+	defer close(resultChan)
+
 	msg := startSabotagePlanMsg{
 		name:       name,
 		ResultChan: resultChan,
@@ -104,7 +110,9 @@ func (db *sabotageDB) StopPlan(
 	ctx context.Context,
 	name planName,
 ) error {
-	resultChan := make(chan error)
+	resultChan := make(chan error, 1)
+	defer close(resultChan)
+
 	msg := stopSabotagePlanMsg{
 		name:       name,
 		ResultChan: resultChan,
