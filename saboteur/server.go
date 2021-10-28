@@ -77,6 +77,7 @@ func (s *Server) listPlans(response http.ResponseWriter, request *http.Request) 
 				Duration:    p.duration,
 				Period:      p.period,
 				Attempts:    uint32(p.maxAttempts),
+				Running:     p.running,
 			},
 		)
 	}

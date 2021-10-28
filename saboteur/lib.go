@@ -34,6 +34,13 @@ type sabotagePlan struct {
 	node *saboteurNode
 }
 
+// sabotagePlanWithRunningStatus is a sabotagePlan that includes an indication
+// of if it is currently running
+type sabotagePlanWithRunningStatus struct {
+	sabotagePlan
+	running bool
+}
+
 // saboteurNode is metadata entry of a running capataz subtree.
 type saboteurNode struct {
 	// number of times the node has registered a start
@@ -57,7 +64,7 @@ type listSaboteurNodes struct {
 
 // listSabotagePlansMsg lists all the plans that have been defined
 type listSabotagePlansMsg struct {
-	ResultChan chan []sabotagePlan
+	ResultChan chan []sabotagePlanWithRunningStatus
 }
 
 // insertSabotagePlanMsg adds a sabotage plan to sabotageDB.

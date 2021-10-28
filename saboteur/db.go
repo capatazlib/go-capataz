@@ -12,8 +12,8 @@ import (
 // ListPlans inserts a sabotage plan in this sabotageDB
 func (db *sabotageDB) ListPlans(
 	ctx context.Context,
-) ([]sabotagePlan, error) {
-	resultChan := make(chan []sabotagePlan, 1)
+) ([]sabotagePlanWithRunningStatus, error) {
+	resultChan := make(chan []sabotagePlanWithRunningStatus, 1)
 	defer close(resultChan)
 
 	msg := listSabotagePlansMsg{
@@ -168,9 +168,13 @@ func (db *sabotageDB) stateLoop(ctx context.Context, spawner cap.Spawner) error 
 			if !ok {
 				return errors.New("invalid state: sabotageDB had listPlansChan closed")
 			}
-			plans := make([]sabotagePlan, 0, len(db.plans))
+			plans := make([]sabotagePlanWithRunningStatus, 0, len(db.plans))
 			for _, p := range db.plans {
-				plans = append(plans, *p)
+				_, running := db.runningPlans[p.name]
+				plans = append(plans, sabotagePlanWithRunningStatus{
+					sabotagePlan: *p,
+					running:      running,
+				})
 			}
 			msg.ResultChan <- plans
 

@@ -14,6 +14,7 @@ type Plan struct {
 	Duration    time.Duration `json:"duration"`
 	Period      time.Duration `json:"period"`
 	Attempts    uint32        `json:"attempts"`
+	Running     bool          `json:"running"`
 }
 
 // Plans represents a list of saboteur plans
