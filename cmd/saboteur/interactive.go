@@ -106,14 +106,18 @@ func interactive(c *cli.Context) error {
 		_, y := v.Cursor()
 		_, yy := v.Origin()
 		n := y + yy
+		if n >= len(ui.plans) {
+			// Cursor is below bottom of the list
+			return nil
+		}
 		plan := ui.plans[n]
 		if plan.Running {
-			err := start(plan.Name)
+			err := stop(plan.Name)
 			if err != nil {
 				return err
 			}
 		} else {
-			err := stop(plan.Name)
+			err := start(plan.Name)
 			if err != nil {
 				return err
 			}
@@ -155,13 +159,13 @@ func (ui *UI) layout(g *gocui.Gui) error {
 			return err
 		}
 	}
-	if v, err := g.SetView("nodes", -1, 3, 25, maxY); err != nil {
+	if v, err := g.SetView("nodes", -1, 3, 50, maxY); err != nil {
 		if err != gocui.ErrUnknownView {
 			return err
 		}
 		v.Title = "nodes"
 	}
-	if v, err := g.SetView("plans", 25, 3, maxX, maxY); err != nil {
+	if v, err := g.SetView("plans", 50, 3, maxX, maxY); err != nil {
 		if err != gocui.ErrUnknownView {
 			return err
 		}
@@ -190,8 +194,8 @@ func (ui *UI) update(g *gocui.Gui) error {
 	v, _ := g.View("top")
 	v.Clear()
 	fmt.Fprintln(v, `"q" or CTRL-C to quit`)
-	fmt.Fprintf(v, `"a" to add a plan\t"r" to refresh (auto refresh every %s)\n`, ui.refreshInterval.String())
-	fmt.Fprintln(v, `TAB to start/stop a plan`)
+	fmt.Fprintf(v, "\"r\" to refresh (auto refresh every %s)\n", ui.refreshInterval.String())
+	fmt.Fprintln(v, `SPACE to start/stop a plan`)
 
 	v, _ = g.View("plans")
 	v.Clear()
