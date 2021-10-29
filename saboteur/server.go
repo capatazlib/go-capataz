@@ -3,10 +3,10 @@ package saboteur
 import (
 	"context"
 	"encoding/json"
-	"log"
 	"net"
 	"net/http"
 
+	"github.com/capatazlib/go-capataz/cap"
 	"github.com/capatazlib/go-capataz/saboteur/api"
 	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
@@ -20,7 +20,7 @@ func NewServer(db *sabotageDB) *Server {
 }
 
 // Listen starts a HTTP server on the provided host and port
-func (s *Server) Listen(host string, port string) {
+func (s *Server) Listen(host string, port string) []cap.Node {
 	r := mux.NewRouter()
 	r.HandleFunc("/nodes", s.listNodes).Methods("GET")
 	r.HandleFunc("/plans", s.listPlans).Methods("GET")
@@ -33,16 +33,30 @@ func (s *Server) Listen(host string, port string) {
 	})
 	http.Handle("/", handler)
 
-	// TODO allow injecting logger
-	logrus.WithFields(logrus.Fields{
-		"host": host,
-		"port": port,
-	}).Info("saboteur HTTP server starting")
-
-	err := http.ListenAndServe(net.JoinHostPort(host, port), nil)
-	if err != nil {
-		log.Fatal("ListenAndServe: ", err)
+	server := http.Server{
+		Addr:    net.JoinHostPort(host, port),
+		Handler: handler,
 	}
+	nodes := []cap.Node{
+		cap.NewWorker("http-server", func(context.Context) error {
+			// TODO allow injecting logger
+			logrus.WithFields(logrus.Fields{
+				"host": host,
+				"port": port,
+			}).Info("saboteur HTTP server starting")
+			return server.ListenAndServe()
+		}),
+		cap.NewWorker("http-server-shutdown", func(ctx context.Context) error {
+			// TODO allow injecting logger
+			logrus.WithFields(logrus.Fields{
+				"host": host,
+				"port": port,
+			}).Info("saboteur HTTP server stopping")
+			return server.Shutdown(ctx)
+		}),
+	}
+
+	return nodes
 }
 
 func handleError(resp http.ResponseWriter, err error, code int) {

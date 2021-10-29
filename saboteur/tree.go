@@ -1,12 +1,16 @@
 package saboteur
 
-import "github.com/capatazlib/go-capataz/cap"
+import (
+	"github.com/capatazlib/go-capataz/cap"
+)
 
 // NewSaboteurManager creates a subtree that runs workers that trigger sabotage
 // plans in nodes that get created using the WorkerGenerator.
 //
 // @since 0.2.1
 func NewSaboteurManager(
+	host string,
+	port string,
 	opts ...cap.Opt,
 ) (WorkerGenerator, cap.SupervisorSpec) {
 	// The state is created outside the supervision tree as we rely on the
@@ -35,7 +39,7 @@ func NewSaboteurManager(
 				[]cap.Opt{},
 			)
 
-			// TODO: create server node here
+			serverNodes := NewServer(db).Listen(host, port)
 
 			cleanupFn := func() error {
 				// Remove all running plan data on a supervisor
@@ -46,7 +50,7 @@ func NewSaboteurManager(
 				return nil
 			}
 
-			return []cap.Node{dbNode}, cleanupFn, nil
+			return append(serverNodes, dbNode), cleanupFn, nil
 		},
 		opts...,
 	)
