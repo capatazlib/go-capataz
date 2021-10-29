@@ -21,3 +21,13 @@ type Plan struct {
 type Plans struct {
 	Plans []Plan `json:"plans"`
 }
+
+// Node represents a supervison tree node
+type Node struct {
+	Name string `json:"name"`
+}
+
+// Nodes represents a list of nodes
+type Nodes struct {
+	Nodes []Node `json:"nodes"`
+}

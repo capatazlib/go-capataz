@@ -22,6 +22,7 @@ func NewServer(db *sabotageDB) *Server {
 // Listen starts a HTTP server on the provided host and port
 func (s *Server) Listen(host string, port string) {
 	r := mux.NewRouter()
+	r.HandleFunc("/nodes", s.listNodes).Methods("GET")
 	r.HandleFunc("/plans", s.listPlans).Methods("GET")
 	r.HandleFunc("/plans", s.insertPlan).Methods("POST")
 	r.HandleFunc("/plans/{name}", s.removePlan).Methods("DELETE")
@@ -48,6 +49,41 @@ func handleError(resp http.ResponseWriter, err error, code int) {
 	data, _ := json.Marshal(api.Error{Error: err.Error()})
 	resp.Header().Set("Content-Type", "application/json")
 	http.Error(resp, string(data), code)
+}
+
+func (s *Server) listNodes(response http.ResponseWriter, request *http.Request) {
+	var err error
+	ctx := context.Background()
+
+	p := api.Node{}
+	err = json.NewDecoder(request.Body).Decode(&p)
+	if err != nil {
+		handleError(response, err, http.StatusBadRequest)
+		return
+	}
+
+	nodes, err := s.db.ListNodes(ctx)
+	if err != nil {
+		handleError(response, err, http.StatusInternalServerError)
+		return
+	}
+	ns := api.Nodes{
+		Nodes: make([]api.Node, len(nodes)),
+	}
+	for _, n := range nodes {
+		ns.Nodes = append(ns.Nodes, api.Node{Name: n})
+	}
+	data, err := json.Marshal(ns)
+	if err != nil {
+		handleError(response, err, http.StatusInternalServerError)
+		return
+	}
+
+	response.Header().Set("Content-Type", "application/json")
+	_, err = response.Write(data)
+	if err != nil {
+		logrus.Warn("ListNodes: failed to write headers to client", err)
+	}
 }
 
 func (s *Server) listPlans(response http.ResponseWriter, request *http.Request) {

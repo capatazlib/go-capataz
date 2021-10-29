@@ -20,9 +20,12 @@ func main() {
 	app.Name = "saboteur"
 	app.Commands = []*cli.Command{
 		{
-			Name:    "list",
-			Aliases: []string{"ls"},
-			Action:  list,
+			Name:   "nodes",
+			Action: listPlans,
+		},
+		{
+			Name:   "plans",
+			Action: listPlans,
 		},
 		{
 			Name:   "add",
@@ -93,7 +96,21 @@ func main() {
 	app.Run(os.Args)
 }
 
-func list(c *cli.Context) error {
+func listNodes(c *cli.Context) error {
+	resp, err := http.Get(fmt.Sprintf("%s/nodes", hostname))
+	if err := checkResp(err, resp, http.StatusOK, "list nodes"); err != nil {
+		return err
+	}
+	nodes := api.Nodes{}
+	err = json.NewDecoder(resp.Body).Decode(&nodes)
+	if err != nil {
+		return errorf("failed to decode nodes: %s", err)
+	}
+	fmt.Println(nodes)
+	return nil
+}
+
+func listPlans(c *cli.Context) error {
 	resp, err := http.Get(fmt.Sprintf("%s/plans", hostname))
 	if err := checkResp(err, resp, http.StatusOK, "list plans"); err != nil {
 		return err

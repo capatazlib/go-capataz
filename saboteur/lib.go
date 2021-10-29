@@ -56,10 +56,10 @@ type registerSaboteurMsg struct {
 	ResultChan  chan errSignaler
 }
 
-// listSaboteurNodes lists all the discovered nodes that sabotageDB has
+// listSaboteurNodesMsg lists all the discovered nodes that sabotageDB has
 // discovered.
-type listSaboteurNodes struct {
-	ResultChan chan (chan []nodeName)
+type listSaboteurNodesMsg struct {
+	ResultChan chan []nodeName
 }
 
 // listSabotagePlansMsg lists all the plans that have been defined
@@ -101,6 +101,7 @@ type stopSabotagePlanMsg struct {
 type sabotageDB struct {
 	// Channel used to register saboteur workers in the sabotageDB
 	registerSignaler chan registerSaboteurMsg
+	listNodesChan    chan listSaboteurNodesMsg
 	listPlansChan    chan listSabotagePlansMsg
 	insertPlanChan   chan insertSabotagePlanMsg
 	rmPlanChan       chan rmSabotagePlanMsg

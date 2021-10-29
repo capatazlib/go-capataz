@@ -9,6 +9,30 @@ import (
 	"github.com/capatazlib/go-capataz/cap"
 )
 
+// ListNodes inserts a sabotage node in this sabotageDB
+func (db *sabotageDB) ListNodes(
+	ctx context.Context,
+) ([]string, error) {
+	resultChan := make(chan []nodeName, 1)
+	defer close(resultChan)
+
+	msg := listSaboteurNodesMsg{
+		ResultChan: resultChan,
+	}
+	select {
+	case <-ctx.Done():
+		return nil, fmt.Errorf("ListNodes could not talk to sabotageDB: %w", ctx.Err())
+	case db.listNodesChan <- msg:
+	}
+
+	select {
+	case <-ctx.Done():
+		return nil, fmt.Errorf("sabotageDB did not reply back to ListNodes: %w", ctx.Err())
+	case nodes := <-resultChan:
+		return nodes, nil
+	}
+}
+
 // ListPlans inserts a sabotage plan in this sabotageDB
 func (db *sabotageDB) ListPlans(
 	ctx context.Context,
@@ -162,6 +186,18 @@ func (db *sabotageDB) stateLoop(ctx context.Context, spawner cap.Spawner) error 
 		select {
 		case <-ctx.Done():
 			return nil
+
+		case msg, ok := <-db.listNodesChan:
+			// Check invalid state
+			if !ok {
+				return errors.New("invalid state: sabotageDB had listNodesChan closed")
+			}
+
+			nodes := make([]string, 0, len(db.saboteurs))
+			for n := range db.saboteurs {
+				nodes = append(nodes, n)
+			}
+			msg.ResultChan <- nodes
 
 		case msg, ok := <-db.listPlansChan:
 			// Check invalid state
