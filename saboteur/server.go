@@ -76,7 +76,7 @@ func (s *Server) listNodes(response http.ResponseWriter, request *http.Request) 
 		return
 	}
 	ns := api.Nodes{
-		Nodes: make([]api.Node, len(nodes)),
+		Nodes: make([]api.Node, 0, len(nodes)),
 	}
 	for _, n := range nodes {
 		ns.Nodes = append(ns.Nodes, api.Node{Name: n})
@@ -104,7 +104,7 @@ func (s *Server) listPlans(response http.ResponseWriter, request *http.Request) 
 		return
 	}
 	ps := api.Plans{
-		Plans: make([]api.Plan, len(plans)),
+		Plans: make([]api.Plan, 0, len(plans)),
 	}
 	for _, p := range plans {
 		ps.Plans = append(ps.Plans,
