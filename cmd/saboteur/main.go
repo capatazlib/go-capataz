@@ -37,7 +37,7 @@ func main() {
 			Action: func(c *cli.Context) error {
 				nodes, err := listNodes()
 				if err == nil {
-					fmt.Println(nodes)
+					fmt.Printf("%+v\n", nodes)
 				}
 				return err
 			},
@@ -47,7 +47,7 @@ func main() {
 			Action: func(c *cli.Context) error {
 				plans, err := listPlans()
 				if err == nil {
-					fmt.Println(plans)
+					fmt.Printf("%+v\n", plans)
 				}
 				return err
 			},
