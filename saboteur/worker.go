@@ -2,16 +2,17 @@ package saboteur
 
 import (
 	"context"
+	"errors"
 	"strings"
 
 	"github.com/capatazlib/go-capataz/cap"
 )
 
 func (db *sabotageDB) registerNode(ctx context.Context, subtreeName string) errSignaler {
-	errSignalerChan := make(chan errSignaler)
+	resultChan := make(chan errSignaler, 1)
 	msg := registerSaboteurMsg{
 		SubtreeName: subtreeName,
-		ResultChan:  errSignalerChan,
+		ResultChan:  resultChan,
 	}
 
 	// Send new node registration to sabotageDB
@@ -25,7 +26,7 @@ func (db *sabotageDB) registerNode(ctx context.Context, subtreeName string) errS
 	select {
 	case <-ctx.Done():
 		return nil
-	case signaler := <-errSignalerChan:
+	case signaler := <-resultChan:
 		return signaler
 	}
 }
@@ -39,6 +40,7 @@ func (db *sabotageDB) GenWorker() cap.Node {
 			// wait for termination. This branch is unlikely to
 			// happen.
 			if !ok {
+				notifyStart(nil)
 				<-ctx.Done()
 				return nil
 			}
@@ -52,6 +54,7 @@ func (db *sabotageDB) GenWorker() cap.Node {
 
 			// returns nil when context.Context is done
 			if errSignaler == nil {
+				notifyStart(errors.New("could not receive a response from sabotageDB"))
 				return nil
 			}
 
