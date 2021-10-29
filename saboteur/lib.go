@@ -22,6 +22,8 @@ type errSignaler = chan error
 type sabotagePlan struct {
 	// name of the plan for manipulation from CLI
 	name planName
+	// name of the subtree
+	subtreeName nodeName
 	// Time the sabotage plan will last (if 0, indefinitely)
 	duration time.Duration
 	// Duration between sabotage attempts (defaults to every minute)
@@ -30,6 +32,13 @@ type sabotagePlan struct {
 	maxAttempts int32
 	// node were sabotage is going to be sent
 	node *saboteurNode
+}
+
+// sabotagePlanWithRunningStatus is a sabotagePlan that includes an indication
+// of if it is currently running
+type sabotagePlanWithRunningStatus struct {
+	sabotagePlan
+	running bool
 }
 
 // saboteurNode is metadata entry of a running capataz subtree.
@@ -47,15 +56,15 @@ type registerSaboteurMsg struct {
 	ResultChan  chan errSignaler
 }
 
-// listSaboteurNodes lists all the discovered nodes that sabotageDB has
+// listSaboteurNodesMsg lists all the discovered nodes that sabotageDB has
 // discovered.
-type listSaboteurNodes struct {
-	ResultChan chan (chan []nodeName)
+type listSaboteurNodesMsg struct {
+	ResultChan chan []nodeName
 }
 
-// listSabotagePlans lists all the plans that have been defined
-type listSabotagePlans struct {
-	ResultChan chan (chan []planName)
+// listSabotagePlansMsg lists all the plans that have been defined
+type listSabotagePlansMsg struct {
+	ResultChan chan []sabotagePlanWithRunningStatus
 }
 
 // insertSabotagePlanMsg adds a sabotage plan to sabotageDB.
@@ -92,6 +101,8 @@ type stopSabotagePlanMsg struct {
 type sabotageDB struct {
 	// Channel used to register saboteur workers in the sabotageDB
 	registerSignaler chan registerSaboteurMsg
+	listNodesChan    chan listSaboteurNodesMsg
+	listPlansChan    chan listSabotagePlansMsg
 	insertPlanChan   chan insertSabotagePlanMsg
 	rmPlanChan       chan rmSabotagePlanMsg
 	startPlanChan    chan startSabotagePlanMsg

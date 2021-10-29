@@ -9,6 +9,54 @@ import (
 	"github.com/capatazlib/go-capataz/cap"
 )
 
+// ListNodes inserts a sabotage node in this sabotageDB
+func (db *sabotageDB) ListNodes(
+	ctx context.Context,
+) ([]string, error) {
+	resultChan := make(chan []nodeName, 1)
+	defer close(resultChan)
+
+	msg := listSaboteurNodesMsg{
+		ResultChan: resultChan,
+	}
+	select {
+	case <-ctx.Done():
+		return nil, fmt.Errorf("ListNodes could not talk to sabotageDB: %w", ctx.Err())
+	case db.listNodesChan <- msg:
+	}
+
+	select {
+	case <-ctx.Done():
+		return nil, fmt.Errorf("sabotageDB did not reply back to ListNodes: %w", ctx.Err())
+	case nodes := <-resultChan:
+		return nodes, nil
+	}
+}
+
+// ListPlans inserts a sabotage plan in this sabotageDB
+func (db *sabotageDB) ListPlans(
+	ctx context.Context,
+) ([]sabotagePlanWithRunningStatus, error) {
+	resultChan := make(chan []sabotagePlanWithRunningStatus, 1)
+	defer close(resultChan)
+
+	msg := listSabotagePlansMsg{
+		ResultChan: resultChan,
+	}
+	select {
+	case <-ctx.Done():
+		return nil, fmt.Errorf("ListPlans could not talk to sabotageDB: %w", ctx.Err())
+	case db.listPlansChan <- msg:
+	}
+
+	select {
+	case <-ctx.Done():
+		return nil, fmt.Errorf("sabotageDB did not reply back to ListPlans: %w", ctx.Err())
+	case plans := <-resultChan:
+		return plans, nil
+	}
+}
+
 // InsertPlan inserts a sabotage plan in this sabotageDB
 func (db *sabotageDB) InsertPlan(
 	ctx context.Context,
@@ -46,6 +94,7 @@ func (db *sabotageDB) InsertPlan(
 func (msg *insertSabotagePlanMsg) toPlan(node *saboteurNode) *sabotagePlan {
 	return &sabotagePlan{
 		name:        msg.name,
+		subtreeName: msg.subtreeName,
 		duration:    msg.duration,
 		period:      msg.period,
 		maxAttempts: int32(msg.attempts),
@@ -137,6 +186,33 @@ func (db *sabotageDB) stateLoop(ctx context.Context, spawner cap.Spawner) error 
 		select {
 		case <-ctx.Done():
 			return nil
+
+		case msg, ok := <-db.listNodesChan:
+			// Check invalid state
+			if !ok {
+				return errors.New("invalid state: sabotageDB had listNodesChan closed")
+			}
+
+			nodes := make([]string, 0, len(db.saboteurs))
+			for n := range db.saboteurs {
+				nodes = append(nodes, n)
+			}
+			msg.ResultChan <- nodes
+
+		case msg, ok := <-db.listPlansChan:
+			// Check invalid state
+			if !ok {
+				return errors.New("invalid state: sabotageDB had listPlansChan closed")
+			}
+			plans := make([]sabotagePlanWithRunningStatus, 0, len(db.plans))
+			for _, p := range db.plans {
+				_, running := db.runningPlans[p.name]
+				plans = append(plans, sabotagePlanWithRunningStatus{
+					sabotagePlan: *p,
+					running:      running,
+				})
+			}
+			msg.ResultChan <- plans
 
 		case msg, ok := <-db.insertPlanChan:
 			// Check invalid state
