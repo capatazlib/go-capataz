@@ -31,6 +31,7 @@ func (db *sabotageDB) registerNode(ctx context.Context, subtreeName string) errS
 	}
 }
 
+// GenWorker creates a new saboteur worker that will fail on demand.
 func (db *sabotageDB) GenWorker() cap.Node {
 	return cap.NewWorkerWithNotifyStart(
 		"saboteur-worker",
@@ -69,5 +70,6 @@ func (db *sabotageDB) GenWorker() cap.Node {
 				// Wait for sabotage signal and return error
 				return err
 			}
-		})
+		},
+	)
 }

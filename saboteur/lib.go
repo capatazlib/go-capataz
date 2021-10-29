@@ -2,6 +2,8 @@ package saboteur
 
 import (
 	"time"
+
+	"github.com/capatazlib/go-capataz/cap"
 )
 
 // planName is a human-readable name provided by API users to identify sabotage
@@ -117,4 +119,11 @@ type sabotageDB struct {
 // Server is a HTTP server that allows us to interact to sabotageDB
 type Server struct {
 	db *sabotageDB
+}
+
+// WorkerGenerator generates worker nodes that trigger errors on demand.
+//
+// @since 0.2.1
+type WorkerGenerator interface {
+	GenWorker() cap.Node
 }

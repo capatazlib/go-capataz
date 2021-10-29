@@ -3,10 +3,10 @@ package saboteur
 import (
 	"context"
 	"encoding/json"
-	"log"
 	"net"
 	"net/http"
 
+	"github.com/capatazlib/go-capataz/cap"
 	"github.com/capatazlib/go-capataz/saboteur/api"
 	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
@@ -20,7 +20,7 @@ func NewServer(db *sabotageDB) *Server {
 }
 
 // Listen starts a HTTP server on the provided host and port
-func (s *Server) Listen(host string, port string) {
+func (s *Server) Listen(host string, port string) []cap.Node {
 	r := mux.NewRouter()
 	r.HandleFunc("/nodes", s.listNodes).Methods("GET")
 	r.HandleFunc("/plans", s.listPlans).Methods("GET")
@@ -33,16 +33,31 @@ func (s *Server) Listen(host string, port string) {
 	})
 	http.Handle("/", handler)
 
-	// TODO allow injecting logger
-	logrus.WithFields(logrus.Fields{
-		"host": host,
-		"port": port,
-	}).Info("saboteur HTTP server starting")
-
-	err := http.ListenAndServe(net.JoinHostPort(host, port), nil)
-	if err != nil {
-		log.Fatal("ListenAndServe: ", err)
+	server := http.Server{
+		Addr:    net.JoinHostPort(host, port),
+		Handler: handler,
 	}
+	nodes := []cap.Node{
+		cap.NewWorker("http-server", func(context.Context) error {
+			// TODO allow injecting logger
+			logrus.WithFields(logrus.Fields{
+				"host": host,
+				"port": port,
+			}).Info("saboteur HTTP server starting")
+			return server.ListenAndServe()
+		}),
+		cap.NewWorker("http-server-shutdown", func(ctx context.Context) error {
+			<-ctx.Done()
+			// TODO allow injecting logger
+			logrus.WithFields(logrus.Fields{
+				"host": host,
+				"port": port,
+			}).Info("saboteur HTTP server stopping")
+			return server.Shutdown(ctx)
+		}),
+	}
+
+	return nodes
 }
 
 func handleError(resp http.ResponseWriter, err error, code int) {
@@ -55,20 +70,13 @@ func (s *Server) listNodes(response http.ResponseWriter, request *http.Request) 
 	var err error
 	ctx := context.Background()
 
-	p := api.Node{}
-	err = json.NewDecoder(request.Body).Decode(&p)
-	if err != nil {
-		handleError(response, err, http.StatusBadRequest)
-		return
-	}
-
 	nodes, err := s.db.ListNodes(ctx)
 	if err != nil {
 		handleError(response, err, http.StatusInternalServerError)
 		return
 	}
 	ns := api.Nodes{
-		Nodes: make([]api.Node, len(nodes)),
+		Nodes: make([]api.Node, 0, len(nodes)),
 	}
 	for _, n := range nodes {
 		ns.Nodes = append(ns.Nodes, api.Node{Name: n})
@@ -90,20 +98,13 @@ func (s *Server) listPlans(response http.ResponseWriter, request *http.Request) 
 	var err error
 	ctx := context.Background()
 
-	p := api.Plan{}
-	err = json.NewDecoder(request.Body).Decode(&p)
-	if err != nil {
-		handleError(response, err, http.StatusBadRequest)
-		return
-	}
-
 	plans, err := s.db.ListPlans(ctx)
 	if err != nil {
 		handleError(response, err, http.StatusInternalServerError)
 		return
 	}
 	ps := api.Plans{
-		Plans: make([]api.Plan, len(plans)),
+		Plans: make([]api.Plan, 0, len(plans)),
 	}
 	for _, p := range plans {
 		ps.Plans = append(ps.Plans,
