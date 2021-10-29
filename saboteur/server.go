@@ -70,13 +70,6 @@ func (s *Server) listNodes(response http.ResponseWriter, request *http.Request) 
 	var err error
 	ctx := context.Background()
 
-	p := api.Node{}
-	err = json.NewDecoder(request.Body).Decode(&p)
-	if err != nil {
-		handleError(response, err, http.StatusBadRequest)
-		return
-	}
-
 	nodes, err := s.db.ListNodes(ctx)
 	if err != nil {
 		handleError(response, err, http.StatusInternalServerError)
@@ -104,13 +97,6 @@ func (s *Server) listNodes(response http.ResponseWriter, request *http.Request) 
 func (s *Server) listPlans(response http.ResponseWriter, request *http.Request) {
 	var err error
 	ctx := context.Background()
-
-	p := api.Plan{}
-	err = json.NewDecoder(request.Body).Decode(&p)
-	if err != nil {
-		handleError(response, err, http.StatusBadRequest)
-		return
-	}
 
 	plans, err := s.db.ListPlans(ctx)
 	if err != nil {
