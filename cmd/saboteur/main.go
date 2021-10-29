@@ -208,12 +208,15 @@ func add(c *cli.Context) error {
 }
 
 func start(name string) error {
-	resp, err := http.Get(
+	resp, err := http.Post(
 		fmt.Sprintf(
 			"%s/plans/%s/start",
 			hostname,
 			name,
-		))
+		),
+		contentType,
+		nil,
+	)
 	if err := checkResp(err, resp, http.StatusNoContent, "start plan"); err != nil {
 		return err
 	}
@@ -221,12 +224,15 @@ func start(name string) error {
 }
 
 func stop(name string) error {
-	resp, err := http.Get(
+	resp, err := http.Post(
 		fmt.Sprintf(
 			"%s/plans/%s/stop",
 			hostname,
 			name,
-		))
+		),
+		contentType,
+		nil,
+	)
 	if err := checkResp(err, resp, http.StatusNoContent, "stop plan"); err != nil {
 		return err
 	}
