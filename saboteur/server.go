@@ -47,6 +47,7 @@ func (s *Server) Listen(host string, port string) []cap.Node {
 			return server.ListenAndServe()
 		}),
 		cap.NewWorker("http-server-shutdown", func(ctx context.Context) error {
+			<-ctx.Done()
 			// TODO allow injecting logger
 			logrus.WithFields(logrus.Fields{
 				"host": host,
