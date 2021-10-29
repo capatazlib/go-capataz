@@ -21,7 +21,7 @@ func main() {
 	app.Commands = []*cli.Command{
 		{
 			Name:   "nodes",
-			Action: listPlans,
+			Action: listNodes,
 		},
 		{
 			Name:   "plans",
