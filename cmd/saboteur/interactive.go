@@ -19,14 +19,15 @@ const (
 
 // UI represents an interactive UI
 type UI struct {
-	plans   []api.Plan
-	nodes   []api.Node
-	g       *gocui.Gui
-	refresh chan (interface{})
+	plans           []api.Plan
+	nodes           []api.Node
+	g               *gocui.Gui
+	refreshInterval time.Duration
+	refresh         chan (interface{})
 }
 
-func (ui *UI) loop(ctx context.Context, interval time.Duration) {
-	t := time.NewTicker(interval)
+func (ui *UI) loop(ctx context.Context) {
+	t := time.NewTicker(ui.refreshInterval)
 	defer t.Stop()
 	ui.g.Update(ui.fetchAndUpdate)
 	for {
@@ -63,11 +64,12 @@ func interactive(c *cli.Context) error {
 	}
 	defer g.Close()
 	ui := &UI{
-		g:       g,
-		refresh: make(chan interface{}, 1),
+		g:               g,
+		refreshInterval: c.Duration("refresh"),
+		refresh:         make(chan interface{}, 1),
 	}
 
-	go ui.loop(c.Context, c.Duration("refresh"))
+	go ui.loop(c.Context)
 
 	g.Cursor = true
 	g.SetManagerFunc(ui.layout)
@@ -116,6 +118,12 @@ func interactive(c *cli.Context) error {
 				return err
 			}
 		}
+		ui.refresh <- struct{}{}
+		return nil
+	}); err != nil {
+		return err
+	}
+	if err := g.SetKeybinding("plans", 'r', gocui.ModNone, func(cg *gocui.Gui, v *gocui.View) error {
 		ui.refresh <- struct{}{}
 		return nil
 	}); err != nil {
@@ -182,7 +190,7 @@ func (ui *UI) update(g *gocui.Gui) error {
 	v, _ := g.View("top")
 	v.Clear()
 	fmt.Fprintln(v, `"q" or CTRL-C to quit`)
-	fmt.Fprintln(v, `"a" to add a plan\t"r" to refresh`)
+	fmt.Fprintf(v, `"a" to add a plan\t"r" to refresh (auto refresh every %s)\n`, ui.refreshInterval.String())
 	fmt.Fprintln(v, `TAB to start/stop a plan`)
 
 	v, _ = g.View("plans")
