@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/urfave/cli/v2"
 
@@ -20,12 +21,36 @@ func main() {
 	app.Name = "saboteur"
 	app.Commands = []*cli.Command{
 		{
-			Name:   "nodes",
-			Action: listNodes,
+			Name:    "interactive",
+			Aliases: []string{"i"},
+			Action:  interactive,
+			Flags: []cli.Flag{
+				&cli.DurationFlag{
+					Name:        "refresh",
+					Value:       time.Second * 5,
+					DefaultText: "5s",
+				},
+			},
 		},
 		{
-			Name:   "plans",
-			Action: listPlans,
+			Name: "nodes",
+			Action: func(c *cli.Context) error {
+				nodes, err := listNodes()
+				if err == nil {
+					fmt.Println(nodes)
+				}
+				return err
+			},
+		},
+		{
+			Name: "plans",
+			Action: func(c *cli.Context) error {
+				plans, err := listPlans()
+				if err == nil {
+					fmt.Println(plans)
+				}
+				return err
+			},
 		},
 		{
 			Name:   "add",
@@ -64,8 +89,14 @@ func main() {
 			},
 		},
 		{
-			Name:   "start",
-			Action: start,
+			Name: "start",
+			Action: func(c *cli.Context) error {
+				err := start(c.String("name"))
+				if err == nil {
+					fmt.Println("started plan")
+				}
+				return err
+			},
 			Flags: []cli.Flag{
 				&cli.StringFlag{
 					Name:     "name",
@@ -74,8 +105,14 @@ func main() {
 			},
 		},
 		{
-			Name:   "stop",
-			Action: stop,
+			Name: "stop",
+			Action: func(c *cli.Context) error {
+				err := stop(c.String("name"))
+				if err == nil {
+					fmt.Println("stopped plan")
+				}
+				return err
+			},
 			Flags: []cli.Flag{
 				&cli.StringFlag{
 					Name:     "name",
@@ -96,32 +133,30 @@ func main() {
 	app.Run(os.Args)
 }
 
-func listNodes(c *cli.Context) error {
+func listNodes() (api.Nodes, error) {
+	nodes := api.Nodes{}
 	resp, err := http.Get(fmt.Sprintf("%s/nodes", hostname))
 	if err := checkResp(err, resp, http.StatusOK, "list nodes"); err != nil {
-		return err
+		return nodes, err
 	}
-	nodes := api.Nodes{}
 	err = json.NewDecoder(resp.Body).Decode(&nodes)
 	if err != nil {
-		return errorf("failed to decode nodes: %s", err)
+		return nodes, errorf("failed to decode nodes: %s", err)
 	}
-	fmt.Println(nodes)
-	return nil
+	return nodes, nil
 }
 
-func listPlans(c *cli.Context) error {
+func listPlans() (api.Plans, error) {
+	plans := api.Plans{}
 	resp, err := http.Get(fmt.Sprintf("%s/plans", hostname))
 	if err := checkResp(err, resp, http.StatusOK, "list plans"); err != nil {
-		return err
+		return plans, err
 	}
-	plans := api.Plans{}
 	err = json.NewDecoder(resp.Body).Decode(&plans)
 	if err != nil {
-		return errorf("failed to decode plans: %s", err)
+		return plans, errorf("failed to decode plans: %s", err)
 	}
-	fmt.Println(plans)
-	return nil
+	return plans, nil
 }
 
 func remove(c *cli.Context) error {
@@ -172,31 +207,29 @@ func add(c *cli.Context) error {
 	return nil
 }
 
-func start(c *cli.Context) error {
+func start(name string) error {
 	resp, err := http.Get(
 		fmt.Sprintf(
 			"%s/plans/%s/start",
 			hostname,
-			c.String("name"),
+			name,
 		))
 	if err := checkResp(err, resp, http.StatusNoContent, "start plan"); err != nil {
 		return err
 	}
-	fmt.Println("started plan")
 	return nil
 }
 
-func stop(c *cli.Context) error {
+func stop(name string) error {
 	resp, err := http.Get(
 		fmt.Sprintf(
 			"%s/plans/%s/stop",
 			hostname,
-			c.String("name"),
+			name,
 		))
 	if err := checkResp(err, resp, http.StatusNoContent, "stop plan"); err != nil {
 		return err
 	}
-	fmt.Println("stopped plan")
 	return nil
 }
 
