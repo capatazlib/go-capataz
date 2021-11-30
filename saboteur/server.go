@@ -3,7 +3,7 @@ package saboteur
 import (
 	"context"
 	"encoding/json"
-	"net"
+	"errors"
 	"net/http"
 
 	"github.com/capatazlib/go-capataz/cap"
@@ -13,14 +13,18 @@ import (
 )
 
 // NewServer create a new saboteur HTTP management server
-func NewServer(db *sabotageDB) *Server {
-	return &Server{
+func NewServer(ll logrus.FieldLogger, db *sabotageDB) *Server {
+	server := &Server{
+		ll: ll,
 		db: db,
 	}
+
+	return server
 }
 
-// Listen starts a HTTP server on the provided host and port
-func (s *Server) Listen(host string, port string) []cap.Node {
+// NewHTTPHandler creates a `http.Handler` with endpoints that access the
+// sabotage management system.
+func (s *Server) NewHTTPHandler() http.Handler {
 	r := mux.NewRouter()
 	r.HandleFunc("/nodes", s.listNodes).Methods("GET")
 	r.HandleFunc("/plans", s.listPlans).Methods("GET")
@@ -28,36 +32,49 @@ func (s *Server) Listen(host string, port string) []cap.Node {
 	r.HandleFunc("/plans/{name}", s.removePlan).Methods("DELETE")
 	r.HandleFunc("/plans/{name}/start", s.startPlan).Methods("POST")
 	r.HandleFunc("/plans/{name}/stop", s.stopPlan).Methods("POST")
-	handler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		r.ServeHTTP(w, req)
-	})
-	http.Handle("/", handler)
+	return r
+}
 
-	server := http.Server{
-		Addr:    net.JoinHostPort(host, port),
-		Handler: handler,
-	}
-	nodes := []cap.Node{
-		cap.NewWorker("http-server", func(context.Context) error {
-			// TODO allow injecting logger
-			logrus.WithFields(logrus.Fields{
-				"host": host,
-				"port": port,
-			}).Info("saboteur HTTP server starting")
-			return server.ListenAndServe()
-		}),
-		cap.NewWorker("http-server-shutdown", func(ctx context.Context) error {
-			<-ctx.Done()
-			// TODO allow injecting logger
-			logrus.WithFields(logrus.Fields{
-				"host": host,
-				"port": port,
-			}).Info("saboteur HTTP server stopping")
-			return server.Shutdown(ctx)
-		}),
+// NewHTTPNode builds a `cap.Node` that runs the given HTTP server.
+func (s *Server) NewHTTPNode(
+	server *http.Server,
+	certFilepath, keyFilepath string,
+	opts ...cap.WorkerOpt,
+) (cap.Node, error) {
+	if server.Addr == "" {
+		return nil, errors.New("invalid input: server's Address is empty")
 	}
 
-	return nodes
+	if server.Handler != nil {
+		return nil, errors.New("invalid input: server's http.Handler is already initialized")
+	}
+
+	handler := s.NewHTTPHandler()
+	server.Handler = handler
+
+	spec := cap.NewSupervisorSpec(
+		"http",
+		// Node order matters, server-shutdown should execute first on
+		// termination logic.
+		cap.WithNodes(
+			cap.NewWorker("server", func(context.Context) error {
+				// Run the server with an HTTPs configuration
+				if certFilepath != "" && keyFilepath != "" {
+					return server.ListenAndServeTLS(certFilepath, keyFilepath)
+				}
+				// Run the server without HTTPs
+				return server.ListenAndServe()
+			}),
+			cap.NewWorker("server-shutdown", func(ctx context.Context) error {
+				<-ctx.Done()
+				return server.Shutdown(ctx)
+			}),
+		),
+	)
+
+	node := cap.Subtree(spec, opts...)
+
+	return node, nil
 }
 
 func handleError(resp http.ResponseWriter, err error, code int) {
@@ -90,7 +107,7 @@ func (s *Server) listNodes(response http.ResponseWriter, request *http.Request) 
 	response.Header().Set("Content-Type", "application/json")
 	_, err = response.Write(data)
 	if err != nil {
-		logrus.Warn("ListNodes: failed to write headers to client", err)
+		s.ll.WithError(err).Warn("ListNodes: failed to write headers to client")
 	}
 }
 
@@ -127,7 +144,7 @@ func (s *Server) listPlans(response http.ResponseWriter, request *http.Request) 
 	response.Header().Set("Content-Type", "application/json")
 	_, err = response.Write(data)
 	if err != nil {
-		logrus.Warn("ListPlans: failed to write headers to client", err)
+		s.ll.WithError(err).Warn("ListPlans: failed to write headers to client")
 	}
 }
 
@@ -158,7 +175,7 @@ func (s *Server) insertPlan(response http.ResponseWriter, request *http.Request)
 	response.WriteHeader(http.StatusNoContent)
 	_, err = response.Write(nil)
 	if err != nil {
-		logrus.Warn("InsertPlan: failed to write headers to client", err)
+		s.ll.WithError(err).Warn("InsertPlan: failed to write headers to client")
 	}
 }
 
@@ -181,7 +198,7 @@ func (s *Server) removePlan(response http.ResponseWriter, request *http.Request)
 	response.WriteHeader(http.StatusNoContent)
 	_, err = response.Write(nil)
 	if err != nil {
-		logrus.Warn("RemovePlan: failed to write headers to client", err)
+		s.ll.WithError(err).Warn("RemovePlan: failed to write headers to client")
 	}
 }
 
@@ -204,7 +221,7 @@ func (s *Server) startPlan(response http.ResponseWriter, request *http.Request) 
 	response.WriteHeader(http.StatusNoContent)
 	_, err = response.Write(nil)
 	if err != nil {
-		logrus.Warn("StartPlan: failed to write headers to client", err)
+		s.ll.WithError(err).Warn("StartPlan: failed to write headers to client")
 	}
 }
 
@@ -227,6 +244,6 @@ func (s *Server) stopPlan(response http.ResponseWriter, request *http.Request) {
 	response.WriteHeader(http.StatusNoContent)
 	_, err = response.Write(nil)
 	if err != nil {
-		logrus.Warn("StopPlan: failed to write headers to client", err)
+		s.ll.WithError(err).Warn("StopPlan: failed to write headers to client")
 	}
 }

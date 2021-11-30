@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/capatazlib/go-capataz/cap"
+	"github.com/sirupsen/logrus"
 )
 
 // planName is a human-readable name provided by API users to identify sabotage
@@ -119,6 +120,7 @@ type sabotageDB struct {
 // Server is a HTTP server that allows us to interact to sabotageDB
 type Server struct {
 	db *sabotageDB
+	ll logrus.FieldLogger
 }
 
 // WorkerGenerator generates worker nodes that trigger errors on demand.
