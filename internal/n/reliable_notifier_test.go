@@ -245,6 +245,7 @@ func TestReliableNotifierSlowNotifier(t *testing.T) {
 		cap.WithNotifierTimeout(100*time.Microsecond),
 		cap.WithOnNotifierTimeout(timeoutCallback),
 		cap.WithNotifierBufferSize(1),
+		cap.WithEntrypointBufferSize(1),
 	)
 
 	// assert reliable notifier started without errors
