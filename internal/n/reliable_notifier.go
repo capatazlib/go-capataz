@@ -12,10 +12,17 @@ import (
 // rootName is the name of the ReliableNotifier supervisor root tree node
 var rootName = "reliable-notifier"
 
+const (
+	defaultEntrypointBufferSize    = 10
+	defaultNotifierBufferSize      = 10
+	defaultNotifierTimeoutDuration = 10 * time.Millisecond
+)
+
 // notifierSettings contains settings and callbacks for a ReliableNotifier
 // instance
 type notifierSettings struct {
 	entrypointBufferSize    uint
+	notifierBufferSize      uint
 	notifierTimeoutDuration time.Duration
 
 	onReliableNotifierFailure func(error)
@@ -30,12 +37,11 @@ type ReliableNotifierOpt func(*notifierSettings)
 // given event notifier. In the situation the notifierFn panics, the worker gets
 // restarted.
 func newNotifierWorker(
-	_ notifierSettings,
+	settings notifierSettings,
 	name string,
 	notifierFn s.EventNotifier,
 ) (chan s.Event, s.Node) {
-	// ch := make(chan s.Event, settings.notifierBufferSize)
-	ch := make(chan s.Event)
+	ch := make(chan s.Event, settings.notifierBufferSize)
 	return ch, s.NewWorker(
 		name,
 		func(ctx context.Context) error {
@@ -128,6 +134,21 @@ func WithNotifierTimeout(ts time.Duration) ReliableNotifierOpt {
 	}
 }
 
+// WithNotifierBufferSize sets the buffer size for each notifier.
+func WithNotifierBufferSize(n uint) ReliableNotifierOpt {
+	return func(settings *notifierSettings) {
+		settings.notifierBufferSize = n
+	}
+}
+
+// WithEntrypointBufferSize sets the buffer size for entrypoint of the reliable
+// notifier.
+func WithEntrypointBufferSize(n uint) ReliableNotifierOpt {
+	return func(settings *notifierSettings) {
+		settings.entrypointBufferSize = n
+	}
+}
+
 // notifyRootFailure builds an EventNotifier that executes the
 // onReliableNotifierFailure callback from the given notifierSettings
 func notifyRootFailure(settings notifierSettings) s.EventNotifier {
@@ -149,8 +170,9 @@ func NewReliableNotifier(
 
 	// default notifier settings
 	settings := notifierSettings{
-		entrypointBufferSize:      0,
-		notifierTimeoutDuration:   10 * time.Millisecond,
+		notifierBufferSize:        defaultNotifierBufferSize,
+		entrypointBufferSize:      defaultEntrypointBufferSize,
+		notifierTimeoutDuration:   defaultNotifierTimeoutDuration,
 		onReliableNotifierFailure: func(error) {},
 		onNotifierTimeout:         func(string) {},
 	}
@@ -161,8 +183,7 @@ func NewReliableNotifier(
 
 	// the entrypoint channel is built outside the "notifier supervision tree"
 	// given the chan is referenced from the outside.
-	// entrypointCh := make(chan s.Event, settings.entrypointBufferSize)
-	entrypointCh := make(chan s.Event)
+	entrypointCh := make(chan s.Event, settings.entrypointBufferSize)
 
 	//
 	reliableNotifierSpec := s.NewSupervisorSpec(

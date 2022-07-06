@@ -78,6 +78,17 @@ var WithOnNotifierTimeout = n.WithOnNotifierTimeout
 // since: 0.1.0
 var WithNotifierTimeout = n.WithNotifierTimeout
 
+// WithNotifierBufferSize sets the buffer size for each notifier.
+//
+// since: 0.3.0
+var WithNotifierBufferSize = n.WithNotifierBufferSize
+
+// WithEntrypointBufferSize sets the buffer size for entrypoint of the reliable
+// notifier.
+//
+// since: 0.3.0
+var WithEntrypointBufferSize = n.WithEntrypointBufferSize
+
 // WithOnReliableNotifierFailure sets a callback that gets executed when a
 // failure occurs on the event broadcasting logic. You need to ensure the given
 // callback does not block.
