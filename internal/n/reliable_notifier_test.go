@@ -223,7 +223,9 @@ func TestReliableNotifierSlowNotifier(t *testing.T) {
 	timeoutCallback := func(name string) {
 		assert.Equal(t, "slow", name)
 		current := atomic.LoadInt32(&callbackCounter)
-		if current < expectedCallbackCalls-1 {
+		// buffer size is set to 1, so expect one less timedout callback due to a
+		// notification sitting in the channel buffer
+		if current < expectedCallbackCalls-2 {
 			atomic.AddInt32(&callbackCounter, 1)
 			return
 		}
@@ -242,6 +244,8 @@ func TestReliableNotifierSlowNotifier(t *testing.T) {
 		// use a very small timeout to make the test run fast
 		cap.WithNotifierTimeout(100*time.Microsecond),
 		cap.WithOnNotifierTimeout(timeoutCallback),
+		cap.WithNotifierBufferSize(1),
+		cap.WithEntrypointBufferSize(1),
 	)
 
 	// assert reliable notifier started without errors
