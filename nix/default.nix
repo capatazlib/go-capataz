@@ -1,9 +1,4 @@
-{ pkgs,
-  go,
-  buildGoApplication ? pkgs.buildGoApplication,
-  lib                ? pkgs.lib }:
-
-assert lib.versionAtLeast go.version "1.17";
+_system: _inputs: { lib, buildGoApplication }:
 
 buildGoApplication {
   name = "go-capataz";
