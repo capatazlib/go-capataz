@@ -7,7 +7,7 @@ This implementation allows the creation of a root supervisor, sub-trees and
 workers; it also offers various error monitoring/restart strategies and start
 and shutdown ordering guarantees.
 
-Why Supervision Trees
+# Why Supervision Trees
 
 Goroutines are a great tool to solve many jobs, but, alone, they come with a few
 drawbacks:
@@ -36,7 +36,7 @@ altogether.
 Capataz offers a few types and functions that you need to learn upfront to be
 effective with it.
 
-Worker
+# Worker
 
 A worker is equivalent to a Goroutine. You create a worker using the NewWorker
 function
@@ -80,7 +80,7 @@ supervisor must wait at least 1 second to stop "my-worker" before giving up.
 All starts and stops of Worker goroutines are managed by its Supervisor, so you
 need to plug this worker into a SupervisorSpec in order to see it in action.
 
-SupervisorSpec
+# SupervisorSpec
 
 A supervisor spec is a specification of a supervision (sub-)tree. It is
 responsible for creating the Supervisor that will start, restart, and stop all
@@ -126,7 +126,7 @@ happening at build time. The actual allocation of resources comes at later step.
 
 We will use this SupervisorSpec to create a Supervisor value.
 
-Supervisor
+# Supervisor
 
 To create Supervisor, you need to call the Start method of a SupervisorSpec
 value
@@ -164,7 +164,7 @@ the Wait method
 
 	supErr := sup.Wait()
 
-Resources in Workers
+# Resources in Workers
 
 There are times when an IO resource belongs to a single worker, and it doesn't
 make sense to consider a worker "started" until this resource is allocated.
@@ -202,7 +202,6 @@ Lets use the NewWorkerWithNotifyStartFn function to model this behavior:
 		// Business Logic Here
 	}
 
-
 We have a Worker that is reponsible to send certain reports to a given channel
 that some consumer is going to use. The Worker goroutine is the only one
 accessing the database, so it is responsible for initializing it. It uses the
@@ -218,7 +217,7 @@ to communicate?
 
 For this, we need to manage resources in sub-trees.
 
-Resources in Sub-trees
+# Resources in Sub-trees
 
 For the example above, we could create the channel at the top-level of our
 application (main function) and pass them as arguments there; however, there is
@@ -276,12 +275,10 @@ If there is a restart of this supervisor, the cleanup function gets called, and
 the logic inside the BuildNodesFn gets called again, restarting this specific
 sub-system and without affecting other parts of the bigger system.
 
-Other Examples
+# Other Examples
 
-Check the examples directory in the Github repository for more examples
+# Check the examples directory in the Github repository for more examples
 
 https://github.com/capatazlib/go-capataz/tree/master/examples
-
-
 */
 package cap

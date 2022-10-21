@@ -29,19 +29,19 @@ func (s spawnerClient) Spawn(node Node) (func() error, error) {
 // NewDynSubtree builds a worker that receives a Spawner which allows it to
 // create more child workers dynamically in a sibling sub-tree.
 //
-// The runtime subtree is composed of a worker and a supervisor
+// # The runtime subtree is composed of a worker and a supervisor
 //
 // <name>
 // |
 // `- spawner (creates dynamic workers in sibling subtree)
 // |
 // `- subtree
-//    |
-//    `- <dynamic_worker>
+//
+//	|
+//	`- <dynamic_worker>
 //
 // Note: The Spawner is automatically managed by the supervision tree, so
 // clients are not required to terminate it explicitly.
-//
 func NewDynSubtree(
 	name string,
 	startFn func(context.Context, Spawner) error,

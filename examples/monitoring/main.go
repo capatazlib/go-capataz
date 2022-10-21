@@ -32,7 +32,6 @@ func stopOnSignal(sup cap.Supervisor) {
 // This API gives restart logic for any failures that happen in the goroutines
 // and also forces us to build our application as a group of sub-systems and
 // goroutine workers.
-//
 func main() {
 	// Setup the logging mechanisms
 	log, logEventNotifier := newLogEventNotifier()

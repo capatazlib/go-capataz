@@ -17,7 +17,6 @@ type Opt func(*SupervisorSpec)
 //
 // * RightToLeft -- Start children nodes from right to left, stop them from left
 // to right
-//
 func WithStartOrder(o Order) Opt {
 	return func(spec *SupervisorSpec) {
 		spec.order = o
@@ -41,7 +40,6 @@ var WithOrder = WithStartOrder
 //
 // [*] This option may come handy when all the other siblings depend on one another
 // to work correctly.
-//
 func WithStrategy(s Strategy) Opt {
 	return func(spec *SupervisorSpec) {
 		spec.strategy = s
@@ -54,7 +52,6 @@ func WithStrategy(s Strategy) Opt {
 // This function may be used to observe the behavior of all the supervisors in
 // the systems, and it is a great place to hook in monitoring services like
 // logging, error tracing and metrics gatherers
-//
 func WithNotifier(en EventNotifier) Opt {
 	return func(spec *SupervisorSpec) {
 		spec.eventNotifier = en
@@ -82,12 +79,11 @@ func WithNodes(nodes ...Node) BuildNodesFn {
 //
 // Example
 //
-//   // Tolerate 10 errors every 5 seconds
-//   //
-//   // - if there is 11 errors in a 5 second window, it makes the supervisor fail
-//   //
-//   WithRestartTolerance(10, 5 * time.Second)
-//
+//	// Tolerate 10 errors every 5 seconds
+//	//
+//	// - if there is 11 errors in a 5 second window, it makes the supervisor fail
+//	//
+//	WithRestartTolerance(10, 5 * time.Second)
 func WithRestartTolerance(maxErrCount uint32, errWindow time.Duration) Opt {
 	return func(spec *SupervisorSpec) {
 		spec.restartTolerance = restartTolerance{

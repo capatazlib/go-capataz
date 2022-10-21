@@ -478,7 +478,6 @@ func terminateSupervisor(
 //
 // 2) When called with the sync strategy, these callbacks will return the given
 // error, note this implementation returns the result of the callback calls
-//
 func runMonitorLoop(
 	supCtx context.Context,
 	supSpec SupervisorSpec,

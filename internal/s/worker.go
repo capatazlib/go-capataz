@@ -24,7 +24,7 @@ func childToNode(chSpec c.ChildSpec) Node {
 // NewWorker creates a Node that represents a worker goroutine. It requires two
 // arguments: a name that is used for runtime tracing and a startFn function.
 //
-// The name argument
+// # The name argument
 //
 // A name argument must not be empty nor contain forward slash characters (e.g.
 // /), otherwise, the system will panic[*].
@@ -32,7 +32,7 @@ func childToNode(chSpec c.ChildSpec) Node {
 // [*] This method is preferred as opposed to return an error given it is considered
 // a bad implementation (ideally a compilation error).
 //
-// The startFn argument
+// # The startFn argument
 //
 // The startFn function is where your business logic should be located. This
 // function will be running on a new supervised goroutine.
@@ -45,7 +45,6 @@ func childToNode(chSpec c.ChildSpec) Node {
 // worker, if the `startFn` function does not respect the given context, the
 // parent supervisor will either block forever or leak goroutines after a
 // timeout has been reached.
-//
 func NewWorker(name string, startFn func(context.Context) error, opts ...c.Opt) Node {
 	return childToNode(c.New(name, startFn, opts...))
 }
@@ -54,7 +53,7 @@ func NewWorker(name string, startFn func(context.Context) error, opts ...c.Opt) 
 // addition of passing an extra argument (notifyStart callback) to the startFn
 // function parameter.
 //
-// The NotifyStartFn argument
+// # The NotifyStartFn argument
 //
 // Sometimes you want to consider a goroutine started after certain
 // initialization was done; like doing a read from a Database or API, or some
@@ -65,13 +64,12 @@ func NewWorker(name string, startFn func(context.Context) error, opts ...c.Opt) 
 // as you consider the worker is initialized, otherwise the parent supervisor
 // will block and eventually fail with a timeout.
 //
-// Report a start error on NotifyStartFn
+// # Report a start error on NotifyStartFn
 //
 // If for some reason, a child node is not able to start correctly (e.g. DB
 // connection fails, network is kaput), the node may call the given
 // NotifyStartFn function with the impending error as a parameter. This will
 // cause the whole supervision system start procedure to abort.
-//
 func NewWorkerWithNotifyStart(
 	name string,
 	startFn func(context.Context, NotifyStartFn) error,

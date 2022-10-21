@@ -13,7 +13,6 @@ type capatazKey string
 
 // nodeNameKey is an internal representation of the worker name in the
 // worker context. If you reverse engineer, you are on your own.
-//
 var nodeNameKey capatazKey = "__capataz.node.runtime_name__"
 
 // GetNodeName gets a capataz worker name from a context
@@ -111,7 +110,6 @@ func sendNotificationToSup(
 // goroutine has finished (either with or without an error). The runtime name of
 // the child is also given so that the supervisor can use the spec for that
 // child when restarting.
-//
 func (chSpec ChildSpec) DoStart(
 	startCtx context.Context,
 	supName string,

@@ -83,7 +83,6 @@ func buildPrometheusHTTPServer(addr string) *http.Server {
 // * name: The sub-tree supervisor name
 //
 // * addr: The http address
-//
 func newPrometheusSpec(name, addr string) cap.SupervisorSpec {
 	return cap.NewSupervisorSpec(
 		name,

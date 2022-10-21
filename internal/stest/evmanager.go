@@ -111,7 +111,6 @@ func (em EventManager) EventCollector(ctx context.Context) func(ev cap.Event) {
 
 // foldl will do a functional fold left (reduce) over a list of events emitted
 // by a supervision system and block when waiting for new events to happen.
-//
 func (ei *EventIterator) foldl(
 	zero interface{},
 	stepFn func(interface{}, cap.Event) (bool, interface{}),

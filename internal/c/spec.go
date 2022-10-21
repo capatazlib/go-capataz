@@ -111,7 +111,6 @@ type startError = error
 //
 // In case the child cannot get started it should call this function with an
 // error value different than nil.
-//
 type NotifyStartFn = func(startError)
 
 // ChildSpec represents a Child specification; it serves as a template for the
