@@ -13,7 +13,7 @@ type Restart = c.Restart
 // Permanent specifies that a goroutine should be restarted whether or not there
 // are errors.
 //
-// You can specify this option using the WithRestart function
+// # You can specify this option using the WithRestart function
 //
 // Since: 0.0.0
 var Permanent = c.Permanent
@@ -22,7 +22,7 @@ var Permanent = c.Permanent
 // goroutine failed with an error. If the goroutine finishes without errors it
 // is not restarted again.
 //
-// You can specify this option using the WithRestart function
+// # You can specify this option using the WithRestart function
 //
 // Since: 0.0.0
 var Transient = c.Transient
@@ -30,7 +30,7 @@ var Transient = c.Transient
 // Temporary specifies that the goroutine should not be restarted under any
 // circumstances
 //
-// You can specify this option using the WithRestart function
+// # You can specify this option using the WithRestart function
 //
 // Since: 0.0.0
 var Temporary = c.Temporary
@@ -152,7 +152,7 @@ var GetWorkerName = c.GetNodeName
 //
 // The argument contains an error if there was a failure, nil otherwise.
 //
-// See the documentation of NewWorkerWithNotifyStart for more details
+// # See the documentation of NewWorkerWithNotifyStart for more details
 //
 // Since: 0.0.0
 type NotifyStartFn = c.NotifyStartFn
@@ -160,7 +160,7 @@ type NotifyStartFn = c.NotifyStartFn
 // NewWorker creates a Node that represents a worker goroutine. It requires two
 // arguments: a name that is used for runtime tracing and a startFn function.
 //
-// The name argument
+// # The name argument
 //
 // A name argument must not be empty nor contain forward slash characters (e.g.
 // /), otherwise, the system will panic[*].
@@ -168,7 +168,7 @@ type NotifyStartFn = c.NotifyStartFn
 // [*] This method is preferred as opposed to return an error given it is considered
 // a bad implementation (ideally a compilation error).
 //
-// The startFn argument
+// # The startFn argument
 //
 // The startFn function is where your business logic should be located. This
 // function will be running on a new supervised goroutine.
@@ -181,14 +181,13 @@ type NotifyStartFn = c.NotifyStartFn
 // worker, if the `startFn` function does not respect the given context, the
 // parent supervisor will either block forever or leak goroutines after a
 // timeout has been reached.
-//
 var NewWorker = s.NewWorker
 
 // NewWorkerWithNotifyStart accomplishes the same goal as NewWorker with the
 // addition of passing an extra argument (notifyStart callback) to the startFn
 // function parameter.
 //
-// The NotifyStartFn argument
+// # The NotifyStartFn argument
 //
 // Sometimes you want to consider a goroutine started after certain
 // initialization was done; like doing a read from a Database or API, or some
@@ -199,7 +198,7 @@ var NewWorker = s.NewWorker
 // as you consider the worker is initialized, otherwise the parent supervisor
 // will block and eventually fail with a timeout.
 //
-// Report a start error on NotifyStartFn
+// # Report a start error on NotifyStartFn
 //
 // If for some reason, a child node is not able to start correctly (e.g. DB
 // connection fails, network is kaput), the node may call the given

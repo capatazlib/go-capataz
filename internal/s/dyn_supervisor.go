@@ -305,14 +305,13 @@ func (dyn DynSupervisor) GetName() string {
 // runtime in a procedural manner. It receives a context and the supervisor name
 // (for tracing purposes).
 //
-//
 // When to use a DynSupervisor?
 //
 // If you want to run supervised worker routines on dynamic inputs. This is
 // something that a regular Supervisor cannot do, as it needs to know the
 // children nodes at construction time.
 //
-// Differences to Supervisor
+// # Differences to Supervisor
 //
 // As opposed to a Supervisor, a DynSupervisor:
 //
@@ -320,9 +319,8 @@ func (dyn DynSupervisor) GetName() string {
 //
 // * It is able to spawn workers dynamically
 //
-// * In case of a hard crash and following restart, it will start with an empty
-//   list of children
-//
+//   - In case of a hard crash and following restart, it will start with an empty
+//     list of children
 func NewDynSupervisor(ctx context.Context, name string, opts ...Opt) (DynSupervisor, error) {
 	spec := NewSupervisorSpec(name, WithNodes(), opts...)
 	sup, err := spec.Start(ctx)

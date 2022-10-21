@@ -10,57 +10,53 @@
     gomod2nix.inputs.nixpkgs.follows = "nixpkgs";
   };
 
-  outputs = { self, nixpkgs, gomod2nix, flake-utils }:
+  outputs = { self, nixpkgs, gomod2nix, flake-utils } @ inputs:
     flake-utils.lib.eachDefaultSystem (
       system:
       let
-        pkgs = nixpkgs.legacyPackages.${system}.appendOverlays [
-          self.overlay.${system}
-          gomod2nix.overlay
-        ];
-        go = pkgs.go_1_17;
+        pkgs = import nixpkgs {
+          inherit system;
+          overlays = [
+            gomod2nix.overlays.default
+          ];
+        };
       in
         {
 
-          defaultPackage =
-            self.packages.${system}.go-capataz;
-
           packages =
             {
+              default = self.packages.${system}.go-capataz;
 
               humanlog =
-                with pkgs; buildGoPackage rec {
+                pkgs.buildGoPackage rec {
                   name = "humanlog";
-                  version = "0.5.0";
-                  rev = "0.5.0";
+                  version = "0.6.0";
+                  rev = "0.6.0";
                   goPackagePath = "github.com/aybabtme/humanlog";
-                  src = fetchFromGitHub {
+                  src = pkgs.fetchFromGitHub {
                     inherit rev;
-                    owner = "aybabtme";
+                    owner = "humanlogio";
                     repo = "humanlog";
-                    sha256 = "Ffq/dKu3yqGoy+oo3rCf54/1XYHRN9D6LYIPXMdG9rA=";
+                    sha256 = "sha256-oaGqrGLvMq0To8fBV1sgRnC21xsaxG0fgVSX22Ibuvw=";
                   };
-                  meta = with lib; {
+                  meta = with pkgs.lib; {
                     description = "Logs for humans to read.";
-                    homepage = "https://github.com/aybabtme/humanlog";
+                    homepage = "https://github.com/humanlogio/humanlog";
                     license = licenses.asl20;
-                    # platforms = platforms.x86_64;
+                    platforms = platforms.x86_64 ++ platforms.aarch64;
                   };
                 };
 
               go-capataz =
-                import ./nix/default.nix { inherit pkgs go; };
-
-              ci-env =
-                import ./nix/ci.nix { inherit pkgs go; };
+                pkgs.callPackage (import ./nix/default.nix system inputs) {};
 
             };
 
-          overlay =
-            final: prev: self.packages.${system};
+          devShells = {
+            default = pkgs.callPackage (import ./nix/shell.nix system inputs) {};
+            ci-env  = pkgs.callPackage (import ./nix/ci-env.nix system inputs) {};
 
-          devShell =
-            import ./nix/shell.nix { inherit pkgs go; };
+          };
 
         } # end outputs
     ); # end eachDefaultSystem

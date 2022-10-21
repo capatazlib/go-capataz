@@ -70,7 +70,6 @@ func getEventNotifier(ctx context.Context) (EventNotifier, bool) {
 // signal
 //
 // 4) it monitors and reacts to errors reported by the supervised children
-//
 func (spec SupervisorSpec) rootStart(
 	startCtx context.Context,
 	parentName string,

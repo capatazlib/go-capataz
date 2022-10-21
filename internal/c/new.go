@@ -55,7 +55,6 @@ func New(name string, startFn func(context.Context) error, opts ...Opt) ChildSpe
 //
 // If for some reason, a child is not able to start correctly, the child should
 // call the `NotifyStartFn` function with the start `error`.
-//
 func NewWithNotifyStart(
 	name string,
 	startFn func(context.Context, NotifyStartFn) error,

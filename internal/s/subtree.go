@@ -18,7 +18,6 @@ import (
 // signal
 //
 // 3) it monitors and reacts to errors reported by the supervised children
-//
 func (spec SupervisorSpec) run(
 	ctx context.Context,
 	supRuntimeName string,
@@ -116,21 +115,20 @@ func (spec SupervisorSpec) subtree(
 //
 // Example:
 //
-//   // Initialized a SupervisorSpec that doesn't know anything about other
-//   // parts of the systems (e.g. is self-contained)
-//   networkingSubsystem := cap.NewSupervisorSpec("net", ...)
+//	// Initialized a SupervisorSpec that doesn't know anything about other
+//	// parts of the systems (e.g. is self-contained)
+//	networkingSubsystem := cap.NewSupervisorSpec("net", ...)
 //
-//   // Another self-contained system
-//   filesystemSubsystem := cap.NewSupervisorSpec("fs", ...)
+//	// Another self-contained system
+//	filesystemSubsystem := cap.NewSupervisorSpec("fs", ...)
 //
-//   // SupervisorSpec that is started in your main.go
-//   cap.NewSupervisorSpec("root",
-//    cap.WithNodes(
-//      cap.Subtree(networkingSubsystem),
-//      cap.Subtree(filesystemSubsystem),
-//    ),
-//   )
-//
+//	// SupervisorSpec that is started in your main.go
+//	cap.NewSupervisorSpec("root",
+//	 cap.WithNodes(
+//	   cap.Subtree(networkingSubsystem),
+//	   cap.Subtree(filesystemSubsystem),
+//	 ),
+//	)
 func Subtree(subtreeSpec SupervisorSpec, opts ...c.Opt) Node {
 	return func(supSpec SupervisorSpec) c.ChildSpec {
 		ctrlChan := make(chan ctrlMsg)

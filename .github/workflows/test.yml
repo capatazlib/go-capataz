@@ -6,18 +6,17 @@ jobs:
   tests:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           # Nix Flakes doesn't work on shallow clones
           fetch-depth: 0
 
-      - uses: cachix/install-nix-action@v12
+      - uses: cachix/install-nix-action@v18
         with:
-          install_url: https://github.com/numtide/nix-flakes-installer/releases/download/nix-2.4pre20201221_9fab14a/install
           extra_nix_config: |
             experimental-features = nix-command flakes
 
-      - uses: cachix/cachix-action@v8
+      - uses: cachix/cachix-action@v11
         with:
           name: capatazlib
           signingKey: '${{ secrets.CACHIX_SIGNING_KEY }}'
@@ -29,6 +28,6 @@ jobs:
         run: nix develop .#ci-env -c make test
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v1
+        uses: codecov/codecov-action@v3
         with:
           token: ${{ secrets.CODECOV_TOKEN }}

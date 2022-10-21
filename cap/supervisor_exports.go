@@ -47,7 +47,7 @@ var OneForAll = s.OneForAll
 // CleanupResourcesFn is a function that cleans up resources that were
 // allocated in a BuildNodesFn function.
 //
-// Check the documentation of NewSupervisorSpec for more details and examples
+// # Check the documentation of NewSupervisorSpec for more details and examples
 //
 // Since: 0.0.0
 type CleanupResourcesFn = s.CleanupResourcesFn
@@ -77,7 +77,7 @@ type SupervisorSpec = s.SupervisorSpec
 // NewSupervisorSpec creates a SupervisorSpec. It requires the name of the
 // supervisor (for tracing purposes) and some children nodes to supervise.
 //
-// Monitoring children that do not share resources
+// # Monitoring children that do not share resources
 //
 // This is intended for situations where you need worker goroutines that are
 // self-contained running in the background.
@@ -87,23 +87,22 @@ type SupervisorSpec = s.SupervisorSpec
 //
 // Example:
 //
-//     cap.NewSupervisorSpec("root",
+//	cap.NewSupervisorSpec("root",
 //
-//       // (1)
-//       // Specify child nodes to spawn when this supervisor starts
-//       cap.WithNodes(
-//         cap.Subtree(subtreeSupervisorSpec),
-//         workerChildSpec,
-//       ),
+//	  // (1)
+//	  // Specify child nodes to spawn when this supervisor starts
+//	  cap.WithNodes(
+//	    cap.Subtree(subtreeSupervisorSpec),
+//	    workerChildSpec,
+//	  ),
 //
-//       // (2)
-//       // Specify child nodes start from right to left (reversed order) and
-//       // stop from left to right.
-//       cap.WithStartOrder(cap.RightToLeft),
-//     )
+//	  // (2)
+//	  // Specify child nodes start from right to left (reversed order) and
+//	  // stop from left to right.
+//	  cap.WithStartOrder(cap.RightToLeft),
+//	)
 //
-//
-// Monitoring nodes that share resources
+// # Monitoring nodes that share resources
 //
 // Sometimes, you want a group of children nodes to interact between each other
 // via some shared resource that only the workers know about (for example, a
@@ -122,37 +121,37 @@ type SupervisorSpec = s.SupervisorSpec
 //
 // Example:
 //
-//     cap.NewSupervisorSpec("root",
+//	cap.NewSupervisorSpec("root",
 //
-//       // (1)
-//       // Implement a function that return all nodes to be supervised.
-//       // When this supervisor gets (re)started, this function will be called.
-//       // Imagine this function as a factory for it's children.
-//       func() ([]cap.Node, cap.CleanupResourcesFn, error) {
+//	  // (1)
+//	  // Implement a function that return all nodes to be supervised.
+//	  // When this supervisor gets (re)started, this function will be called.
+//	  // Imagine this function as a factory for it's children.
+//	  func() ([]cap.Node, cap.CleanupResourcesFn, error) {
 //
-//         // In this example, child nodes have a shared resource (a gochan)
-//         // and it gets passed to their constructors.
-//         buffer := make(chan MyType)
-//         nodes := []cap.Node{
-//           producerWorker(buffer),
-//           consumerWorker(buffer),
-//         }
+//	    // In this example, child nodes have a shared resource (a gochan)
+//	    // and it gets passed to their constructors.
+//	    buffer := make(chan MyType)
+//	    nodes := []cap.Node{
+//	      producerWorker(buffer),
+//	      consumerWorker(buffer),
+//	    }
 //
-//         // We create a function that gets executed when the supervisor
-//         // shuts down.
-//         cleanup := func() {
-//           close(buffer)
-//         }
+//	    // We create a function that gets executed when the supervisor
+//	    // shuts down.
+//	    cleanup := func() {
+//	      close(buffer)
+//	    }
 //
-//         // We return the allocated Node records and the cleanup function
-//         return nodes, cleanup, nil
-//       },
+//	    // We return the allocated Node records and the cleanup function
+//	    return nodes, cleanup, nil
+//	  },
 //
-//       // (2)
-//       cap.WithStartOrder(cap.RightToLeft),
-//     )
+//	  // (2)
+//	  cap.WithStartOrder(cap.RightToLeft),
+//	)
 //
-// Dealing with errors
+// # Dealing with errors
 //
 // Given resources can involve IO allocations, using this functionality opens
 // the door to a few error scenarios:
@@ -192,7 +191,6 @@ type Opt = s.Opt
 //
 // * RightToLeft -- Start children nodes from right to left, stop them from left
 // to right
-//
 //
 // Since: 0.0.0
 var WithStartOrder = s.WithStartOrder
@@ -244,11 +242,11 @@ var WithNodes = s.WithNodes
 //
 // Example
 //
-//   // Tolerate 10 errors every 5 seconds
-//   //
-//   // - if there is 11 errors in a 5 second window, it makes the supervisor fail
-//   //
-//   WithRestartTolerance(10, 5 * time.Second)
+//	// Tolerate 10 errors every 5 seconds
+//	//
+//	// - if there is 11 errors in a 5 second window, it makes the supervisor fail
+//	//
+//	WithRestartTolerance(10, 5 * time.Second)
 //
 // Since: 0.1.0
 var WithRestartTolerance = s.WithRestartTolerance
@@ -261,20 +259,20 @@ var WithRestartTolerance = s.WithRestartTolerance
 //
 // Example:
 //
-//   // Initialized a SupervisorSpec that doesn't know anything about other
-//   // parts of the systems (e.g. is self-contained)
-//   networkingSubsystem := cap.NewSupervisorSpec("net", ...)
+//	// Initialized a SupervisorSpec that doesn't know anything about other
+//	// parts of the systems (e.g. is self-contained)
+//	networkingSubsystem := cap.NewSupervisorSpec("net", ...)
 //
-//   // Another self-contained system
-//   filesystemSubsystem := cap.NewSupervisorSpec("fs", ...)
+//	// Another self-contained system
+//	filesystemSubsystem := cap.NewSupervisorSpec("fs", ...)
 //
-//   // SupervisorSpec that is started in your main.go
-//   cap.NewSupervisorSpec("root",
-//    cap.WithNodes(
-//      cap.Subtree(networkingSubsystem),
-//      cap.Subtree(filesystemSubsystem),
-//    ),
-//   )
+//	// SupervisorSpec that is started in your main.go
+//	cap.NewSupervisorSpec("root",
+//	 cap.WithNodes(
+//	   cap.Subtree(networkingSubsystem),
+//	   cap.Subtree(filesystemSubsystem),
+//	 ),
+//	)
 //
 // Since: 0.0.0
 var Subtree = s.Subtree
@@ -288,14 +286,13 @@ type DynSupervisor = s.DynSupervisor
 // runtime in a procedural manner. It receives a context and the supervisor name
 // (for tracing purposes).
 //
-//
 // When to use a DynSupervisor?
 //
 // If you want to run supervised worker routines on dynamic inputs. This is
 // something that a regular Supervisor cannot do, as it needs to know the
 // children nodes at construction time.
 //
-// Differences to Supervisor
+// # Differences to Supervisor
 //
 // As opposed to a Supervisor, a DynSupervisor:
 //
@@ -303,8 +300,8 @@ type DynSupervisor = s.DynSupervisor
 //
 // * It is able to spawn workers dynamically
 //
-// * In case of a hard crash and following restart, it will start with an empty
-//   list of children
+//   - In case of a hard crash and following restart, it will start with an empty
+//     list of children
 //
 // Since: 0.0.0
 var NewDynSupervisor = s.NewDynSupervisor

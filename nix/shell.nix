@@ -1,20 +1,37 @@
-{ pkgs, go }:
+system: {self, ...}: {
+  mkShell,
+  figlet,
+  stdenv,
+  cacert,
+  go_1_19,
+  gotools,
+  godef,
+  gocode,
+  golint,
+  golangci-lint,
+  gogetdoc,
+  gopkgs,
+  gotests,
+  impl,
+  errcheck,
+  reftools,
+  delve,
+  gopls,
+  gomod2nix
+}:
 
-pkgs.mkShell {
-  buildInputs = with pkgs; [
+mkShell {
+  buildInputs = [
     # bash scripts utilities
     figlet
     stdenv
     cacert
 
-    go
+    go_1_19
 
     # recommended packages to have for development with emacs/spacemacs
     gotools godef gocode golint golangci-lint gogetdoc gopkgs gotests impl
-    errcheck reftools humanlog delve gopls gomod2nix gopls
-
-    # capataz deps
-    go-capataz
+    errcheck reftools self.packages.${system}.humanlog delve gopls gomod2nix
   ];
 
   shellHook = ''
