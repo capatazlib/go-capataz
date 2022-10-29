@@ -306,7 +306,7 @@ func (err *SupervisorStartError) explainLines() []string {
 	} else {
 		workerErrLines = append(
 			workerErrLines,
-			fmt.Sprintf("supervisor failed to start\n"),
+			"supervisor failed to start\n",
 		)
 		workerErrLines = append(
 			workerErrLines,

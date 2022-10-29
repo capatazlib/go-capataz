@@ -41,7 +41,7 @@ func TestCapturePanic(t *testing.T) {
 				SupervisorStarted("root"),
 				// ^^^ supervisor started successfully, from here, it is supervising the
 				// only worker node it has
-				WorkerFailedWith("root/child1", "Panicking child (1 out of 1)"),
+				WorkerFailedWith("root/child1", "panicking child (1 out of 1)"),
 				// ^^^ As specified with the PanicOnSignalWorker, this worker fails
 				// only one time (1 out of 1)
 				WorkerStarted("root/child1"),
@@ -87,7 +87,7 @@ func TestCapturePanic(t *testing.T) {
 				WorkerStarted("root/subtree1/child1"),
 				SupervisorStarted("root/subtree1"),
 				SupervisorStarted("root"),
-				WorkerFailedWith("root/subtree1/child1", "Panicking child (1 out of 1)"),
+				WorkerFailedWith("root/subtree1/child1", "panicking child (1 out of 1)"),
 				WorkerStarted("root/subtree1/child1"),
 				WorkerTerminated("root/subtree1/child1"),
 				SupervisorTerminated("root/subtree1"),

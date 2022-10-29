@@ -573,7 +573,7 @@ func TestPermanentOneForAllSiblingTerminationFailOnRestart(t *testing.T) {
 	explanation := cap.ExplainError(restartEv.Err())
 	assert.Equal(
 		t,
-		"supervisor 'root/subtree1' crashed due to restart tolerance surpassed.\n\tworker node 'root/subtree1/child1' was restarted more than 2 times in a 10s window.\n\tthe original error reported was:\n\t\t> Failing child (1 out of 3)\n\tthe last error reported was:\n\t\t> Failing child (3 out of 3)\nalso, some siblings failed to terminate while restarting\n\tworker node 'root/subtree1/child2' failed to terminate\n\t\t> child2 termination fail",
+		"supervisor 'root/subtree1' crashed due to restart tolerance surpassed.\n\tworker node 'root/subtree1/child1' was restarted more than 2 times in a 10s window.\n\tthe original error reported was:\n\t\t> failing child (1 out of 3)\n\tthe last error reported was:\n\t\t> failing child (3 out of 3)\nalso, some siblings failed to terminate while restarting\n\tworker node 'root/subtree1/child2' failed to terminate\n\t\t> child2 termination fail",
 		explanation,
 	)
 

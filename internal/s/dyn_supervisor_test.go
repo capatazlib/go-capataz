@@ -311,6 +311,7 @@ func TestDynCancelWorker(t *testing.T) {
 
 			// spawn a second worker to spice the test a little
 			_, err = sup.Spawn(WaitDoneWorker("two"))
+			assert.NoError(t, err)
 		},
 	)
 
@@ -356,6 +357,7 @@ func TestDynCancelAlreadyTerminatedWorker(t *testing.T) {
 
 			// spawn a second worker to spice the test a little
 			_, err = sup.Spawn(WaitDoneWorker("two"))
+			assert.NoError(t, err)
 		},
 	)
 

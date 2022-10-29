@@ -57,7 +57,7 @@ func (scm startChildMsg) processMsg(
 		// but on dynamic supervisors, it means the monitor loop will get bothered
 		// with an error that it should not really handle. We are going to read it
 		// out and return after that.
-		_ = <-supNotifyChan
+		<-supNotifyChan
 		// do not block waiting for a read
 		select {
 		case scm.resultChan <- startChildResult{
@@ -207,7 +207,7 @@ func buildTerminateNodeCallback(ctrlChan chan ctrlMsg, nodeName string) func() e
 		// supervisor is stopped, this line is going to panic
 		select {
 		case ctrlChan <- msg:
-		case _ = <-time.After(1 * time.Second):
+		case <-time.After(1 * time.Second):
 			// This scenario can happen when the supervisor is being terminated and the
 			// non-blocking sup.GetCrashError happened just before that (race
 			// condition).
@@ -236,7 +236,7 @@ func sendSpawnToSupervisor(ctrlChan chan ctrlMsg, node Node) (func() error, erro
 
 	select {
 	case ctrlChan <- msg:
-	case _ = <-time.After(1 * time.Second):
+	case <-time.After(1 * time.Second):
 		// This scenario can happen when the supervisor is being terminated and the
 		// non-blocking sup.GetCrashError happened just before that (race
 		// condition).
