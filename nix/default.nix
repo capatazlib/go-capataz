@@ -1,5 +1,7 @@
-_system: _inputs: { lib, buildGoApplication }:
-
+_system: _inputs: {
+  lib,
+  buildGoApplication,
+}:
 buildGoApplication {
   name = "go-capataz";
   version = "latest";

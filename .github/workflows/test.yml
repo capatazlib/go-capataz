@@ -21,11 +21,8 @@ jobs:
           name: capatazlib
           signingKey: '${{ secrets.CACHIX_SIGNING_KEY }}'
 
-      - name: Execute Linters
-        run: nix develop .#ci-env -c make lint
-
       - name: Execute Test Suite
-        run: nix develop .#ci-env -c make test
+        run: nix develop .#ci -c make test
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
