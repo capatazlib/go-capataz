@@ -11,20 +11,25 @@ import (
 	. "github.com/capatazlib/go-capataz/internal/stest"
 )
 
+type testKey string
+
 func TestWorkerHasContextValuesOnSimpleTree(t *testing.T) {
 	ctx := context.Background()
 
 	valueOne := 123
 	valueTwo := 456
 
-	ctx = context.WithValue(ctx, "value_one", 123)
-	ctx = context.WithValue(ctx, "value_two", 456)
+	valueOneKey := testKey("value_one")
+	valueTwoKey := testKey("value_two")
+
+	ctx = context.WithValue(ctx, valueOneKey, 123)
+	ctx = context.WithValue(ctx, valueTwoKey, 456)
 
 	worker := cap.NewWorker("one", func(ctx context.Context) error {
-		v1 := ctx.Value("value_one").(int)
+		v1 := ctx.Value(valueOneKey).(int)
 		assert.Equal(t, valueOne, v1)
 
-		v2 := ctx.Value("value_two").(int)
+		v2 := ctx.Value(valueTwoKey).(int)
 		assert.Equal(t, valueTwo, v2)
 
 		<-ctx.Done()
@@ -56,14 +61,17 @@ func TestWorkerHasContextValuesOnNestedTree(t *testing.T) {
 	valueOne := 123
 	valueTwo := 456
 
-	ctx = context.WithValue(ctx, "value_one", 123)
-	ctx = context.WithValue(ctx, "value_two", 456)
+	valueOneKey := testKey("value_one")
+	valueTwoKey := testKey("value_two")
+
+	ctx = context.WithValue(ctx, valueOneKey, 123)
+	ctx = context.WithValue(ctx, valueTwoKey, 456)
 
 	worker := cap.NewWorker("one", func(ctx context.Context) error {
-		v1 := ctx.Value("value_one").(int)
+		v1 := ctx.Value(valueOneKey).(int)
 		assert.Equal(t, valueOne, v1)
 
-		v2 := ctx.Value("value_two").(int)
+		v2 := ctx.Value(valueTwoKey).(int)
 		assert.Equal(t, valueTwo, v2)
 
 		<-ctx.Done()

@@ -94,7 +94,7 @@ system: {self, ...}: {
     };
 
     staticcheck = {
-      enable = false;
+      enable = true;
       name = "staticheck";
       description = "State of the art linter for the Go programming language";
       # staticheck works with directories.

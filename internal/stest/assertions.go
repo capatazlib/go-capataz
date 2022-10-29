@@ -22,7 +22,7 @@ func renderEvents(evs []cap.Event) string {
 func verifyExactMatch(preds []EventP, given []cap.Event) error {
 	if len(preds) != len(given) {
 		return fmt.Errorf(
-			"Expecting exact match, but length is not the same:\nwant: %d\ngiven: %d\nevents:\n%s",
+			"expecting exact match, but length is not the same:\nwant: %d\ngiven: %d\nevents:\n%s",
 			len(preds),
 			len(given),
 			renderEvents(given),
@@ -31,7 +31,7 @@ func verifyExactMatch(preds []EventP, given []cap.Event) error {
 	for i, pred := range preds {
 		if !pred.Call(given[i]) {
 			return fmt.Errorf(
-				"Expecting exact match, but entry %d did not match:\ncriteria: %s\nevent: %s\nevents:\n%s",
+				"expecting exact match, but entry %d did not match:\ncriteria: %s\nevent: %s\nevents:\n%s",
 				i,
 				pred.String(),
 				given[i].String(),

@@ -46,19 +46,6 @@ func withEventNotifier(ctx context.Context, evNotifier EventNotifier) context.Co
 	return context.WithValue(ctx, eventNotifierKey, evNotifier)
 }
 
-// getEventNotifier returns the EventNotifier that is thread-through all the
-// capataz API
-func getEventNotifier(ctx context.Context) (EventNotifier, bool) {
-	val := ctx.Value(eventNotifierKey)
-	if val != nil {
-		if evNotifier, ok := val.(EventNotifier); ok {
-			return evNotifier, true
-		}
-		return nil, false
-	}
-	return nil, false
-}
-
 // rootStart is routine that contains the main logic of a Supervisor. This
 // function:
 //

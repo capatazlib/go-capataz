@@ -8,7 +8,6 @@ import (
 type Child struct {
 	runtimeName  string
 	spec         ChildSpec
-	restartCount uint32
 	createdAt    time.Time
 	cancel       func()
 	wait         func(Shutdown) (bool, error)

@@ -110,6 +110,7 @@ func TestReliableNotifierHappyPath(t *testing.T) {
 		},
 		func(EventManager) {},
 	)
+	assert.NoError(t, err)
 
 	// assert the events from the input supervision tree are the expected ones
 	AssertExactMatch(t, events, outEvents)
@@ -191,6 +192,7 @@ func TestReliableNotifierFailureCallback(t *testing.T) {
 		},
 		func(EventManager) {},
 	)
+	assert.NoError(t, err)
 
 	// assert the events from the input supervision tree are the expected ones
 	AssertExactMatch(t, events, outEvents)
@@ -264,6 +266,7 @@ func TestReliableNotifierSlowNotifier(t *testing.T) {
 		},
 		func(EventManager) {},
 	)
+	assert.NoError(t, err)
 
 	// assert the events from the input supervision tree are the expected ones
 	AssertExactMatch(t, events, outEvents)

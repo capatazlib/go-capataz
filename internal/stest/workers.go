@@ -77,7 +77,7 @@ func FailOnSignalDynSubtree(
 			if currentFailCount < totalErrCount {
 				atomic.AddInt32(&currentFailCount, 1)
 				return fmt.Errorf(
-					"Failing dyn subtree worker (%d out of %d)", currentFailCount, totalErrCount,
+					"failing dyn subtree worker (%d out of %d)", currentFailCount, totalErrCount,
 				)
 			}
 
@@ -170,7 +170,7 @@ func FailOnSignalWorker(
 			}
 			if currentFailCount < totalErrCount {
 				atomic.AddInt32(&currentFailCount, 1)
-				return fmt.Errorf("Failing child (%d out of %d)", currentFailCount, totalErrCount)
+				return fmt.Errorf("failing child (%d out of %d)", currentFailCount, totalErrCount)
 			}
 			<-ctx.Done()
 			return nil
@@ -204,7 +204,7 @@ func PanicOnSignalWorker(
 			<-startCh
 			if currentFailCount < totalErrCount {
 				atomic.AddInt32(&currentFailCount, 1)
-				err := fmt.Errorf("Panicking child (%d out of %d)", currentFailCount, totalErrCount)
+				err := fmt.Errorf("panicking child (%d out of %d)", currentFailCount, totalErrCount)
 				panic(err)
 			}
 			<-ctx.Done()

@@ -106,7 +106,6 @@ type Supervisor struct {
 	terminateCh chan error
 
 	terminateManager        *terminationManager
-	restartToleranceManager *restartToleranceManager
 
 	spec     SupervisorSpec
 	children map[string]c.Child
