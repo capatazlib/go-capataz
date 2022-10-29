@@ -3,3 +3,4 @@ coverage.txt
 .direnv
 .idea
 .godeps
+.pre-commit-config.yaml
