@@ -25,9 +25,9 @@ func TestCapturePanic(t *testing.T) {
 			[]cap.Opt{},
 			func(em EventManager) {
 				evIt := em.Iterator()
-				evIt.SkipTill(SupervisorStarted("root"))
+				evIt.WaitTill(SupervisorStarted("root"))
 				signalPanic1(true /* done */)
-				evIt.SkipTill(WorkerStarted("root/child1"))
+				evIt.WaitTill(WorkerStarted("root/child1"))
 			},
 		)
 
@@ -73,9 +73,9 @@ func TestCapturePanic(t *testing.T) {
 			[]cap.Opt{},
 			func(em EventManager) {
 				evIt := em.Iterator()
-				evIt.SkipTill(SupervisorStarted("root"))
+				evIt.WaitTill(SupervisorStarted("root"))
 				signalPanic1(true /* done */)
-				evIt.SkipTill(WorkerStarted("root/subtree1/child1"))
+				evIt.WaitTill(WorkerStarted("root/subtree1/child1"))
 			},
 		)
 

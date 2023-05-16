@@ -2,25 +2,13 @@ package stest
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/capatazlib/go-capataz/cap"
+	"github.com/capatazlib/go-capataz/smtest"
 	"github.com/capatazlib/go-capataz/internal/c"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
-
-// EventP represents a predicate function that allows us to assert properties of
-// an Event signaled by the supervision system
-type EventP interface {
-
-	// Call will execute the logic of this event predicate
-	Call(cap.Event) bool
-
-	// Returns an string representation of this event predicate (for debugging
-	// purposes)
-	String() string
-}
 
 // EventTagP is a predicate that asserts the `cap.EventTag` of a given `capataz.Event`
 // matches an expected `cap.EventTag`
@@ -69,33 +57,6 @@ func (p ProcessNodeTagP) String() string {
 	return fmt.Sprintf("nodeTag == %s", p.nodeTag)
 }
 
-// AndP is a predicate that builds the conjunction of a group EventP predicates
-// (e.g. join EventP predicates with &&)
-type AndP struct {
-	preds []EventP
-}
-
-// Call will try and verify that all it's grouped predicates return true, if any
-// returns false, this predicate function will return false
-func (p AndP) Call(ev cap.Event) bool {
-	acc := true
-	for _, pred := range p.preds {
-		acc = acc && pred.Call(ev)
-		if !acc {
-			return acc
-		}
-	}
-	return acc
-}
-
-func (p AndP) String() string {
-	acc := make([]string, 0, len(p.preds))
-	for _, pred := range p.preds {
-		acc = append(acc, pred.String())
-	}
-	return strings.Join(acc, " && ")
-}
-
 // ErrorMsgP is a predicate that asserts the message of an error is the one
 // specified
 type ErrorMsgP struct {
@@ -125,7 +86,7 @@ func ProcessName(name string) EventP {
 // got started
 func SupervisorStarted(name string) EventP {
 	return AndP{
-		preds: []EventP{
+		Preds: []EventP{
 			EventTagP{tag: cap.ProcessStarted},
 			ProcessNameP{name: name},
 			ProcessNodeTagP{nodeTag: c.Supervisor},
@@ -135,9 +96,9 @@ func SupervisorStarted(name string) EventP {
 
 // WorkerStarted is a predicate to assert an event represents a process that
 // got started
-func WorkerStarted(name string) EventP {
+func WorkerStarted(name string) smtest.EventP[cap.Event] {
 	return AndP{
-		preds: []EventP{
+		Preds: []EventP{
 			EventTagP{tag: cap.ProcessStarted},
 			ProcessNameP{name: name},
 			ProcessNodeTagP{nodeTag: c.Worker},
@@ -149,7 +110,7 @@ func WorkerStarted(name string) EventP {
 // that got completed
 func WorkerCompleted(name string) EventP {
 	return AndP{
-		preds: []EventP{
+		Preds: []EventP{
 			EventTagP{tag: cap.ProcessCompleted},
 			ProcessNameP{name: name},
 			ProcessNodeTagP{nodeTag: c.Worker},
@@ -161,7 +122,7 @@ func WorkerCompleted(name string) EventP {
 // got stopped by its parent supervisor
 func SupervisorTerminated(name string) EventP {
 	return AndP{
-		preds: []EventP{
+		Preds: []EventP{
 			EventTagP{tag: cap.ProcessTerminated},
 			ProcessNameP{name: name},
 			ProcessNodeTagP{nodeTag: c.Supervisor},
@@ -173,7 +134,7 @@ func SupervisorTerminated(name string) EventP {
 // got stopped by its parent supervisor
 func WorkerTerminated(name string) EventP {
 	return AndP{
-		preds: []EventP{
+		Preds: []EventP{
 			EventTagP{tag: cap.ProcessTerminated},
 			ProcessNameP{name: name},
 			ProcessNodeTagP{nodeTag: c.Worker},
@@ -185,7 +146,7 @@ func WorkerTerminated(name string) EventP {
 // failed
 func SupervisorFailed(name string) EventP {
 	return AndP{
-		preds: []EventP{
+		Preds: []EventP{
 			EventTagP{tag: cap.ProcessFailed},
 			ProcessNameP{name: name},
 			ProcessNodeTagP{nodeTag: c.Supervisor},
@@ -197,7 +158,7 @@ func SupervisorFailed(name string) EventP {
 // failed
 func WorkerFailed(name string) EventP {
 	return AndP{
-		preds: []EventP{
+		Preds: []EventP{
 			EventTagP{tag: cap.ProcessFailed},
 			ProcessNameP{name: name},
 			ProcessNodeTagP{nodeTag: c.Worker},
@@ -207,9 +168,9 @@ func WorkerFailed(name string) EventP {
 
 // WorkerFailedWith is a predicate to assert an event represents a process that
 // failed
-func WorkerFailedWith(name, errMsg string) EventP {
-	return AndP{
-		preds: []EventP{
+func WorkerFailedWith(name, errMsg string) smtest.EventP[cap.Event] {
+	return smtest.AndP[cap.Event]{
+		Preds: []smtest.EventP[cap.Event]{
 			EventTagP{tag: cap.ProcessFailed},
 			ProcessNameP{name: name},
 			ProcessNodeTagP{nodeTag: c.Worker},
@@ -222,7 +183,7 @@ func WorkerFailedWith(name, errMsg string) EventP {
 // that failed on start
 func SupervisorStartFailed(name string) EventP {
 	return AndP{
-		preds: []EventP{
+		Preds: []EventP{
 			EventTagP{tag: cap.ProcessStartFailed},
 			ProcessNameP{name: name},
 			ProcessNodeTagP{nodeTag: c.Supervisor},
@@ -232,9 +193,9 @@ func SupervisorStartFailed(name string) EventP {
 
 // WorkerStartFailed is a predicate to assert an event represents a process
 // that failed on start
-func WorkerStartFailed(name string) EventP {
-	return AndP{
-		preds: []EventP{
+func WorkerStartFailed(name string) smtest.EventP[cap.Event] {
+	return smtest.AndP[cap.Event]{
+		Preds: []smtest.EventP[cap.Event]{
 			EventTagP{tag: cap.ProcessStartFailed},
 			ProcessNameP{name: name},
 			ProcessNodeTagP{nodeTag: c.Worker},

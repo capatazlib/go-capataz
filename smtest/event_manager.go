@@ -1,10 +1,8 @@
-package stest
+package smtest
 
 import (
 	"context"
 	"sync"
-
-	"github.com/capatazlib/go-capataz/cap"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -12,50 +10,50 @@ import (
 // eventMsg is an envelope for supervision events, it is used to ensure the
 // events are stored on the EventManager buffer in the expected order (no
 // concurrency jitter).
-type eventMsg struct {
-	ev     cap.Event
+type eventMsg[A any] struct {
+	ev     A
 	doneCh chan struct{}
 }
 
-func newEventMsg(ev cap.Event) eventMsg {
+func newEventMsg[A any](ev A) eventMsg[A] {
 	doneCh := make(chan struct{})
-	return eventMsg{
+	return eventMsg[A]{
 		ev:     ev,
 		doneCh: doneCh,
 	}
 }
 
-func (msg eventMsg) getEvent() cap.Event {
+func (msg eventMsg[A]) getEvent() A {
 	return msg.ev
 }
 
-func (msg eventMsg) eventProcessed() {
+func (msg eventMsg[A]) eventProcessed() {
 	close(msg.doneCh)
 }
 
-func (msg eventMsg) waitForProcessing() {
+func (msg eventMsg[A]) waitForProcessing() {
 	<-msg.doneCh
 }
 
 // EventManager provides an API that allows to block a goroutine for particular
 // events in a test system
-type EventManager struct {
-	evCh         chan eventMsg
+type EventManager[A any] struct {
+	evCh         chan eventMsg[A]
 	evDone       bool
 	evBufferCond *sync.Cond
-	evBuffer     *[]cap.Event
+	evBuffer     *[]A
 }
 
 // EventIterator represents a single iteration over the list of events that have
 // been collected by the EventManager that created it.
-type EventIterator struct {
+type EventIterator[A any] struct {
 	evIx      int
-	evManager *EventManager
+	evManager *EventManager[A]
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
-func (em *EventManager) storeEvent(ev cap.Event) {
+func (em *EventManager[A]) storeEvent(ev A) {
 	em.evBufferCond.L.Lock()
 	defer em.evBufferCond.L.Unlock()
 	*em.evBuffer = append(*em.evBuffer, ev)
@@ -64,7 +62,7 @@ func (em *EventManager) storeEvent(ev cap.Event) {
 
 // Snapshot returns all the events that this EventManager has collected from the
 // supervision system
-func (em EventManager) Snapshot() []cap.Event {
+func (em EventManager[A]) Snapshot() []A {
 	em.evBufferCond.L.Lock()
 	defer em.evBufferCond.L.Unlock()
 	return append((*em.evBuffer)[:0:0], *em.evBuffer...)
@@ -72,7 +70,7 @@ func (em EventManager) Snapshot() []cap.Event {
 
 // StartCollector starts the goroutine that reads the evCh that gets filled
 // by the supervision system
-func (em EventManager) StartCollector(ctx context.Context) {
+func (em EventManager[A]) StartCollector(ctx context.Context) {
 	go func() {
 		for {
 			select {
@@ -94,8 +92,8 @@ func (em EventManager) StartCollector(ctx context.Context) {
 }
 
 // EventCollector is used as an event notifier of a supervision system
-func (em EventManager) EventCollector(ctx context.Context) func(ev cap.Event) {
-	return func(ev cap.Event) {
+func (em EventManager[A]) EventCollector(ctx context.Context) func(ev A) {
+	return func(ev A) {
 		// NOTE: DO NOT REMOVE LINE BELLOW (DEBUG tool)
 		// fmt.Printf("%+v\n", ev)
 		evMsg := newEventMsg(ev)
@@ -111,10 +109,11 @@ func (em EventManager) EventCollector(ctx context.Context) func(ev cap.Event) {
 
 // foldl will do a functional fold left (reduce) over a list of events emitted
 // by a supervision system and block when waiting for new events to happen.
-func (ei *EventIterator) foldl(
-	zero interface{},
-	stepFn func(interface{}, cap.Event) (bool, interface{}),
-) interface{} {
+func foldl[A any, ACC any](
+	ei *EventIterator[A],
+	zero ACC,
+	stepFn func(ACC, A) (bool, ACC),
+) ACC {
 	var shouldContinue bool
 	acc := zero
 
@@ -137,11 +136,10 @@ func (ei *EventIterator) foldl(
 	return acc
 }
 
-// SkipTill blocks until an event from the supervision system returns true for
+// WaitTill blocks until an event from the supervision system returns true for
 // the given predicate
-// TODO: Change name to WaitTill
-func (ei *EventIterator) SkipTill(pred EventP) {
-	_ = ei.foldl(nil, func(_ interface{}, ev cap.Event) (bool, interface{}) {
+func (ei *EventIterator[A]) WaitTill(pred EventP[A]) {
+	_ = foldl(ei, nil, func(_ interface{}, ev A) (bool, interface{}) {
 		if pred.Call(ev) {
 			return false, nil
 		}
@@ -151,24 +149,22 @@ func (ei *EventIterator) SkipTill(pred EventP) {
 
 // TakeTill takes all the events that have been collected since the current
 // index until the given predicate returns true
-func (ei *EventIterator) TakeTill(pred EventP) []cap.Event {
-	zero := make([]cap.Event, 0, 100)
-	iresult := ei.foldl(zero, func(iacc interface{}, ev cap.Event) (bool, interface{}) {
-		acc, _ := iacc.([]cap.Event)
+func (ei *EventIterator[A]) TakeTill(pred EventP[A]) []A {
+	zero := make([]A, 0, 100)
+	result := foldl(ei, zero, func(acc []A, ev A) (bool, []A) {
 		if pred.Call(ev) {
 			return false, acc
 		}
 		acc = append(acc, ev)
 		return true, acc
 	})
-	result, _ := iresult.([]cap.Event)
 	return result
 }
 
 // Iterator returns an iterator over the collected events. This iterator
 // will block waiting for new events
-func (em EventManager) Iterator() EventIterator {
-	it := EventIterator{evIx: 0, evManager: &em}
+func (em EventManager[A]) Iterator() EventIterator[A] {
+	it := EventIterator[A]{evIx: 0, evManager: &em}
 	return it
 }
 
@@ -176,7 +172,7 @@ func (em EventManager) Iterator() EventIterator {
 // the given index is greater than the event buffer length, this function will
 // wait until that index is reached. If the index is never reached, the second
 // return value will be false.
-func (em EventManager) GetEventIx(evIx int) (cap.Event, bool) {
+func (em EventManager[A]) GetEventIx(evIx int) (A, bool) {
 	defer em.evBufferCond.L.Unlock()
 
 	for {
@@ -199,18 +195,19 @@ func (em EventManager) GetEventIx(evIx int) (cap.Event, bool) {
 	// if the events are done, it means we did not reach the input evIx so we
 	// should return an ok false
 	if em.evDone {
-		return cap.Event{}, false
+		var empty A
+		return empty, false
 	}
 	return (*em.evBuffer)[evIx], true
 }
 
 // NewEventManager returns an EventManager instance that can be used to wait for
 // events to happen on the observed supervision system
-func NewEventManager() EventManager {
+func NewEventManager[A any]() EventManager[A] {
 	var evBufferMux sync.Mutex
-	evCh := make(chan eventMsg)
-	evBuffer := make([]cap.Event, 0, 1000)
-	em := EventManager{
+	evCh := make(chan eventMsg[A])
+	evBuffer := make([]A, 0, 1000)
+	em := EventManager[A]{
 		evCh:         evCh,
 		evBufferCond: sync.NewCond(&evBufferMux),
 		evBuffer:     &evBuffer,

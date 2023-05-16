@@ -260,7 +260,7 @@ func TestDynSpawnAfterCrashedSupervisor(t *testing.T) {
 			failWorker(false)
 
 			evIt := em.Iterator()
-			evIt.SkipTill(WorkerFailed("root/failing"))
+			evIt.WaitTill(WorkerFailed("root/failing"))
 
 			// Wait for supervisor to be done
 			done := make(chan struct{})
@@ -304,10 +304,10 @@ func TestDynCancelWorker(t *testing.T) {
 			assert.NoError(t, err)
 
 			// wait for start before termination
-			evIt.SkipTill(WorkerStarted("root/one"))
+			evIt.WaitTill(WorkerStarted("root/one"))
 			cancelWorker1()
 			// wait for termination
-			evIt.SkipTill(WorkerTerminated("root/one"))
+			evIt.WaitTill(WorkerTerminated("root/one"))
 
 			// spawn a second worker to spice the test a little
 			_, err = sup.Spawn(WaitDoneWorker("two"))
@@ -344,11 +344,11 @@ func TestDynCancelAlreadyTerminatedWorker(t *testing.T) {
 			assert.NoError(t, err)
 
 			// wait for start before termination
-			evIt.SkipTill(WorkerStarted("root/one"))
+			evIt.WaitTill(WorkerStarted("root/one"))
 			err = cancelWorker1()
 			assert.NoError(t, err)
 			// wait for termination
-			evIt.SkipTill(WorkerTerminated("root/one"))
+			evIt.WaitTill(WorkerTerminated("root/one"))
 
 			// should fail with appropiate error
 			err = cancelWorker1()

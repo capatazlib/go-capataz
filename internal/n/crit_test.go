@@ -162,11 +162,11 @@ func TestEIsFailure(t *testing.T) {
 			// once
 			evIt := em.Iterator()
 			// 1) Wait till all the tree is up
-			evIt.SkipTill(SupervisorStarted(rootName))
+			evIt.WaitTill(SupervisorStarted(rootName))
 			// 2) Start the failing behavior of child1
 			failWorker1(true /* done */)
 			// 3) Wait till first restart
-			evIt.SkipTill(WorkerStarted("root/child1"))
+			evIt.WaitTill(WorkerStarted("root/child1"))
 		},
 	)
 

@@ -30,11 +30,11 @@ func TestTemporaryOneForOneSingleFailingWorkerDoesNotRecover(t *testing.T) {
 			// once
 			evIt := em.Iterator()
 			// 1) Wait till all the tree is up
-			evIt.SkipTill(SupervisorStarted("root"))
+			evIt.WaitTill(SupervisorStarted("root"))
 			// 2) Start the failing behavior of worker1
 			failWorker1(true /* done */)
 			// 3) Wait till first restart
-			evIt.SkipTill(WorkerFailed("root/worker1"))
+			evIt.WaitTill(WorkerFailed("root/worker1"))
 		},
 	)
 
@@ -69,11 +69,11 @@ func TestTemporaryOneForOneNestedFailingWorkerDoesNotRecover(t *testing.T) {
 			// once
 			evIt := em.Iterator()
 			// 1) Wait till all the tree is up
-			evIt.SkipTill(SupervisorStarted("root"))
+			evIt.WaitTill(SupervisorStarted("root"))
 			// 2) Start the failing behavior of worker1
 			failWorker1(true /* done */)
 			// 3) Wait till first restart
-			evIt.SkipTill(WorkerFailed("root/subtree1/worker1"))
+			evIt.WaitTill(WorkerFailed("root/subtree1/worker1"))
 		},
 	)
 
@@ -109,11 +109,11 @@ func TestTemporaryOneForOneSingleCompleteWorkerDoesNotRestart(t *testing.T) {
 			// once
 			evIt := em.Iterator()
 			// 1) Wait till all the tree is up
-			evIt.SkipTill(SupervisorStarted("root"))
+			evIt.WaitTill(SupervisorStarted("root"))
 			// 2) Start the complete behavior of worker1
 			completeWorker1()
 			// 3) Wait till first restart
-			evIt.SkipTill(WorkerCompleted("root/worker1"))
+			evIt.WaitTill(WorkerCompleted("root/worker1"))
 		},
 	)
 
@@ -148,11 +148,11 @@ func TestTemporaryOneForOneNestedCompleteWorkerDoesNotRestart(t *testing.T) {
 			// once
 			evIt := em.Iterator()
 			// 1) Wait till all the tree is up
-			evIt.SkipTill(SupervisorStarted("root"))
+			evIt.WaitTill(SupervisorStarted("root"))
 			// 2) Start the failing behavior of worker1
 			completeWorker1()
 			// 3) Wait till first restart
-			evIt.SkipTill(WorkerCompleted("root/subtree1/worker1"))
+			evIt.WaitTill(WorkerCompleted("root/subtree1/worker1"))
 		},
 	)
 

@@ -185,21 +185,21 @@ func TestHealthPermanentOneForOneNestedFailingWorkerRecovers(t *testing.T) {
 			// once
 			evIt := em.Iterator()
 			// 1) Wait till all the tree is up
-			evIt.SkipTill(SupervisorStarted("root"))
+			evIt.WaitTill(SupervisorStarted("root"))
 			// 2) Start the failing behavior of child1
 			failWorker1(true /* done */)
 			// 3) Wait until we can catch the failure
-			evIt.SkipTill(WorkerFailed("root/subtree1/child1"))
+			evIt.WaitTill(WorkerFailed("root/subtree1/child1"))
 
 			// 4) We are unhealthy. Commented out because of a race condition.
-			//    SkipTill() can trigger the restart of the worker before the
+			//    WaitTill() can trigger the restart of the worker before the
 			//    healthcheckMonitor.HandleEvent() can check manage the event
 			//    which results in a flaky test. The following like can be enabled
 			//    for debugging if necessary.
 			// assert.False(t, healthcheckMonitor.IsHealthy())
 
 			// 5) Wait till first restart
-			evIt.SkipTill(WorkerStarted("root/subtree1/child1"))
+			evIt.WaitTill(WorkerStarted("root/subtree1/child1"))
 			// 6) We are healthy again. Commented out because of race condition.
 			// assert.True(t, healthcheckMonitor.IsHealthy())
 		},
