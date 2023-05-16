@@ -20,10 +20,10 @@ The different known children builders are:
 
 All of them always return a `ChildSpec` with some expected behavior. In some
 cases a child builder returns a second value that allows you to control when the
-child _really_ "starts" executing. This is important because we want to build an
+child _really_ "starts" executing. This is important because we want to build a
 scenario that we can assert without relying on time delays, and ensuring the
-behavior triggers when things are setup, is a good way to have reliable
-test-suite.
+behavior triggers when things are setup; this is a good approach to have
+reliable test-suite.
 
 ### `ObserveSupervisor` call
 
@@ -38,7 +38,7 @@ up; this is the best spot to start the controlled execution of children that you
 created in the supervision tree (start failing children, etc).
 
 The first parameter of the callback is an `EventManager` record, this has an
-`Iterator` method that returns a record that has functions (`SkipTill`,
+`Iterator` method that returns a record that has functions (`WaitTill`,
 `TakeTill`, etc.) that allow you to wait for certain events to happen (using an
 assertion predicate). This approach is necessary to avoid race-conditions, you
 want to make sure an event happens before triggering a new one concurrently.

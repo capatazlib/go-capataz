@@ -71,11 +71,11 @@ func TestDynSubtreeFailing(t *testing.T) {
 			// once
 			evIt := em.Iterator()
 			// 1) Wait till all the tree is up
-			evIt.SkipTill(SupervisorStarted("root"))
+			evIt.WaitTill(SupervisorStarted("root"))
 			// 2) Start the failing behavior of child1
 			failSubtree1(true /* done */)
 			// 3) Wait till first restart
-			evIt.SkipTill(WorkerStarted("root/one/spawner"))
+			evIt.WaitTill(WorkerStarted("root/one/spawner"))
 		},
 	)
 
@@ -144,16 +144,16 @@ func TestDynSubtreeFailedSpawnedWorker(t *testing.T) {
 		func(em EventManager) {
 			evIt := em.Iterator()
 			// 1) Wait till all the tree is up
-			evIt.SkipTill(SupervisorStarted("root"))
+			evIt.WaitTill(SupervisorStarted("root"))
 			// 2) Start the failing behavior of child1
 			failWorker1(false /* done */)
 			// 3) Wait till first restart
-			evIt.SkipTill(WorkerStarted("root/one/subtree/child1"))
+			evIt.WaitTill(WorkerStarted("root/one/subtree/child1"))
 			// 4) fail again to surpass default error threshold (2 in 5 seconds)
 			failWorker1(true /* done */)
 			// one_for_all strategy makes the whole dyn-subtree starts
 			// 5) wait for the whole dyn-subtree one gets started
-			evIt.SkipTill(WorkerStarted("root/one/spawner"))
+			evIt.WaitTill(WorkerStarted("root/one/spawner"))
 		},
 	)
 

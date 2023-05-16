@@ -327,10 +327,10 @@ func TestDoubleTermination(t *testing.T) {
 	assert.NoError(t, startErr)
 
 	evIt := evManager.Iterator()
-	evIt.SkipTill(SupervisorStarted("root"))
+	evIt.WaitTill(SupervisorStarted("root"))
 
 	sup.Terminate()
-	evIt.SkipTill(SupervisorTerminated("root"))
+	evIt.WaitTill(SupervisorTerminated("root"))
 
 	// should not crash
 	sup.Terminate()
