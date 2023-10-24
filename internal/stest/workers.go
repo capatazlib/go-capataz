@@ -120,6 +120,24 @@ func FailStartWorker(name string) cap.Node {
 	return cspec
 }
 
+// PanicStartWorker creates a `cap.Node` that runs a goroutine that panics on
+// start
+func PanicStartWorker(name string) cap.Node {
+	cspec := cap.NewWorkerWithNotifyStart(
+		name,
+		func(ctx context.Context, notifyStart cap.NotifyStartFn) error {
+			err := fmt.Errorf("PanicStartWorker %s", name)
+			panic(err)
+			// NOTE: Even though we return the err value here, this err will never be
+			// caught by our supervisor restart logic. If we invoke notifyStart with a
+			// non-nil err, the supervisor will never get to the supervision loop, but
+			// instead is going to terminate all started children and abort the
+			// bootstrap of the supervision tree.
+			return err
+		})
+	return cspec
+}
+
 // NeverTerminateWorker creates a `cap.Node` that runs a goroutine that never stops
 // when asked to, causing the goroutine to leak in the runtime
 func NeverTerminateWorker(name string) cap.Node {

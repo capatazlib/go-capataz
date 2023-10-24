@@ -153,6 +153,9 @@ func (chSpec ChildSpec) DoStart(
 				if !ok {
 					panicErr = fmt.Errorf("panic error: %v", panicVal)
 				}
+
+				startCh <- panicErr
+
 				sendNotificationToSup(
 					panicErr,
 					chSpec,
@@ -167,11 +170,9 @@ func (chSpec ChildSpec) DoStart(
 		// block and wait here until an error (or lack of) is reported from the
 		// client code
 		err := chSpec.Start(childCtx, func(err error) {
-			// we tell the spawner this child thread has started running
-			if err != nil {
-				startCh <- err
-			}
-			close(startCh)
+			// we tell the spawner this child thread has started running. err may be
+			// nil
+			startCh <- err
 		})
 
 		sendNotificationToSup(
