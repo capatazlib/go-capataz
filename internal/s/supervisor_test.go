@@ -239,6 +239,91 @@ func TestStartFailedChild(t *testing.T) {
 	)
 }
 
+func TestStartPanicChild(t *testing.T) {
+	parentName := "root"
+	b0n := "branch0"
+	b1n := "branch1"
+
+	cs := []cap.Node{
+		WaitDoneWorker("child0"),
+		WaitDoneWorker("child1"),
+		FailTerminationWorker("child2", errors.New("child2 termination failure")),
+		// NOTE: PanicStartWorker here
+		PanicStartWorker("child3"),
+		WaitDoneWorker("child4"),
+	}
+
+	b0 := cap.NewSupervisorSpec(b0n, cap.WithNodes(cs[0], cs[1]))
+	b1 := cap.NewSupervisorSpec(b1n, cap.WithNodes(cs[2], cs[3], cs[4]))
+
+	events, err := ObserveSupervisor(
+		context.TODO(),
+		parentName,
+		cap.WithNodes(
+			cap.Subtree(b0),
+			cap.Subtree(b1),
+		),
+		[]cap.Opt{},
+		func(em EventManager) {},
+	)
+
+	assert.Error(t, err)
+
+	errKVs := err.(cap.ErrKVs)
+	kvs := errKVs.KVs()
+	assert.Equal(t, "supervisor node failed to start", err.Error())
+	assert.Equal(t, "root", kvs["supervisor.name"])
+	assert.Equal(t, "root/branch1", kvs["supervisor.subtree.name"])
+	assert.Equal(t,
+		"PanicStartWorker child3",
+		fmt.Sprint(kvs["supervisor.subtree.start.node.error"]),
+	)
+	assert.Equal(t,
+		"child3",
+		fmt.Sprint(kvs["supervisor.subtree.start.node.name"]),
+	)
+
+	explanation := cap.ExplainError(err)
+	assert.Equal(
+		t,
+		"supervisor failed to start\n\n\tworker node 'root/branch1/child3' failed to start\n\t\t"+
+			"> PanicStartWorker child3\n\n\t"+
+			"also, some previously started siblings failed to terminate\n\t\t"+
+			"worker node 'root/branch1/child2' failed to terminate\n\t\t\t"+
+			"> child2 termination failure",
+		explanation)
+
+	AssertExactMatch(t, events,
+		[]EventP{
+			// start children from left to right
+			WorkerStarted("root/branch0/child0"),
+			WorkerStarted("root/branch0/child1"),
+			SupervisorStarted("root/branch0"),
+			WorkerStarted("root/branch1/child2"),
+			//
+			// Note child3 fails at this point
+			//
+			WorkerStartFailed("root/branch1/child3"),
+			//
+			// After a failure a few things will happen:
+			//
+			// * The `child4` worker initialization is skipped because of an error on
+			// previous sibling
+			//
+			// * Previous sibling children get stopped in reversed order
+			//
+			// * The start function returns an error
+			//
+			WorkerFailed("root/branch1/child2"),
+			SupervisorStartFailed("root/branch1"),
+			WorkerTerminated("root/branch0/child1"),
+			WorkerTerminated("root/branch0/child0"),
+			SupervisorTerminated("root/branch0"),
+			SupervisorStartFailed("root"),
+		},
+	)
+}
+
 func TestTerminateFailedChild(t *testing.T) {
 	parentName := "root"
 	b0n := "branch0"

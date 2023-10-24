@@ -126,7 +126,12 @@ func (chSpec ChildSpec) DoStart(
 	// events with it's full name
 	childCtx, cancelFn := context.WithCancel(setNodeName(ctx, chRuntimeName))
 
+	// startCh holds the start error, which may be nil
 	startCh := make(chan startError)
+	// startedCh allows writers to startCh to exit if a start error has already
+	// been emitted
+	startedCh := make(chan struct{})
+
 	terminateCh := make(chan ChildNotification)
 
 	// Child Goroutine is bootstraped
@@ -153,6 +158,12 @@ func (chSpec ChildSpec) DoStart(
 				if !ok {
 					panicErr = fmt.Errorf("panic error: %v", panicVal)
 				}
+
+				select {
+				case startCh <- panicErr:
+				case <-startedCh:
+				}
+
 				sendNotificationToSup(
 					panicErr,
 					chSpec,
@@ -167,11 +178,13 @@ func (chSpec ChildSpec) DoStart(
 		// block and wait here until an error (or lack of) is reported from the
 		// client code
 		err := chSpec.Start(childCtx, func(err error) {
-			// we tell the spawner this child thread has started running
-			if err != nil {
-				startCh <- err
+			// we tell the spawner this child thread has started running. err may be
+			// nil
+
+			select {
+			case startCh <- err:
+			case <-startedCh:
 			}
-			close(startCh)
 		})
 
 		sendNotificationToSup(
@@ -185,6 +198,7 @@ func (chSpec ChildSpec) DoStart(
 
 	// Wait until child thread notifies it has started or failed with an error
 	err := <-startCh
+	close(startedCh)
 	if err != nil {
 		return Child{}, err
 	}
