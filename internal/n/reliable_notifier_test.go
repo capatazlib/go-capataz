@@ -4,6 +4,8 @@ package n_test
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -18,14 +20,11 @@ import (
 // will block until the given number of notifications have happened
 func newBlockingNotifier(total int32) (cap.EventNotifier, func()) {
 	doneCh := make(chan struct{})
-	evCount := int32(0)
+	evCount := &atomic.Int32{}
 	evNotifier := func(cap.Event) {
-		current := atomic.LoadInt32(&evCount)
-		if current < total-1 {
-			atomic.AddInt32(&evCount, 1)
-			return
+		if evCount.Add(1) == total {
+			close(doneCh)
 		}
-		close(doneCh)
 	}
 	doneSignal := func() {
 		<-doneCh
@@ -37,14 +36,13 @@ func newBlockingNotifier(total int32) (cap.EventNotifier, func()) {
 // that will block until the given number of panic calls have happened
 func newPanicBlockingNotifier(total int32) (cap.EventNotifier, func()) {
 	doneCh := make(chan struct{})
-	evCount := int32(0)
+	evCount := &atomic.Int32{}
 	evNotifier := func(ev cap.Event) {
-		current := atomic.LoadInt32(&evCount)
-		if current < total-1 {
-			atomic.AddInt32(&evCount, 1)
+		if evCount.Add(1) == total {
+			close(doneCh)
+		} else {
 			panic("this is taking down the tree")
 		}
-		close(doneCh)
 	}
 	doneSignal := func() {
 		<-doneCh
@@ -152,14 +150,16 @@ func TestReliableNotifierFailureCallback(t *testing.T) {
 
 	// build a callback function for event notifier errors
 	callbackDone := make(chan struct{})
-	errCount := int32(0)
+	errCount := &atomic.Int32{}
 	errCallback := func(err error) {
-		current := atomic.LoadInt32(&errCount)
-		if current < expectedCallbackCalls-1 {
-			atomic.AddInt32(&errCount, 1)
-			return
+		count := errCount.Add(1)
+		if count <= expectedCallbackCalls {
+			expectedErr := &cap.SupervisorRestartError{}
+			assert.True(t, errors.As(err, &expectedErr), fmt.Sprintf("%T != %T", err, expectedErr))
 		}
-		close(callbackDone)
+		if count == expectedCallbackCalls {
+			close(callbackDone)
+		}
 	}
 
 	// create the reliable event notifier that broadcasts to notifiers created in
@@ -221,17 +221,14 @@ func TestReliableNotifierSlowNotifier(t *testing.T) {
 	callbacksDone := make(chan struct{})
 	// all events but the first one should timeout
 	expectedCallbackCalls := int32(len(outEvents) - 1)
-	callbackCounter := int32(0)
+	callbackCounter := &atomic.Int32{}
 	timeoutCallback := func(name string) {
 		assert.Equal(t, "slow", name)
-		current := atomic.LoadInt32(&callbackCounter)
 		// buffer size is set to 1, so expect one less timedout callback due to a
 		// notification sitting in the channel buffer
-		if current < expectedCallbackCalls-2 {
-			atomic.AddInt32(&callbackCounter, 1)
-			return
+		if callbackCounter.Add(1) == expectedCallbackCalls-1 {
+			close(callbacksDone)
 		}
-		close(callbacksDone)
 	}
 
 	notifier1, done1 := newBlockingNotifier(int32(len(outEvents)))
