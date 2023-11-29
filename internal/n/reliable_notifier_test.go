@@ -154,12 +154,9 @@ func TestReliableNotifierFailureCallback(t *testing.T) {
 	callbackDone := make(chan struct{})
 	errCount := int32(0)
 	errCallback := func(err error) {
-		current := atomic.LoadInt32(&errCount)
-		if current < expectedCallbackCalls-1 {
-			atomic.AddInt32(&errCount, 1)
-			return
+		if atomic.AddInt32(&errCount, 1) == expectedCallbackCalls {
+			close(callbackDone)
 		}
-		close(callbackDone)
 	}
 
 	// create the reliable event notifier that broadcasts to notifiers created in
