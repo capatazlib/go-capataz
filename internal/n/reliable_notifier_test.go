@@ -4,6 +4,8 @@ package n_test
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -150,7 +152,12 @@ func TestReliableNotifierFailureCallback(t *testing.T) {
 	callbackDone := make(chan struct{})
 	errCount := &atomic.Int32{}
 	errCallback := func(err error) {
-		if errCount.Add(1) == expectedCallbackCalls {
+		count := errCount.Add(1)
+		if count <= expectedCallbackCalls {
+			expectedErr := &cap.SupervisorRestartError{}
+			assert.True(t, errors.As(err, &expectedErr), fmt.Sprintf("%T != %T", err, expectedErr))
+		}
+		if count == expectedCallbackCalls {
 			close(callbackDone)
 		}
 	}
