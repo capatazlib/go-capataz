@@ -389,5 +389,5 @@ func TestDynCancelAlreadyTerminatedSupervisor(t *testing.T) {
 
 	err = cancelWorker()
 	assert.Error(t, err)
-	assert.Equal(t, "could not talk to supervisor: send on closed channel", err.Error())
+	assert.Contains(t, err.Error(), "could not talk to supervisor: send on closed channel")
 }

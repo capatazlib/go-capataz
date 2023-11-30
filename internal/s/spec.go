@@ -3,6 +3,7 @@ package s
 import (
 	"context"
 	"fmt"
+	"runtime/debug"
 	"time"
 
 	"github.com/capatazlib/go-capataz/internal/c"
@@ -121,7 +122,7 @@ func reliableBuildNodes(
 		if panicVal != nil {
 			err = &SupervisorBuildError{
 				supRuntimeName: supRuntimeName,
-				buildNodesErr:  fmt.Errorf("%v", panicVal),
+				buildNodesErr:  fmt.Errorf("%v\n%s", panicVal, debug.Stack()),
 			}
 		}
 	}()

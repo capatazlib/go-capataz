@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"runtime/debug"
 	"strings"
 	"time"
 )
@@ -156,7 +157,7 @@ func (chSpec ChildSpec) DoStart(
 
 				panicErr, ok := panicVal.(error)
 				if !ok {
-					panicErr = fmt.Errorf("panic error: %v", panicVal)
+					panicErr = fmt.Errorf("panic error: %v\n%s", panicVal, debug.Stack())
 				}
 
 				select {
