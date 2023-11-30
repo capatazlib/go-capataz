@@ -91,13 +91,13 @@ func TestSupervisorWithPanicBuildNodesFnOnSingleTree(t *testing.T) {
 	kvs := errKVs.KVs()
 	assert.Equal(t, "supervisor build nodes function failed", err.Error())
 	assert.Equal(t, "root", kvs["supervisor.name"])
-	assert.Equal(t, "single tree panic", fmt.Sprint(kvs["supervisor.build.error"]))
+	assert.Contains(t, fmt.Sprint(kvs["supervisor.build.error"]), "single tree panic")
 
 	explanation := cap.ExplainError(err)
-	assert.Equal(
+	assert.Contains(
 		t,
-		"supervisor 'root' build nodes function failed\n\t> single tree panic",
 		explanation,
+		"supervisor 'root' build nodes function failed\n\t> single tree panic",
 	)
 
 	AssertExactMatch(t, events,
@@ -134,13 +134,13 @@ func TestSupervisorWithPanicBuildNodesFnOnNestedTree(t *testing.T) {
 	kvs := errKVs.KVs()
 	assert.Equal(t, "supervisor node failed to start", err.Error())
 	assert.Equal(t, "root/subtree2", kvs["supervisor.subtree.name"])
-	assert.Equal(t, "sub-tree panic", fmt.Sprint(kvs["supervisor.subtree.build.error"]))
+	assert.Contains(t, fmt.Sprint(kvs["supervisor.subtree.build.error"]), "sub-tree panic")
 
 	explanation := cap.ExplainError(err)
-	assert.Equal(
+	assert.Contains(
 		t,
-		"supervisor 'root/subtree2' build nodes function failed\n\t> sub-tree panic",
 		explanation,
+		"supervisor 'root/subtree2' build nodes function failed\n\t> sub-tree panic",
 	)
 
 	AssertExactMatch(t, events,

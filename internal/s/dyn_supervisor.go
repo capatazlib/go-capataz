@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"runtime/debug"
 	"time"
 
 	"github.com/capatazlib/go-capataz/internal/c"
@@ -196,7 +197,7 @@ func buildTerminateNodeCallback(ctrlChan chan ctrlMsg, nodeName string) func() e
 			}
 
 			if panicErr, ok := panicVal.(error); ok {
-				err = fmt.Errorf("could not talk to supervisor: %w", panicErr)
+				err = fmt.Errorf("could not talk to supervisor: %w\n%s", panicErr, debug.Stack())
 				return
 			}
 
