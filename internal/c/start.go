@@ -158,7 +158,7 @@ func (chSpec ChildSpec) DoStart(
 				if !ok {
 					panicErr = fmt.Errorf("%v", panicVal)
 				}
-				panicErr = withPanicLocation(panicErr)
+				panicErr = withStacktrace(panicErr)
 
 				select {
 				case startCh <- panicErr:

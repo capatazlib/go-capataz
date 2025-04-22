@@ -1,8 +1,6 @@
 package c
 
 import (
-	"fmt"
-	"runtime"
 	"runtime/debug"
 )
 
@@ -38,29 +36,11 @@ func (err *errorWithKVs) Unwrap() error {
 	return err.error
 }
 
-func withPanicLocation(err error) error {
+func withStacktrace(err error) error {
 	return &errorWithKVs{
 		error: err,
 		kvs: map[string]interface{}{
-			"panic.location": panicLocation(1),
-			"stacktrace":     string(debug.Stack()),
+			"stacktrace": string(debug.Stack()),
 		},
 	}
-}
-
-// panicLocation will, when called from within a `defer` when `recover() !=
-// nil`, will return the location of the panic. If called from another function,
-// increment `skip` to account for extra stack frames.
-func panicLocation(skip int) string {
-	pc, file, line, ok := runtime.Caller(skip + 3)
-	if !ok {
-		return "unknown"
-	}
-
-	fc := runtime.FuncForPC(pc)
-	if fc == nil {
-		return "unknown"
-	}
-
-	return fmt.Sprintf("%s:%d %s", file, line, fc.Name())
 }
