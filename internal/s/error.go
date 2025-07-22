@@ -23,6 +23,12 @@ type ErrKVs interface {
 	KVs() map[string]interface{}
 }
 
+// supervisorError tags internal errors
+type supervisorError interface {
+	ErrKVs
+	isSupervisorError()
+}
+
 // errExplain is an utility interface used to get a human-friendly message from
 // a Capataz error
 type errExplain interface {
@@ -38,6 +44,8 @@ type SupervisorTerminationError struct {
 	nodeErrMap     map[string]error
 	rscCleanupErr  error
 }
+
+func (err *SupervisorTerminationError) isSupervisorError() {}
 
 // Error returns an error message
 func (err *SupervisorTerminationError) Error() string {
@@ -57,7 +65,7 @@ func (err *SupervisorTerminationError) KVs() map[string]interface{} {
 
 	for i, nodeName := range nodeNames {
 		nodeErr := err.nodeErrMap[nodeName]
-		var subTreeError ErrKVs
+		var subTreeError supervisorError
 		if errors.As(nodeErr, &subTreeError) {
 			for k0, v := range subTreeError.KVs() {
 				k := strings.TrimPrefix(k0, "supervisor.")
@@ -68,6 +76,13 @@ func (err *SupervisorTerminationError) KVs() map[string]interface{} {
 			acc[fmt.Sprintf("supervisor.termination.node.%d.error", i)] = nodeErr
 		}
 
+		inner := errors.Unwrap(nodeErr)
+		var errKVs ErrKVs
+		if errors.As(inner, &errKVs) {
+			for k, v := range errKVs.KVs() {
+				acc[k] = v
+			}
+		}
 	}
 
 	if err.rscCleanupErr != nil {
@@ -220,6 +235,12 @@ type SupervisorBuildError struct {
 	buildNodesErr  error
 }
 
+func (err *SupervisorBuildError) Unwrap() error {
+	return err.buildNodesErr
+}
+
+func (err *SupervisorBuildError) isSupervisorError() {}
+
 func (err *SupervisorBuildError) Error() string {
 	return "supervisor build nodes function failed"
 }
@@ -229,6 +250,14 @@ func (err *SupervisorBuildError) KVs() map[string]interface{} {
 	acc := make(map[string]interface{})
 	acc["supervisor.name"] = err.supRuntimeName
 	acc["supervisor.build.error"] = err.buildNodesErr
+
+	inner := errors.Unwrap(err.buildNodesErr)
+	var errKVs ErrKVs
+	if errors.As(inner, &errKVs) {
+		for k, v := range errKVs.KVs() {
+			acc[k] = v
+		}
+	}
 	return acc
 }
 
@@ -263,6 +292,12 @@ type SupervisorStartError struct {
 	terminationErr *SupervisorTerminationError
 }
 
+func (err *SupervisorStartError) isSupervisorError() {}
+
+func (err *SupervisorStartError) Unwrap() error {
+	return err.nodeErr
+}
+
 // Error returns an error message
 func (err *SupervisorStartError) Error() string {
 	return "supervisor node failed to start"
@@ -272,17 +307,24 @@ func (err *SupervisorStartError) Error() string {
 func (err *SupervisorStartError) KVs() map[string]interface{} {
 	acc := make(map[string]interface{})
 	acc["supervisor.name"] = err.supRuntimeName
+	acc["supervisor.start.node.name"] = err.nodeName
+	acc["supervisor.start.node.error"] = err.nodeErr
 
 	if err.nodeErr != nil {
-		var subTreeError ErrKVs
+		var subTreeError supervisorError
 		if errors.As(err.nodeErr, &subTreeError) {
 			for k0, v := range subTreeError.KVs() {
 				k := strings.TrimPrefix(k0, "supervisor.")
 				acc[fmt.Sprintf("supervisor.subtree.%s", k)] = v
 			}
-		} else {
-			acc["supervisor.start.node.name"] = err.nodeName
-			acc["supervisor.start.node.error"] = err.nodeErr
+		}
+
+		inner := errors.Unwrap(err.nodeErr)
+		var errKVs ErrKVs
+		if errors.As(inner, &errKVs) {
+			for k, v := range errKVs.KVs() {
+				acc[k] = v
+			}
 		}
 	}
 
@@ -358,6 +400,12 @@ type SupervisorRestartError struct {
 	terminationErr *SupervisorTerminationError
 }
 
+func (err *SupervisorRestartError) isSupervisorError() {}
+
+func (err *SupervisorRestartError) Unwrap() error {
+	return err.nodeErr
+}
+
 // Error returns an error message
 func (err *SupervisorRestartError) Error() string {
 	return "supervisor crashed due to restart tolerance surpassed"
@@ -371,6 +419,13 @@ func (err *SupervisorRestartError) KVs() map[string]interface{} {
 	if err.nodeErr != nil {
 		for k, v := range err.nodeErr.KVs() {
 			acc[fmt.Sprintf("supervisor.restart.%s", k)] = v
+		}
+		inner := errors.Unwrap(err.nodeErr)
+		var errKVs ErrKVs
+		if errors.As(inner, &errKVs) {
+			for k, v := range errKVs.KVs() {
+				acc[k] = v
+			}
 		}
 	}
 
@@ -426,6 +481,8 @@ type RestartToleranceReached struct {
 	lastErr                error
 }
 
+func (err *RestartToleranceReached) isSupervisorError() {}
+
 // NewRestartToleranceReached creates an ErrorToleranceReached record
 func NewRestartToleranceReached(
 	tolerance restartTolerance,
@@ -451,6 +508,14 @@ func (err *RestartToleranceReached) KVs() map[string]interface{} {
 		kvs["node.error.last.msg"] = err.lastErr.Error()
 		kvs["node.error.count"] = err.failedChildErrCount
 		kvs["node.error.duration"] = err.failedChildErrDuration
+
+		inner := errors.Unwrap(err.lastErr)
+		var errKVs ErrKVs
+		if errors.As(inner, &errKVs) {
+			for k, v := range errKVs.KVs() {
+				kvs[k] = v
+			}
+		}
 	}
 	return kvs
 }

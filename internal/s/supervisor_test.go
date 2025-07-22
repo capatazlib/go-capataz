@@ -273,6 +273,7 @@ func TestStartPanicChild(t *testing.T) {
 	kvs := errKVs.KVs()
 	assert.Equal(t, "supervisor node failed to start", err.Error())
 	assert.Equal(t, "root", kvs["supervisor.name"])
+	assert.Contains(t, kvs["stacktrace"], "internal/stest/workers.go:130")
 	assert.Equal(t, "root/branch1", kvs["supervisor.subtree.name"])
 	assert.Equal(t,
 		"PanicStartWorker child3",
