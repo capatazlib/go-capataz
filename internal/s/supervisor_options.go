@@ -92,3 +92,15 @@ func WithRestartTolerance(maxErrCount uint32, errWindow time.Duration) Opt {
 		}
 	}
 }
+
+// WithRestartBackoff is an Opt that specifies an exponential backoff to wait
+// between restarts. A duration between base ^ restart count and a maximum
+// duration will be waited before starting the supervisor during a restart.
+func WithRestartBackoff(base time.Duration, max time.Duration) Opt {
+	return func(spec *SupervisorSpec) {
+		spec.restartBackoff = restartBackoff{
+			base: base,
+			max:  max,
+		}
+	}
+}
