@@ -104,6 +104,7 @@ type BuildNodesFn = func() ([]Node, CleanupResourcesFn, error)
 type SupervisorSpec struct {
 	name             string
 	restartTolerance restartTolerance
+	restartBackoff   restartBackoff
 	buildNodes       BuildNodesFn
 	order            Order
 	strategy         Strategy

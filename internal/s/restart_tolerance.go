@@ -54,3 +54,20 @@ func (rt restartTolerance) check(restartCount uint32, createdAt time.Time) resta
 	}
 	return resetRestartCount
 }
+
+type restartBackoff struct {
+	base time.Duration
+	max  time.Duration
+}
+
+func (rb restartBackoff) duration(restartCount uint32) time.Duration {
+	if rb.base == 0 {
+		return 0
+	}
+	dur := time.Duration(1 << (restartCount - 1))
+	dur *= rb.base
+	if dur > rb.max {
+		return rb.max
+	}
+	return dur
+}
