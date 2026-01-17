@@ -251,6 +251,13 @@ var WithNodes = s.WithNodes
 // Since: 0.1.0
 var WithRestartTolerance = s.WithRestartTolerance
 
+// WithRestartBackoff is an Opt that specifies an exponential backoff to wait
+// between restarts. A duration between base ^ restart count and a maximum
+// duration will be waited before starting the supervisor during a restart.
+//
+// Since: 0.6.0
+var WithRestartBackoff = s.WithRestartBackoff
+
 // Subtree transforms SupervisorSpec into a Node. This function allows you to
 // insert a black-box sub-system into a bigger supervised system.
 //

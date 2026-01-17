@@ -8,6 +8,7 @@ package s_test
 import (
 	"context"
 	"errors"
+	"math"
 	"testing"
 	"time"
 
@@ -225,6 +226,105 @@ func TestPermanentOneForOneSingleFailingWorkerReachThreshold(t *testing.T) {
 			WorkerTerminated("root/child2"),
 			// ^^^ Terminating all other workers because supervisor failed
 
+			SupervisorFailed("root"),
+			// ^^^ Finish with SupervisorFailed because no parent supervisor will
+			// recover it
+		},
+	)
+}
+
+func TestPermanentOneForOneBackoff(t *testing.T) {
+	parentName := "root"
+	child1, failWorker1 := FailOnSignalWorker(
+		6,
+		"child1",
+		cap.WithRestart(cap.Permanent),
+	)
+	child2 := WaitDoneWorker("child2")
+	baseBackoff := 2 * time.Millisecond
+	maxBackoff := 10 * time.Millisecond
+
+	backoff := func(retries float64) time.Duration {
+		return baseBackoff * time.Duration(math.Pow(2, retries))
+	}
+
+	events, err := ObserveSupervisor(
+		context.TODO(),
+		parentName,
+		cap.WithNodes(child1, child2),
+		[]cap.Opt{
+			cap.WithRestartTolerance(5, 5*time.Second),
+			cap.WithRestartBackoff(baseBackoff, maxBackoff),
+		},
+		func(em EventManager) {
+			evIt := em.Iterator()
+
+			evIt.WaitTill(SupervisorStarted("root"))
+
+			before := time.Now()
+			failWorker1(false /* done */)
+			evIt.WaitTill(WorkerStarted("root/child1"))
+			assert.True(t, time.Since(before) > baseBackoff)
+
+			before = time.Now()
+			failWorker1(false /* done */)
+			evIt.WaitTill(WorkerStarted("root/child1"))
+			assert.True(t, time.Since(before) > backoff(1))                    // 4ms
+			assert.True(t, time.Since(before) < backoff(1)+2*time.Millisecond) // 4ms
+
+			before = time.Now()
+			failWorker1(false /* done */)
+			evIt.WaitTill(WorkerStarted("root/child1"))
+			assert.True(t, time.Since(before) > backoff(2))                    // 8ms
+			assert.True(t, time.Since(before) < backoff(2)+2*time.Millisecond) // 8ms
+
+			before = time.Now()
+			failWorker1(false /* done */)
+			evIt.WaitTill(WorkerStarted("root/child1"))
+			assert.True(t, time.Since(before) > maxBackoff)                    // 10ms (max)
+			assert.True(t, time.Since(before) < maxBackoff+2*time.Millisecond) // 10ms
+
+			before = time.Now()
+			failWorker1(false /* done */)
+			evIt.WaitTill(WorkerStarted("root/child1"))
+			assert.True(t, time.Since(before) > maxBackoff)                    // 10ms
+			assert.True(t, time.Since(before) < maxBackoff+2*time.Millisecond) // 10ms
+
+			failWorker1(true /* done */)
+		},
+	)
+
+	// This should return an error given there is no other supervisor that will
+	// rescue us when error threshold reached in a child.
+	assert.Error(t, err)
+
+	AssertExactMatch(t, events,
+		[]EventP{
+			// start children from left to right
+			WorkerStarted("root/child1"),
+			WorkerStarted("root/child2"),
+			SupervisorStarted("root"),
+			// ^^^ failWorker1 starts executing here
+
+			WorkerFailed("root/child1"),
+			WorkerStarted("root/child1"),
+
+			WorkerFailed("root/child1"),
+			WorkerStarted("root/child1"),
+
+			WorkerFailed("root/child1"),
+			WorkerStarted("root/child1"),
+
+			WorkerFailed("root/child1"),
+			WorkerStarted("root/child1"),
+
+			WorkerFailed("root/child1"),
+			WorkerStarted("root/child1"),
+
+			WorkerTerminated("root/child2"),
+			// ^^^ Terminating all other workers because supervisor failed
+
+			WorkerFailed("root/child1"),
 			SupervisorFailed("root"),
 			// ^^^ Finish with SupervisorFailed because no parent supervisor will
 			// recover it

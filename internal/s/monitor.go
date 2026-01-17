@@ -71,6 +71,15 @@ func execRestartLoop(
 			}
 		}
 
+		wait := supSpec.restartBackoff.duration(supTolerance.restartCount)
+		if wait > 0 {
+			select {
+			case <-supCtx.Done():
+				return supChildren, nil
+			case <-time.After(wait):
+			}
+		}
+
 		supChildren, restartErr = execRestart(
 			supCtx,
 			supSpec, supChildrenSpecs,
